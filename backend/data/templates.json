@@ -1,0 +1,13 @@
+[
+  {
+    "id": "c2b6e603-da26-4af4-ae9c-b88fac13a407",
+    "name": "Auto8 Default",
+    "scope": "team",
+    "kind": "consignee",
+    "payload": {
+      "traders": {
+        "consignee_consignee_code": "V131148"
+      }
+    }
+  }
+]
