@@ -52,7 +52,7 @@
 - Benefit: prevents architectural debt from re-accumulating.
 
 ## 7-Day Execution Sequence
-1. Day 1-2: backend split (`main.py` decomposition).
+1. ✅ Day 1-2: backend split (`main.py` decomposition) — completed with services extraction.
 2. Day 3: profile engine extraction and shared rules module.
 3. Day 4-5: frontend `StallionWorkbench` decomposition.
 4. Day 6: CI guardrails + script integration.
