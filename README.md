@@ -49,3 +49,11 @@ Routes:
 - `/` declarations workspace
 - `/stallion/workbench` Stallion worksheet-first workbench
 
+## Current Program Status (2026-02-23)
+
+- Competitive scrape + content strategy package completed (`stallion/data`, `stallion/launch-kit`).
+- ACE vs SADDEC technical comparison completed.
+- Profile-based validator + fail-fast transformer completed under `../inbox_drive`.
+- End-to-end dummy run passed for general + vehicle flows.
+- Pending tonight: broker provides real enrichment fields; then production transformation + final XML export.
+
