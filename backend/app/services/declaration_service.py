@@ -128,6 +128,10 @@ def build_complete_declaration(
     cif_local = cif_foreign * exch
 
     contract_items = _to_contract_items(items)
+    header_total_packages = int(float(header.get("totalPackages", 0) or 0))
+    items_total_packages = sum(int(float(i.get("qty", 0) or 0)) for i in items)
+    containers_total_packages = sum(int(float(c.get("packages", 0) or 0)) for c in containers) if containers else 0
+    resolved_total_packages = header_total_packages or containers_total_packages or items_total_packages
 
     return {
         "identification": {
@@ -145,6 +149,7 @@ def build_complete_declaration(
         "declarant": {
             "declarant_code": header.get("declarantTIN", header.get("consigneeCode", "")),
             "declarant_name": header.get("declarantName", ""),
+            "declarant_address": header.get("declarantAddress", ""),
             "reference_number": header.get("declarationRef", ""),
         },
         "general_information": {
@@ -216,7 +221,7 @@ def build_complete_declaration(
             "forms_number_of_the_form": 1,
             "forms_total_number_of_forms": 1,
             "nbers_total_number_of_items": len(items),
-            "nbers_total_number_of_packages": sum(int(c.get("packages", 0) or 0) for c in containers) if containers else 0,
+            "nbers_total_number_of_packages": resolved_total_packages,
             "selected_page": 1,
         },
         "warehouse": {"identification": "", "delay": ""},

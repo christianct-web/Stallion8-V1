@@ -49,10 +49,11 @@ def _write_lb01_worksheet_pdf(header: Dict[str, Any], worksheet: Dict[str, Any],
     surcharge = float(worksheet.get("surcharge", 0) or 0)
     vat = float(worksheet.get("vat", 0) or 0)
     extra_fees = float(worksheet.get("extra_fees_local", 0) or 0)
-    customs_user_fee = float(worksheet.get("customs_user_fee", 525) or 525)
+    customs_user_fee = float(worksheet.get("customs_user_fee", 40) or 40)
     ces_fees = float(worksheet.get("ces_fees", 0) or 0)
+    cf2_fee = float(worksheet.get("cf2_fee", 0) or 0)
 
-    total_taxes = duty + surcharge + vat + extra_fees
+    total_taxes = duty + surcharge + vat + extra_fees + cf2_fee
     grand_total = total_taxes + customs_user_fee + ces_fees
 
     c.setFont("Helvetica-Bold", 14)
@@ -140,6 +141,7 @@ def _write_lb01_worksheet_pdf(header: Dict[str, Any], worksheet: Dict[str, Any],
         ("05  SU.CHG  Import Surcharge", surcharge),
         ("     VAT    Value Added Tax", vat),
         ("     FEES   Other Fees", extra_fees),
+        ("     CF2    Container Examination Fee", cf2_fee),
     ]:
         c.drawString(40, y, label)
         c.drawRightString(400, y, f"{payable:,.2f}")
@@ -248,13 +250,16 @@ def preflight_workbench(header: Dict[str, Any], worksheet: Dict[str, Any], items
     surcharge = float(worksheet.get("surcharge", 0) or 0)
     vat = float(worksheet.get("vat", 0) or 0)
     fees = float(worksheet.get("extra_fees_local", 0) or 0)
+    customs_user_fee = float(worksheet.get("customs_user_fee", 0) or 0)
+    ces_fees = float(worksheet.get("ces_fees", 0) or 0)
+    cf2_fee = float(worksheet.get("cf2_fee", 0) or 0)
     total = float(worksheet.get("total_assessed", 0) or 0)
 
     exch = float(worksheet.get("exchange_rate", 0) or 0)
     if exch <= 0:
         errors.append({"path": "worksheet.exchange_rate", "message": "Exchange rate must be > 0"})
 
-    expected_total = round(duty + surcharge + vat + fees, 2)
+    expected_total = round(duty + surcharge + vat + fees + customs_user_fee + ces_fees + cf2_fee, 2)
     if abs(expected_total - total) > 0.01:
         warnings.append({
             "path": "worksheet.total_assessed",

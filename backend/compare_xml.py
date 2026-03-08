@@ -1,71 +1,70 @@
 #!/usr/bin/env python3
 import requests
 import xml.etree.ElementTree as ET
-import sys
 
-# Get latest XML
-url = "http://localhost:8021/pack/generate"
 payload = {
     "header": {
-        "consignorName": "Test Exporter Inc.",
-        "invoiceNumber": "INV-001",
-        "invoiceDate": "2026-02-19",
-        "consigneeCode": "TEST001",
-        "consigneeName": "Test Consignee Ltd.",
-        "consigneeAddress": "123 Test Street\nTest City",
+        "consignorName": "CENTRAL INTERNATIONAL CO .LLC",
+        "consignorAddress": "ONE WHITMAN ROAD, P.O BOX 525, CANTON, MASSACHUSETTS, U.S.A",
+        "invoiceNumber": "446506",
+        "invoiceDate": "2023-07-25",
+        "consigneeCode": "N108974",
+        "consigneeName": "BASCO FOOD DISTRIBUTORS LTD",
+        "consigneeAddress": "#31 HENRY STREET, GASPARILLO",
+        "declarantTIN": "BR0286",
+        "declarantName": "ANTHONY CHOW",
+        "declarantAddress": "1, ZEV BEN ELIAZER ST., D/MARTIN",
         "port": "TTPTS",
         "term": "CIF",
-        "modeOfTransport": "Sea",
+        "modeOfTransport": "1",
         "customsRegime": "C4",
-        "declarantTIN": "DEC001",
-        "declarantName": "Test Declarant",
-        "declarationRef": "DECREF001",
+        "declarationRef": "LB01/23",
         "countryFirstDestination": "US",
         "tradingCountry": "US",
         "exportCountryCode": "US",
         "exportCountryName": "United States",
         "countryOfOriginName": "United States",
         "blAwbNumber": "TSCW16401583",
-        "blAwbDate": "2026-02-19",
-        "etaDate": "2026-02-20",
-        "currency": "USD",
-        "vesselName": "TEST VESSEL",
-        "bankCode": 1,
+        "blAwbDate": "2023-07-29",
+        "etaDate": "2023-08-02",
+        "currency": "TTD",
+        "vesselName": "TROPIC ISLAND",
+        "bankCode": "01",
         "modeOfPayment": "CASH",
-        "termsCode": 99,
-        "termsDescription": "Basic"
+        "termsCode": "01",
+        "termsDescription": "Basic",
+        "totalPackages": 1394,
     },
     "worksheet": {
-        "fob_foreign": 10000.00,
-        "freight_foreign": 500.00,
-        "insurance_foreign": 200.00,
+        "fob_foreign": 60220.80,
+        "freight_foreign": 0.00,
+        "insurance_foreign": 0.00,
         "other_foreign": 0.00,
         "deduction_foreign": 0.00,
-        "cif_foreign": 10700.00,
-        "cif_local": 10700.00,
-        "exchange_rate": 1.0,
-        "duty_rate_pct": 10.0,
-        "surcharge_rate_pct": 5.0,
-        "vat_rate_pct": 12.5,
-        "extra_fees_local": 50.00,
-        "duty": 1070.00,
-        "surcharge": 535.00,
-        "vat": 1343.75,
-        "total_assessed": 2998.75,
-        "grossWeight": 1500.0,
-        "customs_user_fee": 25.00,
-        "ces_fees": 15.00
+        "cif_foreign": 60220.80,
+        "cif_local": 408060.96,
+        "exchange_rate": 6.776080,
+        "duty_rate_pct": 40.0,
+        "surcharge_rate_pct": 15.0,
+        "vat_rate_pct": 0.0,
+        "duty": 163224.38,
+        "surcharge": 61209.14,
+        "vat": 0.00,
+        "cf2_fee": 525.00,
+        "customs_user_fee": 40.00,
+        "total_assessed": 224998.52,
+        "grossWeight": 26245.00,
     },
     "items": [
         {
-            "hsCode": "02071490",
-            "description": "BONELESS SKINLESS CHICKEN BREAST FILETS",
-            "itemValue": 10700.00,
-            "qty": 100,
-            "grossKg": 1500.0,
-            "netKg": 1350.0,
-            "packageType": "CS",
-            "packageTypeName": "Case",
+            "hsCode": "02071490000",
+            "description": "OTHER CUTS & OFFAL OF FOWLS OF THE SPECIES GALLUS DOMESTICUS, BONELESS SKINLESS CHICKEN BREAST FILETS",
+            "itemValue": 408060.96,
+            "qty": 1394,
+            "grossKg": 26245.00,
+            "netKg": 23620.50,
+            "packageType": "CT",
+            "packageTypeName": "Carton",
             "countryOfOrigin": "US",
             "marks1": "AS ADDRESSED",
             "blAwbNumber": "TSCW16401583",
@@ -73,111 +72,86 @@ payload = {
             "nationalCustomsProcedure": 0,
             "quotaCode": "NEW",
             "valuationMethodCode": "",
-            "rateOfAdjustment": 1,
-            "statisticalValue": 10700.00,
-            "itemValueLocal": 10700.00,
-            "currency": "USD",
-            "exchangeRate": 1.0
+            "rateOfAdjustment": 1.0,
+            "aiCode": "705",
+            "supplierDocumentType": "IV05",
+            "statisticalValue": 408060.96,
+            "itemValueLocal": 408060.96,
+            "currency": "TTD",
+            "exchangeRate": 1.0,
         }
     ],
-    "containers": [
-        {
-            "containerNo": "TEST1234567",
-            "type": "40GP",
-            "efIndicator": "FCL",
-            "description": "BONELESS SKINLESS CHICKEN",
-            "packageType": "CS",
-            "packages": 100,
-            "goodsWeight": 1500.0
-        }
-    ]
+    "containers": [],
 }
 
-response = requests.post(url, json=payload, timeout=30)
+response = requests.post("http://localhost:8021/pack/generate", json=payload, timeout=30)
 result = response.json()
 
-if result.get("status") == "generated":
-    docs = result.get("documents", [])
-    xml_doc = next((d for d in docs if d.get("name") == "c82_sad_xml"), None)
-    if xml_doc:
-        xml_url = f"http://localhost:8021{xml_doc.get('url')}"
-        xml_resp = requests.get(xml_url, timeout=10)
-        if xml_resp.status_code == 200:
-            xml_content = xml_resp.text
-            print("=== Current XML Structure ===")
-            root = ET.fromstring(xml_content)
-            
-            # Print top-level elements
-            print("\nTop-level elements in generated XML:")
-            for child in root:
-                print(f"  <{child.tag}>")
-                
-            # Compare with ACE example structure
-            ace_structure = [
-                "Assessment_notice",
-                "Global_taxes", 
-                "Property",
-                "Identification",
-                "Traders",
-                "Declarant",
-                "General_information",
-                "Transport",
-                "Financial",
-                "Warehouse",
-                "Transit",
-                "Valuation",
-                "Container",
-                "Item",
-                "Suppliers_documents"
-            ]
-            
-            print("\n=== Missing from ACE structure ===")
-            generated_tags = {child.tag for child in root}
-            ace_tags = set(ace_structure)
-            
-            missing_from_generated = ace_tags - generated_tags
-            extra_in_generated = generated_tags - ace_tags
-            
-            if missing_from_generated:
-                print("Missing elements:")
-                for tag in sorted(missing_from_generated):
-                    print(f"  - <{tag}>")
-            
-            if extra_in_generated:
-                print("\nExtra elements in our XML:")
-                for tag in sorted(extra_in_generated):
-                    print(f"  - <{tag}>")
-            
-            # Check specific sections
-            print("\n=== Key Checks ===")
-            
-            # Check Property
-            property_elem = root.find("Property")
-            if property_elem is not None:
-                print("Property section exists")
-                for child in property_elem:
-                    print(f"  Property child: <{child.tag}>")
-            
-            # Check Valuation
-            valuation = root.find("Valuation")
-            if valuation is not None:
-                print("Valuation section exists")
-                # Check for gs_* elements
-                gs_elements = [e for e in valuation if e.tag.startswith("Gs_")]
-                print(f"  Found {len(gs_elements)} Gs_* elements")
-            
-            # Check Container
-            container = root.find("Container")
-            if container is not None:
-                print("Container section exists")
-                for child in container:
-                    print(f"  Container child: <{child.tag}>")
-            else:
-                print("Container section MISSING (expected for containerized cargo)")
-                
-        else:
-            print(f"Failed to download XML: {xml_resp.status_code}")
-    else:
-        print("No XML document found")
+if result.get("status") != "generated":
+    print("Generation failed:", result)
+    raise SystemExit(1)
+
+xml_doc = next((d for d in result.get("documents", []) if d.get("name") == "c82_sad_xml"), None)
+if not xml_doc:
+    print("No XML document generated")
+    raise SystemExit(1)
+
+xml_resp = requests.get(f"http://localhost:8021{xml_doc['url']}", timeout=10)
+root = ET.fromstring(xml_resp.text)
+
+print("=== LB01/23 XML Parity Checks ===")
+
+required_top = [
+    "Assessment_notice",
+    "Global_taxes",
+    "Property",
+    "Identification",
+    "Traders",
+    "Declarant",
+    "General_information",
+    "Transport",
+    "Financial",
+    "Warehouse",
+    "Transit",
+    "Valuation",
+    "Item",
+    "Suppliers_documents",
+]
+
+present = {c.tag for c in root}
+missing = [t for t in required_top if t not in present]
+if missing:
+    print("Missing top-level sections:")
+    for m in missing:
+        print(" -", m)
 else:
-    print(f"Generation failed: {result}")
+    print("Top-level sections: OK")
+
+warehouse = root.find("Warehouse")
+transit = root.find("Transit")
+sup_docs = root.find("Suppliers_documents")
+print("Warehouse stub:", "OK" if warehouse is not None else "MISSING")
+print("Transit stub:", "OK" if transit is not None else "MISSING")
+print("Suppliers_documents:", "OK" if sup_docs is not None else "MISSING")
+
+valuation = root.find("Valuation")
+gs_count = 0
+if valuation is not None:
+    gs_count = len([e for e in valuation if e.tag.startswith("Gs_")])
+print(f"Valuation Gs_* count: {gs_count}")
+
+items = root.findall("Item")
+if not items:
+    print("Items: MISSING")
+else:
+    print(f"Items count: {len(items)}")
+    first_item = items[0]
+    item_gs = len([e for e in first_item if e.tag.startswith("Gs_")])
+    print(f"Item-level Gs_* count: {item_gs}")
+
+property_elem = root.find("Property")
+if property_elem is not None:
+    pkg = property_elem.find("Nbers_total_number_of_packages")
+    print("Header packages:", pkg.text if pkg is not None else "MISSING")
+
+print("=== Done ===")
