@@ -65,6 +65,24 @@ TAXATION_LINE_COUNT = 9                      # exact count per item required by 
 # Currency name placeholder used by ASYCUDA when no foreign currency conversion
 NO_FOREIGN_CURRENCY = "No foreign currency"
 
+# ASYCUDA root-level element order is strict/order-sensitive
+ASYCUDA_ELEMENT_ORDER = [
+    "Assessment_notice",
+    "Global_taxes",
+    "Property",
+    "Identification",
+    "Traders",
+    "Declarant",
+    "General_information",
+    "Transport",
+    "Financial",
+    "Warehouse",
+    "Transit",
+    "Valuation",
+    "Item",
+    "Suppliers_documents",
+]
+
 
 def get_path(obj: Dict[str, Any], path: str) -> Any:
     cur: Any = obj
@@ -489,43 +507,33 @@ def _fix_value_item_formula(item_elem: ET.Element) -> None:
 
 
 def _fix_item_valuation_blocks(item_elem: ET.Element, declaration: Dict[str, Any]) -> None:
-    """
-    FIX #1 (PRIMARY): Remove any Gs_* nodes injected into <Item> (the bad parity hack).
-    Items must only use item_* valuation blocks, never Gs_* blocks.
-
-    Accepted item valuation structure:
-        <Valuation_item>
-            <Weight_itm>...</Weight_itm>
-            <Total_cost_itm>0.00</Total_cost_itm>
-            <Total_CIF_itm>44446.39</Total_CIF_itm>
-            <Rate_of_adjustment>1</Rate_of_adjustment>
-            <Statistical_value>44446.39</Statistical_value>
-            <Alpha_coeficient_of_apportionment/>
-            <Item_Invoice>  ← capital I, uses currency block
-            <item_external_freight>  ← lowercase i, uses currency block
-            <item_internal_freight>
-            <item_insurance>
-            <item_other_cost>
-            <item_deduction>
-        </Valuation_item>
-    """
-    # Step 1: Remove all Gs_* nodes that were incorrectly injected into this item
+    # Remove any invalid top-level Gs_* under Item
     for gs_tag in list(item_elem):
         if gs_tag.tag.startswith("Gs_"):
             item_elem.remove(gs_tag)
 
-    # Step 2: Ensure Valuation_item exists and has all required item_* blocks
     val_item = item_elem.find("Valuation_item")
     if val_item is None:
         val_item = ET.SubElement(item_elem, "Valuation_item")
 
-    # Alpha_coeficient_of_apportionment — empty stub (note: ASYCUDA's own typo)
     if val_item.find("Alpha_coeficient_of_apportionment") is None:
         ET.SubElement(val_item, "Alpha_coeficient_of_apportionment")
 
-    # item_* freight/cost blocks — all required even when zero
-    # NOTE: item_* uses lowercase 'item_' prefix (not 'Gs_')
-    # NOTE: Currency_code is <null/> when zero, not empty string
+    # Item invoice block should include Currency_name and concrete totals
+    item_invoice = val_item.find("Item_Invoice")
+    if item_invoice is None:
+        item_invoice = ET.SubElement(val_item, "Item_Invoice")
+    _ensure_text(item_invoice, "Amount_national_currency", "0.00")
+    _ensure_text(item_invoice, "Amount_foreign_currency", "0.00")
+    code = item_invoice.find("Currency_code")
+    if code is None:
+        ET.SubElement(item_invoice, "Currency_code")
+    _ensure_text(item_invoice, "Currency_name", NO_FOREIGN_CURRENCY)
+    _ensure_text(item_invoice, "Currency_rate", "1.0")
+
+    # Ensure cost totals are explicit
+    _ensure_text(val_item, "Total_cost_itm", "0.00")
+
     item_cost_blocks = [
         "item_external_freight",
         "item_internal_freight",
@@ -534,27 +542,35 @@ def _fix_item_valuation_blocks(item_elem: ET.Element, declaration: Dict[str, Any
         "item_deduction",
     ]
 
-    # Try to pull actual values from the declaration items
-    items_data = declaration.get("items", [])
-    item_idx = None
-    for i, it_elem in enumerate(item_elem.getparent().findall("Item") if hasattr(item_elem, 'getparent') else []):
-        if it_elem is item_elem:
-            item_idx = i
-            break
-
-    item_data = items_data[item_idx] if item_idx is not None and item_idx < len(items_data) else {}
-
     for block_tag in item_cost_blocks:
-        existing = val_item.find(block_tag)
-        if existing is None:
+        block = val_item.find(block_tag)
+        if block is None:
             block = ET.SubElement(val_item, block_tag)
-            ET.SubElement(block, "Amount_national_currency").text = "0.00"
-            ET.SubElement(block, "Amount_foreign_currency").text = "0.00"
-            # Use <null/> for currency code when no value — matches accepted sample
-            null_code = ET.SubElement(block, "Currency_code")
-            ET.SubElement(null_code, "null")
-            ET.SubElement(block, "Currency_name").text = NO_FOREIGN_CURRENCY
-            ET.SubElement(block, "Currency_rate").text = "0"
+
+        _ensure_text(block, "Amount_national_currency", "0.00")
+        _ensure_text(block, "Amount_foreign_currency", "0.00")
+
+        ccode = block.find("Currency_code")
+        if ccode is None:
+            ccode = ET.SubElement(block, "Currency_code")
+        if ccode.find("null") is None and not (ccode.text or "").strip():
+            ET.SubElement(ccode, "null")
+
+        _ensure_text(block, "Currency_name", NO_FOREIGN_CURRENCY)
+        _ensure_text(block, "Currency_rate", "0")
+
+    # Item_price should carry item value
+    tarification = item_elem.find("Tarification")
+    if tarification is not None:
+        item_price = tarification.find("Item_price")
+        if item_price is None:
+            item_price = ET.SubElement(tarification, "Item_price")
+        if (item_price.text or "").strip() == "":
+            total_cif_itm = val_item.find("Total_CIF_itm")
+            item_price.text = (total_cif_itm.text if total_cif_itm is not None else "0.00") or "0.00"
+
+        for su in tarification.findall("Supplementary_unit"):
+            _ensure_text(su, "Suppplementary_unit_quantity", "0.000")
 
 
 def _fix_taxation_stubs(item_elem: ET.Element) -> None:
@@ -649,17 +665,12 @@ def _fix_property_nbers(root: ET.Element, declaration: Dict[str, Any]) -> None:
 
 
 def _fix_financial_block(root: ET.Element) -> None:
-    """
-    FIX #4: Financial block requires Amounts sub-block with three empty children.
-    Accepted:
-        <Amounts>
-            <Total_manual_taxes/>
-            <Global_taxes></Global_taxes>
-            <Totals_taxes></Totals_taxes>
-        </Amounts>
-    Also requires Guarantee block with proper null stubs.
-    """
     financial = _ensure_top_level(root, "Financial")
+
+    # Accepted sample does not keep Financial/Total_invoice
+    total_invoice = financial.find("Total_invoice")
+    if total_invoice is not None:
+        financial.remove(total_invoice)
 
     amounts = financial.find("Amounts")
     if amounts is None:
@@ -697,6 +708,136 @@ def _fix_financial_block(root: ET.Element) -> None:
             ET.SubElement(sub, "null")
 
 
+def _fix_identification_header(root: ET.Element, declaration: Dict[str, Any]) -> None:
+    identification = _ensure_top_level(root, "Identification")
+    office = identification.find("Office_segment")
+    if office is None:
+        office = ET.SubElement(identification, "Office_segment")
+
+    office_code = declaration.get("identification", {}).get("office_segment_customs_clearance_office_code", "")
+    _ensure_text(office, "Customs_clearance_office_code", office_code)
+
+    office_name = office.find("Customs_Clearance_office_name")
+    if office_name is None:
+        office_name = ET.SubElement(office, "Customs_Clearance_office_name")
+        office_name.text = office_code
+
+    type_elem = identification.find("Type")
+    if type_elem is None:
+        type_elem = ET.SubElement(identification, "Type")
+    _ensure_text(type_elem, "Type_of_declaration", declaration.get("identification", {}).get("type_type_of_declaration", "IM"))
+    _ensure_text(type_elem, "Declaration_gen_procedure_code", str(declaration.get("identification", {}).get("declaration_gen_procedure_code", 4)))
+
+    # Registration number/date should be empty stubs per accepted sample
+    reg = identification.find("Registration")
+    if reg is None:
+        reg = ET.SubElement(identification, "Registration")
+    for tag in ("Number", "Date"):
+        t = reg.find(tag)
+        if t is None:
+            ET.SubElement(reg, tag)
+        elif t.text:
+            t.text = ""
+
+
+def _fix_global_valuation_blocks(root: ET.Element) -> None:
+    valuation = _ensure_top_level(root, "Valuation")
+
+    # Ensure global totals present
+    _ensure_text(valuation, "Total_cost", "0.00")
+    total = valuation.find("Total")
+    if total is None:
+        total = ET.SubElement(valuation, "Total")
+    _ensure_text(total, "Total_invoice", "0.00")
+    gross = valuation.find("Weight/Gross_weight")
+    gross_text = (gross.text if gross is not None else "0.000")
+    _ensure_text(total, "Total_weight", gross_text)
+
+    blocks = ["Gs_Invoice", "Gs_external_freight", "Gs_internal_freight", "Gs_insurance", "Gs_other_cost", "Gs_deduction"]
+    for tag in blocks:
+        block = valuation.find(tag)
+        if block is None:
+            block = ET.SubElement(valuation, tag)
+            ET.SubElement(block, "Amount_national_currency").text = "0.00"
+            ET.SubElement(block, "Amount_foreign_currency").text = "0.00"
+            ET.SubElement(block, "Currency_code")
+            ET.SubElement(block, "Currency_name").text = NO_FOREIGN_CURRENCY
+            ET.SubElement(block, "Currency_rate").text = "1.0"
+
+        _ensure_text(block, "Amount_national_currency", "0.00")
+        _ensure_text(block, "Amount_foreign_currency", "0.00")
+        _ensure_text(block, "Currency_name", NO_FOREIGN_CURRENCY)
+
+        amount_nat = float((block.findtext("Amount_national_currency") or "0").strip() or "0")
+        amount_for = float((block.findtext("Amount_foreign_currency") or "0").strip() or "0")
+        code = block.find("Currency_code")
+        if code is None:
+            code = ET.SubElement(block, "Currency_code")
+        if amount_nat == 0.0 and amount_for == 0.0:
+            code.text = ""
+            _ensure_text(block, "Currency_rate", "1.0")
+        else:
+            _ensure_text(block, "Currency_rate", block.findtext("Currency_rate") or "1.0")
+
+
+def _fix_general_information(root: ET.Element, declaration: Dict[str, Any]) -> None:
+    gi = _ensure_top_level(root, "General_information")
+    country = gi.find("Country")
+    if country is None:
+        country = ET.SubElement(gi, "Country")
+
+    export = country.find("Export")
+    if export is None:
+        export = ET.SubElement(country, "Export")
+    _ensure_text(export, "Export_country_code", declaration.get("general_information", {}).get("export_export_country_code", "US"))
+    _ensure_text(export, "Export_country_name", declaration.get("general_information", {}).get("export_export_country_name", "United States"))
+
+    destination = country.find("Destination")
+    if destination is None:
+        destination = ET.SubElement(country, "Destination")
+    _ensure_text(destination, "Destination_country_code", declaration.get("general_information", {}).get("destination_destination_country_code", "TT"))
+    _ensure_text(destination, "Destination_country_name", declaration.get("general_information", {}).get("destination_destination_country_name", "Trinidad and Tobago"))
+
+    _ensure_text(country, "Country_of_origin_name", declaration.get("general_information", {}).get("country_of_origin_name", "United States"))
+    _ensure_text(gi, "Value_details", "0.00")
+
+
+def _fix_transport(root: ET.Element) -> None:
+    transport = _ensure_top_level(root, "Transport")
+    border_info = transport.find("Means_of_transport/Border_information")
+    if border_info is None:
+        mot = transport.find("Means_of_transport")
+        if mot is None:
+            mot = ET.SubElement(transport, "Means_of_transport")
+        border_info = mot.find("Border_information")
+        if border_info is None:
+            border_info = ET.SubElement(mot, "Border_information")
+    _ensure_text(border_info, "Mode", "4")
+
+
+def _reorder_root_elements(root: ET.Element) -> None:
+    children = list(root)
+    for child in children:
+        root.remove(child)
+
+    ordered: List[ET.Element] = []
+    used = set()
+    for tag in ASYCUDA_ELEMENT_ORDER:
+        for idx, child in enumerate(children):
+            if idx in used:
+                continue
+            if child.tag == tag:
+                ordered.append(child)
+                used.add(idx)
+
+    for idx, child in enumerate(children):
+        if idx not in used:
+            ordered.append(child)
+
+    for child in ordered:
+        root.append(child)
+
+
 def _postprocess_xml(xml: str, declaration: Dict[str, Any]) -> str:
     root = ET.fromstring(xml)
 
@@ -706,6 +847,7 @@ def _postprocess_xml(xml: str, declaration: Dict[str, Any]) -> str:
 
     # ── FIX #4: Identification skeleton subnodes ──
     _fix_identification_skeletons(root)
+    _fix_identification_header(root, declaration)
 
     # ── FIX #4: Property/Nbers/Number_of_loading_lists stub ──
     _fix_property_nbers(root, declaration)
@@ -715,8 +857,17 @@ def _postprocess_xml(xml: str, declaration: Dict[str, Any]) -> str:
 
     # Ensure required empty top-level stubs exist
     _ensure_top_level(root, "Warehouse")
-    _ensure_top_level(root, "Transit")
+    transit = _ensure_top_level(root, "Transit")
     _ensure_top_level(root, "Suppliers_documents")
+
+    # Transit signature date should be empty for import parity
+    sig_date = transit.find("Signature/Date")
+    if sig_date is not None:
+        sig_date.text = ""
+
+    _fix_general_information(root, declaration)
+    _fix_transport(root)
+    _fix_global_valuation_blocks(root)
 
     # ── Per-item fixes ──
     for item_elem in root.findall("Item"):
@@ -738,6 +889,7 @@ def _postprocess_xml(xml: str, declaration: Dict[str, Any]) -> str:
         # FIX #8: Exactly 9 Taxation_line stubs
         _fix_taxation_stubs(item_elem)
 
+    _reorder_root_elements(root)
     return ET.tostring(root, encoding="utf-8", xml_declaration=True).decode("utf-8")
 
 
