@@ -397,6 +397,24 @@ export default function StallionWorkbench() {
     return out;
   }, [packResult]);
 
+  const allErrors = useMemo(() => {
+    const pfErrors = packResult?.preflight?.errors || [];
+    const c82Errors = packResult?.c82Validation?.errors || [];
+    return [...pfErrors, ...c82Errors] as Array<{ path: string; message: string }>;
+  }, [packResult]);
+
+  const findError = (...paths: string[]) => {
+    for (const p of paths) {
+      const exact = allErrors.find((e) => e.path === p);
+      if (exact) return exact.message;
+      const pref = allErrors.find((e) => e.path.startsWith(`${p}.`) || e.path.startsWith(`${p}[`));
+      if (pref) return pref.message;
+    }
+    return null;
+  };
+
+  const hasError = (...paths: string[]) => Boolean(findError(...paths));
+
   return (
     <TooltipProvider>
       <div className="min-h-screen bg-background p-6">
@@ -449,7 +467,7 @@ export default function StallionWorkbench() {
           </TooltipContent>
         </Tooltip>
               <Select value={form.port} onValueChange={(v) => setForm((f) => ({ ...f, port: v }))}>
-                <SelectTrigger>
+                <SelectTrigger className={hasError("header.port", "identification.office_segment_customs_clearance_office_code") ? "border-red-500" : ""}>
                   <SelectValue placeholder="Select port" />
                 </SelectTrigger>
                 <SelectContent>
@@ -460,6 +478,9 @@ export default function StallionWorkbench() {
                   ))}
                 </SelectContent>
               </Select>
+              {findError("header.port", "identification.office_segment_customs_clearance_office_code") ? (
+                <p className="mt-1 text-xs text-red-600">{findError("header.port", "identification.office_segment_customs_clearance_office_code")}</p>
+              ) : null}
             </div>
             <div>
               <Tooltip>
@@ -471,7 +492,7 @@ export default function StallionWorkbench() {
           </TooltipContent>
         </Tooltip>
               <Select value={form.term} onValueChange={(v) => setForm((f) => ({ ...f, term: v }))}>
-                <SelectTrigger>
+                <SelectTrigger className={hasError("header.term") ? "border-red-500" : ""}>
                   <SelectValue placeholder="Select terms" />
                 </SelectTrigger>
                 <SelectContent>
@@ -482,6 +503,7 @@ export default function StallionWorkbench() {
                   ))}
                 </SelectContent>
               </Select>
+              {findError("header.term") ? <p className="mt-1 text-xs text-red-600">{findError("header.term")}</p> : null}
             </div>
             <div>
               <Tooltip>
@@ -493,7 +515,7 @@ export default function StallionWorkbench() {
           </TooltipContent>
         </Tooltip>
               <Select value={form.modeOfTransport} onValueChange={(v) => setForm((f) => ({ ...f, modeOfTransport: v }))}>
-                <SelectTrigger>
+                <SelectTrigger className={hasError("header.modeOfTransport") ? "border-red-500" : ""}>
                   <SelectValue placeholder="Select transport mode" />
                 </SelectTrigger>
                 <SelectContent>
@@ -504,6 +526,7 @@ export default function StallionWorkbench() {
                   ))}
                 </SelectContent>
               </Select>
+              {findError("header.modeOfTransport") ? <p className="mt-1 text-xs text-red-600">{findError("header.modeOfTransport")}</p> : null}
             </div>
             <div>
               <Tooltip>
@@ -551,9 +574,11 @@ export default function StallionWorkbench() {
           </TooltipContent>
         </Tooltip>
               <Input
+                className={hasError("header.vesselName") ? "border-red-500" : ""}
                 value={form.vesselName}
                 onChange={(e) => setForm((f) => ({ ...f, vesselName: e.target.value }))}
               />
+              {findError("header.vesselName") ? <p className="mt-1 text-xs text-red-600">{findError("header.vesselName")}</p> : null}
             </div>
             <div>
               <Tooltip>
@@ -595,6 +620,33 @@ export default function StallionWorkbench() {
                   }));
                 }}
               />
+            </div>
+            <div>
+              <Label>Supplier Street</Label>
+              <Input
+                className={hasError("header.consignorStreet") ? "border-red-500" : ""}
+                value={form.consignorStreet}
+                onChange={(e) => setForm((f) => ({ ...f, consignorStreet: e.target.value }))}
+              />
+              {findError("header.consignorStreet") ? <p className="mt-1 text-xs text-red-600">{findError("header.consignorStreet")}</p> : null}
+            </div>
+            <div>
+              <Label>Supplier City</Label>
+              <Input
+                className={hasError("header.consignorCity") ? "border-red-500" : ""}
+                value={form.consignorCity}
+                onChange={(e) => setForm((f) => ({ ...f, consignorCity: e.target.value }))}
+              />
+              {findError("header.consignorCity") ? <p className="mt-1 text-xs text-red-600">{findError("header.consignorCity")}</p> : null}
+            </div>
+            <div>
+              <Label>Supplier Country</Label>
+              <Input
+                className={hasError("header.consignorCountry") ? "border-red-500" : ""}
+                value={form.consignorCountry}
+                onChange={(e) => setForm((f) => ({ ...f, consignorCountry: e.target.value }))}
+              />
+              {findError("header.consignorCountry") ? <p className="mt-1 text-xs text-red-600">{findError("header.consignorCountry")}</p> : null}
             </div>
             <div>
               <Tooltip>
@@ -729,9 +781,11 @@ export default function StallionWorkbench() {
           </TooltipContent>
         </Tooltip>
               <Input
+                className={hasError("header.blAwbNumber") ? "border-red-500" : ""}
                 value={form.blAwbNumber}
                 onChange={(e) => setForm((f) => ({ ...f, blAwbNumber: e.target.value }))}
               />
+              {findError("header.blAwbNumber") ? <p className="mt-1 text-xs text-red-600">{findError("header.blAwbNumber")}</p> : null}
             </div>
             <div>
               <Tooltip>
@@ -942,7 +996,14 @@ export default function StallionWorkbench() {
                     </Button>
                   </div>
                 </div>
-                <Field label="HS Code"><Input value={item.hsCode} onChange={(e)=>updateItem(item.id,'hsCode',e.target.value)} /></Field>
+                <Field label="HS Code">
+                  <Input
+                    className={hasError(`items[${idx}].hsCode`) || hasError("items") ? "border-red-500" : ""}
+                    value={item.hsCode}
+                    onChange={(e)=>updateItem(item.id,'hsCode',e.target.value)}
+                  />
+                  {findError(`items[${idx}].hsCode`) ? <p className="mt-1 text-xs text-red-600">{findError(`items[${idx}].hsCode`)}</p> : null}
+                </Field>
                 <div>
                   <Tooltip>
           <TooltipTrigger asChild>
@@ -1082,7 +1143,13 @@ export default function StallionWorkbench() {
               <Input type="number" value={form.invoice_value_foreign} onChange={(e) => setNum("invoice_value_foreign", e.target.value)} />
             </Field>
             <Field label="Exchange rate">
-              <Input type="number" value={form.exchange_rate} onChange={(e) => setNum("exchange_rate", e.target.value)} />
+              <Input
+                className={hasError("worksheet.exchange_rate") ? "border-red-500" : ""}
+                type="number"
+                value={form.exchange_rate}
+                onChange={(e) => setNum("exchange_rate", e.target.value)}
+              />
+              {findError("worksheet.exchange_rate") ? <p className="mt-1 text-xs text-red-600">{findError("worksheet.exchange_rate")}</p> : null}
             </Field>
             <Field label="Freight">
               <Input type="number" value={form.freight_foreign} onChange={(e) => setNum("freight_foreign", e.target.value)} />
