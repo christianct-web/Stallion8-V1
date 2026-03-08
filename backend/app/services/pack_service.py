@@ -295,6 +295,18 @@ def generate_pack(req: Dict[str, Any]) -> Dict[str, Any]:
 
     declaration = build_complete_declaration(header, worksheet, items, containers)
     c82_validation = validate_decl(declaration)
+
+    # Hard gate XML generation on C82 validation so invalid declarations
+    # cannot silently produce uploadable artifacts.
+    if c82_validation.get("status") != "pass":
+        return {
+            "status": "blocked",
+            "generatedAt": datetime.utcnow().isoformat() + "Z",
+            "preflight": preflight,
+            "c82Validation": c82_validation,
+            "documents": docs,
+        }
+
     sad_xml = export_xml(declaration)
     sad_xml_id, _ = _write_sad_xml(sad_xml)
     docs.append({"name": "c82_sad_xml", "status": "generated", "ref": sad_xml_id, "url": f"/pack/file/{sad_xml_id}"})
