@@ -13,3 +13,8 @@ frontend/dist/
 # Logs / env
 *.log
 .env
+
+# Editor / backup artifacts
+*.backup
+*.bak
+*.before_*
