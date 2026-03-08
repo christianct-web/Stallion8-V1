@@ -151,7 +151,8 @@ else:
 
 property_elem = root.find("Property")
 if property_elem is not None:
-    pkg = property_elem.find("Nbers_total_number_of_packages")
+    nbers = property_elem.find("Nbers")
+    pkg = nbers.find("Total_number_of_packages") if nbers is not None else None
     print("Header packages:", pkg.text if pkg is not None else "MISSING")
 
 print("=== Done ===")
