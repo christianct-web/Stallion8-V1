@@ -55,9 +55,15 @@ export async function generatePack(payload: {
   containers: Array<Record<string, unknown>>;
 }) {
   return api<{
-    status: string;
+    status: "generated" | "blocked";
     generatedAt: string;
-    documents: { name: string; status: string; ref: string }[];
+    preflight?: {
+      status: "pass" | "fail";
+      errors: { path: string; message: string }[];
+      warnings: { path: string; message: string }[];
+      counts: { errors: number; warnings: number };
+    };
+    documents: { name: string; status: string; ref: string; url?: string }[];
   }>("/pack/generate", { method: "POST", body: JSON.stringify(payload) });
 }
 

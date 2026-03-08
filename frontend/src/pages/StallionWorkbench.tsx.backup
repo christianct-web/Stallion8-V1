@@ -19,12 +19,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  TooltipProvider,
-} from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
 const uid = () =>
@@ -170,20 +164,40 @@ export default function StallionWorkbench() {
     () => templates.find((x) => x.id === selectedTemplateId),
     [templates, selectedTemplateId]
   );
-  useEffect(() => {
-    const dutyCodes = items.map(item => item.dutyTaxCode).filter(Boolean);
-    const hasDuty = dutyCodes.includes('01');
-    const hasSurcharge = dutyCodes.includes('05');
-    const hasVAT = dutyCodes.includes('20');
-    
-    setForm(f => ({
-      ...f,
-      duty_rate_pct: hasDuty ? 40 : f.duty_rate_pct,
-      surcharge_rate_pct: hasSurcharge ? 15 : f.surcharge_rate_pct,
-      vat_rate_pct: hasVAT ? 12.5 : f.vat_rate_pct
-    }));
-  }, [items]);
 
+  // Auto-populate Supplier Street/City/Country from Supplier Address
+  useEffect(() => {
+    const address = form.consignorAddress;
+    if (address) {
+      const lines = address.split('\n');
+      const newStreet = lines[0] || '';
+      const newCity = lines[1] || '';
+      
+      // Only update if fields are empty or match the current parsed value
+      setForm(f => ({
+        ...f,
+        consignorStreet: f.consignorStreet || newStreet,
+        consignorCity: f.consignorCity || newCity
+      }));
+    }
+  }, [form.consignorAddress]);
+
+  // Auto-populate Supplier Country if not set
+  useEffect(() => {
+    if (!form.consignorCountry && form.consignorName) {
+      // Default country based on common patterns
+      const lowerName = form.consignorName.toLowerCase();
+      let country = "";
+      if (lowerName.includes("china") || lowerName.includes("shanghai")) country = "China";
+      else if (lowerName.includes("usa") || lowerName.includes("united states")) country = "United States";
+      else if (lowerName.includes("uk") || lowerName.includes("united kingdom")) country = "United Kingdom";
+      else if (lowerName.includes("trinidad") || lowerName.includes("tobago")) country = "Trinidad and Tobago";
+      
+      if (country) {
+        setForm(f => ({ ...f, consignorCountry: country }));
+      }
+    }
+  }, [form.consignorName, form.consignorCountry]);
 
   const applyTemplate = () => {
     if (!selectedTemplate) return;
@@ -398,23 +412,22 @@ export default function StallionWorkbench() {
   }, [packResult]);
 
   return (
-    <TooltipProvider>
-      <div className="min-h-screen bg-background p-6">
-        <div className="max-w-6xl mx-auto space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold">Stallion Workbench</h1>
-              <p className="text-sm text-muted-foreground">
-                Modern worksheet-first customs entry (prototype)
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={runGeneratePack} disabled={!calc}>Generate Pack</Button>
-              <Link to="/">
-                <Button variant="outline">Back</Button>
-              </Link>
-            </div>
+    <div className="min-h-screen bg-background p-6">
+      <div className="max-w-6xl mx-auto space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Stallion Workbench</h1>
+            <p className="text-sm text-muted-foreground">
+              Modern worksheet-first customs entry (prototype)
+            </p>
           </div>
+          <div className="flex gap-2">
+            <Button onClick={runGeneratePack} disabled={!calc}>Generate Pack</Button>
+            <Link to="/">
+              <Button variant="outline">Back</Button>
+            </Link>
+          </div>
+        </div>
 
         <Card id="section-header">
           <CardHeader>
@@ -429,25 +442,11 @@ export default function StallionWorkbench() {
           </CardHeader>
           <CardContent className="grid md:grid-cols-3 gap-4">
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Declaration Ref</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Customs declaration reference number (e.g., LB01/23)</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Declaration Ref</Label>
               <Input value={form.declarationRef} onChange={(e) => setForm((f) => ({ ...f, declarationRef: e.target.value }))} placeholder="LB01/23" />
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Port of Entry</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Port where goods will be cleared through customs</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Port of Entry</Label>
               <Select value={form.port} onValueChange={(v) => setForm((f) => ({ ...f, port: v }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select port" />
@@ -462,14 +461,7 @@ export default function StallionWorkbench() {
               </Select>
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Terms of Delivery</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Incoterms governing delivery (CIF, FOB, etc.)</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Terms of Delivery</Label>
               <Select value={form.term} onValueChange={(v) => setForm((f) => ({ ...f, term: v }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select terms" />
@@ -484,14 +476,7 @@ export default function StallionWorkbench() {
               </Select>
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Mode of Transport</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">How goods arrive (Sea, Air, Road)</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Mode of Transport</Label>
               <Select value={form.modeOfTransport} onValueChange={(v) => setForm((f) => ({ ...f, modeOfTransport: v }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select transport mode" />
@@ -506,14 +491,7 @@ export default function StallionWorkbench() {
               </Select>
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Customs Regime</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Type of customs procedure (Import, Transit, etc.)</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Customs Regime</Label>
               <Select value={form.customsRegime} onValueChange={(v) => setForm((f) => ({ ...f, customsRegime: v }))}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select regime" />
@@ -528,56 +506,28 @@ export default function StallionWorkbench() {
               </Select>
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Consignee Code</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Importer's customs registration code</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Consignee Code</Label>
               <Input
                 value={form.consigneeCode}
                 onChange={(e) => setForm((f) => ({ ...f, consigneeCode: e.target.value }))}
               />
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Vessel / Flight</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Name of vessel or flight number</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Vessel / Flight</Label>
               <Input
                 value={form.vesselName}
                 onChange={(e) => setForm((f) => ({ ...f, vesselName: e.target.value }))}
               />
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Supplier Name</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Exporter/supplier company name</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Supplier Name</Label>
               <Input
                 value={form.consignorName}
                 onChange={(e) => setForm((f) => ({ ...f, consignorName: e.target.value }))}
               />
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Supplier Address</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Supplier's full address (street, city, country)</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Supplier Address</Label>
               <Input
                 value={form.consignorAddress}
                 onChange={(e) => {
@@ -597,28 +547,14 @@ export default function StallionWorkbench() {
               />
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Invoice Number</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Commercial invoice number</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Invoice Number</Label>
               <Input
                 value={form.invoiceNumber}
                 onChange={(e) => setForm((f) => ({ ...f, invoiceNumber: e.target.value }))}
               />
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Invoice Date</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Date of commercial invoice</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Invoice Date</Label>
               <Input
                 type="date"
                 value={form.invoiceDate}
@@ -664,84 +600,63 @@ export default function StallionWorkbench() {
           </CardHeader>
           <CardContent className="grid md:grid-cols-3 gap-4">
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Consignee Name</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Name of the importer/consignee</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Supplier Street</Label>
+              <Input
+                value={form.consignorStreet}
+                onChange={(e) => setForm((f) => ({ ...f, consignorStreet: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label>Supplier City</Label>
+              <Input
+                value={form.consignorCity}
+                onChange={(e) => setForm((f) => ({ ...f, consignorCity: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label>Supplier Country</Label>
+              <Input
+                value={form.consignorCountry}
+                onChange={(e) => setForm((f) => ({ ...f, consignorCountry: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label>Consignee Name</Label>
               <Input
                 value={form.consigneeName}
                 onChange={(e) => setForm((f) => ({ ...f, consigneeName: e.target.value }))}
               />
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Consignee Address</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Importer's address for customs purposes</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Consignee Address</Label>
               <Input
                 value={form.consigneeAddress}
                 onChange={(e) => setForm((f) => ({ ...f, consigneeAddress: e.target.value }))}
               />
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Declarant TIN</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Declarant's Taxpayer Identification Number</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Declarant TIN</Label>
               <Input
                 value={form.declarantTIN}
                 onChange={(e) => setForm((f) => ({ ...f, declarantTIN: e.target.value }))}
               />
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Declarant Name</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Name of the customs declarant</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Declarant Name</Label>
               <Input
                 value={form.declarantName}
                 onChange={(e) => setForm((f) => ({ ...f, declarantName: e.target.value }))}
               />
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>B/L AWB Number</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Bill of Lading or Air Waybill number</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>B/L AWB Number</Label>
               <Input
                 value={form.blAwbNumber}
                 onChange={(e) => setForm((f) => ({ ...f, blAwbNumber: e.target.value }))}
               />
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>B/L AWB Date</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Date of transport document</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>B/L AWB Date</Label>
               <Input
                 type="date"
                 value={form.blAwbDate}
@@ -749,14 +664,7 @@ export default function StallionWorkbench() {
               />
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>ETA Date</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Estimated Time of Arrival at port</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>ETA Date</Label>
               <Input
                 type="date"
                 value={form.etaDate}
@@ -764,305 +672,75 @@ export default function StallionWorkbench() {
               />
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Currency</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Currency of invoice (USD, EUR, etc.)</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Currency</Label>
               <Input
                 value={form.currency}
                 onChange={(e) => setForm((f) => ({ ...f, currency: e.target.value }))}
               />
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Bank Code</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Bank code for payment processing</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Bank Code</Label>
               <Input
                 value={form.bankCode}
                 onChange={(e) => setForm((f) => ({ ...f, bankCode: e.target.value }))}
               />
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Mode of Payment</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Method of payment (CASH, CREDIT, etc.)</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Mode of Payment</Label>
               <Input
                 value={form.modeOfPayment}
                 onChange={(e) => setForm((f) => ({ ...f, modeOfPayment: e.target.value }))}
               />
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Terms Code</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Payment terms code</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Terms Code</Label>
               <Input
                 value={form.termsCode}
                 onChange={(e) => setForm((f) => ({ ...f, termsCode: e.target.value }))}
               />
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Terms Description</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Description of payment terms</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Terms Description</Label>
               <Input
                 value={form.termsDescription}
                 onChange={(e) => setForm((f) => ({ ...f, termsDescription: e.target.value }))}
               />
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Country First Destination</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">First country of destination after export</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Country First Destination</Label>
               <Input
                 value={form.countryFirstDestination}
                 onChange={(e) => setForm((f) => ({ ...f, countryFirstDestination: e.target.value }))}
               />
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Trading Country</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Country of trading partner</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Trading Country</Label>
               <Input
                 value={form.tradingCountry}
                 onChange={(e) => setForm((f) => ({ ...f, tradingCountry: e.target.value }))}
               />
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Export Country Code</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Country code of exporter</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Export Country Code</Label>
               <Input
                 value={form.exportCountryCode}
                 onChange={(e) => setForm((f) => ({ ...f, exportCountryCode: e.target.value }))}
               />
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Export Country Name</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Name of export country</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Export Country Name</Label>
               <Input
                 value={form.exportCountryName}
                 onChange={(e) => setForm((f) => ({ ...f, exportCountryName: e.target.value }))}
               />
             </div>
             <div>
-              <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Country of Origin Name</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Country where goods were produced</p>
-          </TooltipContent>
-        </Tooltip>
+              <Label>Country of Origin Name</Label>
               <Input
                 value={form.countryOfOriginName}
                 onChange={(e) => setForm((f) => ({ ...f, countryOfOriginName: e.target.value }))}
               />
             </div>
-          </CardContent>
-        </Card>
-
-
-        <Card id="section-items">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>
-                Item Editor v1
-                {(sectionIssueCounts.Items.e + sectionIssueCounts.Items.w) > 0 ? (
-                  <span className="ml-2 text-xs font-medium text-muted-foreground">
-                    ({sectionIssueCounts.Items.e}E/{sectionIssueCounts.Items.w}W)
-                  </span>
-                ) : null}
-              </CardTitle>
-              <Button variant="outline" onClick={addItem}>Add Item</Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {items.map((item, idx) => (
-              <div key={item.id} className="grid md:grid-cols-8 gap-2 border rounded p-3">
-                <div>
-                  <Label>{`Item ${idx + 1} Description`}</Label>
-                  <Input value={item.description} onChange={(e)=>updateItem(item.id,'description',e.target.value)} />
-                  <div className="mt-1">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        const hit = findHsSuggestion(item.description);
-                        if (!hit) return toast.error("No HS sample match found");
-                        updateItem(item.id, 'hsCode', hit.tariff);
-                        toast.success(`HS suggested: ${hit.tariff}`);
-                      }}
-                    >
-                      Suggest HS
-                    </Button>
-                  </div>
-                </div>
-                <Field label="HS Code"><Input value={item.hsCode} onChange={(e)=>updateItem(item.id,'hsCode',e.target.value)} /></Field>
-                <div>
-                  <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>CPC</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Customs Procedure Code</p>
-          </TooltipContent>
-        </Tooltip>
-                  <Select value={item.cpc || ""} onValueChange={(v)=>updateItem(item.id,'cpc',v)}>
-                    <SelectTrigger><SelectValue placeholder="CPC" /></SelectTrigger>
-                    <SelectContent>
-                      {cpcCodes.map((c)=><SelectItem key={c.code} value={c.code}>{c.code} - {c.cpc || ""} - {c.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Duty/Tax</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Duty or tax code applied to item</p>
-          </TooltipContent>
-        </Tooltip>
-                  <Select value={item.dutyTaxCode || ""} onValueChange={(v)=>updateItem(item.id,'dutyTaxCode',v)}>
-                    <SelectTrigger><SelectValue placeholder="Code" /></SelectTrigger>
-                    <SelectContent>
-                      {dutyTaxCodes.map((d)=><SelectItem key={d.code} value={d.code}>{d.code} - {d.abbr || ""}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Duty/Tax Base</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Base for duty calculation (value, weight, etc.)</p>
-          </TooltipContent>
-        </Tooltip>
-                  <Select value={item.dutyTaxBase || ""} onValueChange={(v)=>updateItem(item.id,'dutyTaxBase',v)}>
-                    <SelectTrigger><SelectValue placeholder="Base" /></SelectTrigger>
-                    <SelectContent>
-                      {dutyTaxBases.map((b)=><SelectItem key={b.code} value={b.code}>{b.code} - {b.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Unit Code</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Unit of measurement code</p>
-          </TooltipContent>
-        </Tooltip>
-                  <Select value={item.unitCode || ""} onValueChange={(v)=>updateItem(item.id,'unitCode',v)}>
-                    <SelectTrigger><SelectValue placeholder="Unit" /></SelectTrigger>
-                    <SelectContent>
-                      {unitCodes.map((u)=><SelectItem key={u.code} value={u.code}>{u.code} - {u.asycudaCode || ""} - {u.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <Field label="Qty"><Input type="number" value={item.qty} onChange={(e)=>updateItem(item.id,'qty',Number(e.target.value||0))} /></Field>
-                <div>
-                  <Tooltip>
-          <TooltipTrigger asChild>
-            <Label>Package</Label>
-          </TooltipTrigger>
-          <TooltipContent className="max-w-xs">
-            <p className="text-sm">Type of packaging</p>
-          </TooltipContent>
-        </Tooltip>
-                  <Select value={item.packageType} onValueChange={(v)=>updateItem(item.id,'packageType',v)}>
-                    <SelectTrigger><SelectValue placeholder="Pkg" /></SelectTrigger>
-                    <SelectContent>{packages.map((p:any)=><SelectItem key={p.code} value={p.code}>{p.code} - {p.asycudaCode || ""} - {p.label}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <Field label="Gross Kg"><Input type="number" value={item.grossKg} onChange={(e)=>updateItem(item.id,'grossKg',Number(e.target.value||0))} /></Field>
-                <Field label="Net Kg"><Input type="number" value={item.netKg} onChange={(e)=>updateItem(item.id,'netKg',Number(e.target.value||0))} /></Field>
-                <Field label="Item Value"><Input type="number" value={item.itemValue} onChange={(e)=>updateItem(item.id,'itemValue',Number(e.target.value||0))} /></Field>
-                <div className="flex items-end"><Button variant="ghost" onClick={()=>removeItem(item.id)}>Remove</Button></div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card id="section-containers">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>
-                Container Panel
-                {(sectionIssueCounts.Containers.e + sectionIssueCounts.Containers.w) > 0 ? (
-                  <span className="ml-2 text-xs font-medium text-muted-foreground">
-                    ({sectionIssueCounts.Containers.e}E/{sectionIssueCounts.Containers.w}W)
-                  </span>
-                ) : null}
-              </CardTitle>
-              <Button variant="outline" onClick={addContainer}>Add Container</Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {containers.length === 0 && <p className="text-sm text-muted-foreground">No containers added.</p>}
-            {containers.map((c, idx) => (
-              <div key={c.id} className="grid md:grid-cols-7 gap-2 border rounded p-3">
-                <Field label={`Container ${idx + 1} No`}><Input value={c.containerNo} onChange={(e)=>updateContainer(c.id,'containerNo',e.target.value)} /></Field>
-                <Field label="Type"><Input value={c.type} onChange={(e)=>updateContainer(c.id,'type',e.target.value)} /></Field>
-                <div>
-                  <Label>Package Type</Label>
-                  <Select value={c.packageType} onValueChange={(v)=>updateContainer(c.id,'packageType',v)}>
-                    <SelectTrigger><SelectValue placeholder="Pkg" /></SelectTrigger>
-                    <SelectContent>{packages.map((p:any)=><SelectItem key={p.code} value={p.code}>{p.code} - {p.asycudaCode || ""} - {p.label}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <Field label="Packages"><Input type="number" value={c.packages} onChange={(e)=>updateContainer(c.id,'packages',Number(e.target.value||0))} /></Field>
-                <Field label="Goods Weight"><Input type="number" value={c.goodsWeight} onChange={(e)=>updateContainer(c.id,'goodsWeight',Number(e.target.value||0))} /></Field>
-                <div className="flex items-end"><Button variant="ghost" onClick={()=>removeContainer(c.id)}>Remove</Button></div>
-              </div>
-            ))}
           </CardContent>
         </Card>
 
@@ -1147,6 +825,130 @@ export default function StallionWorkbench() {
           </CardContent>
         </Card>
 
+        <Card id="section-items">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>
+                Item Editor v1
+                {(sectionIssueCounts.Items.e + sectionIssueCounts.Items.w) > 0 ? (
+                  <span className="ml-2 text-xs font-medium text-muted-foreground">
+                    ({sectionIssueCounts.Items.e}E/{sectionIssueCounts.Items.w}W)
+                  </span>
+                ) : null}
+              </CardTitle>
+              <Button variant="outline" onClick={addItem}>Add Item</Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {items.map((item, idx) => (
+              <div key={item.id} className="grid md:grid-cols-8 gap-2 border rounded p-3">
+                <div>
+                  <Label>{`Item ${idx + 1} Description`}</Label>
+                  <Input value={item.description} onChange={(e)=>updateItem(item.id,'description',e.target.value)} />
+                  <div className="mt-1">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        const hit = findHsSuggestion(item.description);
+                        if (!hit) return toast.error("No HS sample match found");
+                        updateItem(item.id, 'hsCode', hit.tariff);
+                        toast.success(`HS suggested: ${hit.tariff}`);
+                      }}
+                    >
+                      Suggest HS
+                    </Button>
+                  </div>
+                </div>
+                <Field label="HS Code"><Input value={item.hsCode} onChange={(e)=>updateItem(item.id,'hsCode',e.target.value)} /></Field>
+                <div>
+                  <Label>CPC</Label>
+                  <Select value={item.cpc || ""} onValueChange={(v)=>updateItem(item.id,'cpc',v)}>
+                    <SelectTrigger><SelectValue placeholder="CPC" /></SelectTrigger>
+                    <SelectContent>
+                      {cpcCodes.map((c)=><SelectItem key={c.code} value={c.code}>{c.code} - {c.cpc || ""} - {c.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Duty/Tax</Label>
+                  <Select value={item.dutyTaxCode || ""} onValueChange={(v)=>updateItem(item.id,'dutyTaxCode',v)}>
+                    <SelectTrigger><SelectValue placeholder="Code" /></SelectTrigger>
+                    <SelectContent>
+                      {dutyTaxCodes.map((d)=><SelectItem key={d.code} value={d.code}>{d.code} - {d.abbr || ""}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Duty/Tax Base</Label>
+                  <Select value={item.dutyTaxBase || ""} onValueChange={(v)=>updateItem(item.id,'dutyTaxBase',v)}>
+                    <SelectTrigger><SelectValue placeholder="Base" /></SelectTrigger>
+                    <SelectContent>
+                      {dutyTaxBases.map((b)=><SelectItem key={b.code} value={b.code}>{b.code} - {b.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Unit Code</Label>
+                  <Select value={item.unitCode || ""} onValueChange={(v)=>updateItem(item.id,'unitCode',v)}>
+                    <SelectTrigger><SelectValue placeholder="Unit" /></SelectTrigger>
+                    <SelectContent>
+                      {unitCodes.map((u)=><SelectItem key={u.code} value={u.code}>{u.code} - {u.asycudaCode || ""} - {u.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Field label="Qty"><Input type="number" value={item.qty} onChange={(e)=>updateItem(item.id,'qty',Number(e.target.value||0))} /></Field>
+                <div>
+                  <Label>Package</Label>
+                  <Select value={item.packageType} onValueChange={(v)=>updateItem(item.id,'packageType',v)}>
+                    <SelectTrigger><SelectValue placeholder="Pkg" /></SelectTrigger>
+                    <SelectContent>{packages.map((p:any)=><SelectItem key={p.code} value={p.code}>{p.code} - {p.asycudaCode || ""} - {p.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <Field label="Gross Kg"><Input type="number" value={item.grossKg} onChange={(e)=>updateItem(item.id,'grossKg',Number(e.target.value||0))} /></Field>
+                <Field label="Net Kg"><Input type="number" value={item.netKg} onChange={(e)=>updateItem(item.id,'netKg',Number(e.target.value||0))} /></Field>
+                <Field label="Item Value"><Input type="number" value={item.itemValue} onChange={(e)=>updateItem(item.id,'itemValue',Number(e.target.value||0))} /></Field>
+                <div className="flex items-end"><Button variant="ghost" onClick={()=>removeItem(item.id)}>Remove</Button></div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
+        <Card id="section-containers">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>
+                Container Panel
+                {(sectionIssueCounts.Containers.e + sectionIssueCounts.Containers.w) > 0 ? (
+                  <span className="ml-2 text-xs font-medium text-muted-foreground">
+                    ({sectionIssueCounts.Containers.e}E/{sectionIssueCounts.Containers.w}W)
+                  </span>
+                ) : null}
+              </CardTitle>
+              <Button variant="outline" onClick={addContainer}>Add Container</Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {containers.length === 0 && <p className="text-sm text-muted-foreground">No containers added.</p>}
+            {containers.map((c, idx) => (
+              <div key={c.id} className="grid md:grid-cols-7 gap-2 border rounded p-3">
+                <Field label={`Container ${idx + 1} No`}><Input value={c.containerNo} onChange={(e)=>updateContainer(c.id,'containerNo',e.target.value)} /></Field>
+                <Field label="Type"><Input value={c.type} onChange={(e)=>updateContainer(c.id,'type',e.target.value)} /></Field>
+                <div>
+                  <Label>Package Type</Label>
+                  <Select value={c.packageType} onValueChange={(v)=>updateContainer(c.id,'packageType',v)}>
+                    <SelectTrigger><SelectValue placeholder="Pkg" /></SelectTrigger>
+                    <SelectContent>{packages.map((p:any)=><SelectItem key={p.code} value={p.code}>{p.code} - {p.asycudaCode || ""} - {p.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <Field label="Packages"><Input type="number" value={c.packages} onChange={(e)=>updateContainer(c.id,'packages',Number(e.target.value||0))} /></Field>
+                <Field label="Goods Weight"><Input type="number" value={c.goodsWeight} onChange={(e)=>updateContainer(c.id,'goodsWeight',Number(e.target.value||0))} /></Field>
+                <div className="flex items-end"><Button variant="ghost" onClick={()=>removeContainer(c.id)}>Remove</Button></div>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+
         {packResult && (
           <Card>
             <CardHeader><CardTitle>Generate Pack Result</CardTitle></CardHeader>
@@ -1170,45 +972,13 @@ export default function StallionWorkbench() {
         )}
       </div>
     </div>
-  </TooltipProvider>
-);
+  );
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  // Simple description mapping
-  const fieldDescriptions: Record<string, string> = {
-    "Invoice (foreign)": "Total invoice value in foreign currency",
-    "Exchange rate": "Exchange rate to local currency",
-    "Freight": "International freight cost in foreign currency",
-    "Insurance": "Insurance cost in foreign currency",
-    "Other": "Other costs (packing, handling) in foreign currency",
-    "Deduction": "Any deductions from CIF value",
-    "Duty %": "Import duty percentage rate",
-    "Surcharge %": "Import surcharge percentage rate",
-    "VAT %": "Value Added Tax percentage rate",
-    "Extra fees (local)": "Additional local fees (Box 23, etc.)",
-    "Global fee (UFC)": "Fixed customs user fee",
-    "CIF (foreign)": "Cost, Insurance, Freight in foreign currency",
-    "CIF (local)": "Cost, Insurance, Freight in local currency",
-    "Duty": "Calculated import duty amount",
-    "Surcharge": "Calculated import surcharge amount",
-    "VAT": "Calculated Value Added Tax amount",
-    "Extra fees": "Total of extra local fees",
-    "Total assessed": "Total amount to be paid to customs",
-  };
-  
-  const description = fieldDescriptions[label] || label;
-  
   return (
     <div>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Label>{label}</Label>
-        </TooltipTrigger>
-        <TooltipContent className="max-w-xs">
-          <p className="text-sm">{description}</p>
-        </TooltipContent>
-      </Tooltip>
+      <Label>{label}</Label>
       {children}
     </div>
   );
