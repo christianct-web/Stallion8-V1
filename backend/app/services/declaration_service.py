@@ -4,6 +4,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+import xml.etree.ElementTree as ET
 
 from fastapi import HTTPException
 from jsonschema import Draft202012Validator, exceptions as js_exceptions
@@ -267,8 +268,62 @@ def validate_decl(decl: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _ensure_top_level(parent: ET.Element, tag: str) -> ET.Element:
+    elem = parent.find(tag)
+    if elem is None:
+        elem = ET.SubElement(parent, tag)
+    return elem
+
+
+def _ensure_text(parent: ET.Element, tag: str, value: str) -> ET.Element:
+    elem = parent.find(tag)
+    if elem is None:
+        elem = ET.SubElement(parent, tag)
+    if (elem.text is None or str(elem.text).strip() == "") and value is not None:
+        elem.text = str(value)
+    return elem
+
+
+def _postprocess_xml(xml: str, declaration: Dict[str, Any]) -> str:
+    root = ET.fromstring(xml)
+
+    # Ensure required top-level sections exist even when empty
+    _ensure_top_level(root, "Assessment_notice")
+    _ensure_top_level(root, "Global_taxes")
+    _ensure_top_level(root, "Warehouse")
+    _ensure_top_level(root, "Transit")
+    _ensure_top_level(root, "Suppliers_documents")
+
+    # Ensure header total packages is present
+    property_elem = _ensure_top_level(root, "Property")
+    nbers = property_elem.find("Nbers") or ET.SubElement(property_elem, "Nbers")
+    pkg_decl = declaration.get("property", {}).get("nbers_total_number_of_packages")
+    if pkg_decl is None:
+        pkg_decl = 0
+    _ensure_text(nbers, "Total_number_of_packages", str(pkg_decl))
+
+    # Ensure item-level Gs_* valuation elements exist (copy from Valuation if missing)
+    valuation = root.find("Valuation")
+    valuation_gs = {}
+    if valuation is not None:
+        for child in list(valuation):
+            if child.tag.startswith("Gs_"):
+                valuation_gs[child.tag] = child.text or ""
+
+    if valuation_gs:
+        for item in root.findall("Item"):
+            for tag, val in valuation_gs.items():
+                existing = item.find(tag)
+                if existing is None:
+                    ET.SubElement(item, tag).text = val
+
+    return ET.tostring(root, encoding="utf-8", xml_declaration=True).decode("utf-8")
+
+
 def export_xml(declaration: Dict[str, Any]) -> str:
     try:
-        return emit_asycuda_xml(declaration, MAPPING, ace_compat=True, presence_xpaths=None)
+        xml = emit_asycuda_xml(declaration, MAPPING, ace_compat=True, presence_xpaths=None)
     except TypeError:
-        return emit_asycuda_xml(declaration, MAPPING)
+        xml = emit_asycuda_xml(declaration, MAPPING)
+
+    return _postprocess_xml(xml, declaration)
