@@ -67,4 +67,26 @@ export async function generatePack(payload: {
   }>("/pack/generate", { method: "POST", body: JSON.stringify(payload) });
 }
 
+export async function listDeclarations(status?: string) {
+  const q = status ? `?status=${encodeURIComponent(status)}` : "";
+  return api<{ items: any[] }>(`/declarations${q}`);
+}
+
+export async function upsertDeclaration(payload: Record<string, unknown>) {
+  return api<{ ok: boolean; id: string }>("/declarations", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function reviewDeclaration(
+  declarationId: string,
+  payload: Record<string, unknown>
+) {
+  return api<{ ok: boolean; id: string; status: string }>(`/declarations/${declarationId}/review`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
 export { BASE_URL as STALLION_BASE_URL };

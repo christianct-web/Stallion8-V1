@@ -6,6 +6,7 @@ import {
   generatePack,
   getLookup,
   getTemplates,
+  upsertDeclaration,
   STALLION_BASE_URL,
 } from "@/services/stallionApi";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -320,6 +321,18 @@ export default function StallionWorkbench() {
       const key = "stallion_workbench_drafts";
       const existing = JSON.parse(localStorage.getItem(key) || "[]");
       localStorage.setItem(key, JSON.stringify([snapshot, ...existing].slice(0, 100)));
+
+      await upsertDeclaration({
+        id: String(snapshot.id),
+        status: "draft",
+        source: { type: "WORKBENCH", filename: "manual-entry" },
+        confidence: 100,
+        header: snapshot.header,
+        worksheet: snapshot.worksheet,
+        items: snapshot.items,
+        review_notes: "",
+      });
+
       toast.success("Draft saved");
     } catch (err: any) {
       toast.error(err?.message ?? "Save failed");

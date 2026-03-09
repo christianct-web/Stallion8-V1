@@ -11,6 +11,10 @@ TEMPLATES_FILE = DATA / "templates.json"
 if not TEMPLATES_FILE.exists():
     TEMPLATES_FILE.write_text("[]", encoding="utf-8")
 
+DECLARATIONS_FILE = DATA / "declarations.json"
+if not DECLARATIONS_FILE.exists():
+    DECLARATIONS_FILE.write_text("[]", encoding="utf-8")
+
 LOOKUPS: Dict[str, List[Dict[str, Any]]] = {
     "ports": [
         {"code": "01", "label": "Port Chaguaramas", "asycudaCode": "", "transportMethod": "1"},
@@ -184,3 +188,11 @@ def load_templates() -> List[Dict[str, Any]]:
 
 def save_templates(items: List[Dict[str, Any]]) -> None:
     TEMPLATES_FILE.write_text(json.dumps(items, indent=2), encoding="utf-8")
+
+
+def load_declarations() -> List[Dict[str, Any]]:
+    return json.loads(DECLARATIONS_FILE.read_text(encoding="utf-8"))
+
+
+def save_declarations(items: List[Dict[str, Any]]) -> None:
+    DECLARATIONS_FILE.write_text(json.dumps(items, indent=2), encoding="utf-8")

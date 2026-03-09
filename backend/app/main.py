@@ -11,7 +11,7 @@ from .models import DeclarationReq, ExportReq, TemplateIn, TemplateOut, Workshee
 from .services.declaration_service import export_xml, validate_decl
 from .services.pack_service import generate_pack, resolve_generated_file
 from .services.worksheet_service import calculate_worksheet
-from .store import LOOKUPS, load_templates, save_templates
+from .store import LOOKUPS, load_templates, save_templates, load_declarations, save_declarations
 
 app = FastAPI(title="Stallion API", version="0.1.0")
 app.add_middleware(
@@ -67,8 +67,69 @@ def declarations_export_xml(req: ExportReq):
     return {"validation": report, "xml": export_xml(req.declaration)}
 
 
+@app.get("/declarations")
+def declarations_list(status: str | None = None):
+    items = load_declarations()
+    if status:
+        items = [x for x in items if str(x.get("status", "")).lower() == status.lower()]
+    return {"items": items}
+
+
+@app.post("/declarations")
+def declarations_upsert(req: Dict[str, Any]):
+    items = load_declarations()
+    row_id = str(req.get("id") or "").strip()
+    if not row_id:
+        raise HTTPException(status_code=400, detail="id is required")
+
+    found = next((i for i, r in enumerate(items) if str(r.get("id")) == row_id), None)
+    if found is None:
+        items.append(req)
+    else:
+        items[found] = {**items[found], **req}
+    save_declarations(items)
+    return {"ok": True, "id": row_id}
+
+
+@app.patch("/declarations/{declaration_id}/review")
+def declarations_review(declaration_id: str, req: Dict[str, Any]):
+    items = load_declarations()
+    idx = next((i for i, r in enumerate(items) if str(r.get("id")) == declaration_id), None)
+    if idx is None:
+        raise HTTPException(status_code=404, detail="Declaration not found")
+
+    action = str(req.get("action") or "").lower()
+    if action not in {"approved", "needs_correction", "rejected", "pending_review", "receipted"}:
+        raise HTTPException(status_code=400, detail="Invalid action")
+
+    patch = {
+        "status": action,
+        "review_notes": req.get("review_notes", items[idx].get("review_notes", "")),
+        "reviewed_by": req.get("reviewed_by", items[idx].get("reviewed_by")),
+        "reviewed_at": req.get("reviewed_at", items[idx].get("reviewed_at")),
+    }
+    if "header" in req:
+        patch["header"] = req.get("header")
+    if "worksheet" in req:
+        patch["worksheet"] = req.get("worksheet")
+    if "items" in req:
+        patch["items"] = req.get("items")
+
+    items[idx] = {**items[idx], **patch}
+    save_declarations(items)
+    return {"ok": True, "id": declaration_id, "status": action}
+
+
 @app.post("/pack/generate")
 def pack_generate(req: Dict[str, Any]):
+    declaration_id = req.get("declaration_id")
+    if declaration_id:
+        items = load_declarations()
+        row = next((r for r in items if str(r.get("id")) == str(declaration_id)), None)
+        if not row:
+            raise HTTPException(status_code=404, detail="Declaration not found")
+        if str(row.get("status", "")).lower() != "approved":
+            raise HTTPException(status_code=409, detail="Declaration must be approved before export")
     return generate_pack(req)
 
 

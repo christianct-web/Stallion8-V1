@@ -7,6 +7,7 @@ import DeclarationsList from "./pages/DeclarationsList";
 import DeclarationEditor from "./pages/DeclarationEditor";
 import NotFound from "./pages/NotFound";
 import StallionWorkbench from "./pages/StallionWorkbench";
+import BrokerReview4 from "./pages/BrokerReview4";
 
 const queryClient = new QueryClient();
 
@@ -20,6 +21,7 @@ const App = () => (
           <Route path="/" element={<DeclarationsList />} />
           <Route path="/declaration/:id" element={<DeclarationEditor />} />
           <Route path="/stallion/workbench" element={<StallionWorkbench />} />
+          <Route path="/stallion/brokerreview4" element={<BrokerReview4 />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
