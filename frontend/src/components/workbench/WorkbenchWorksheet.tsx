@@ -134,11 +134,16 @@ export function WorkbenchWorksheet({
     if (!shippedOnBoardDate) return;
     setCbttLoading(true);
     try {
-      await new Promise(r => setTimeout(r, 800));
-      const mockRate = 6.7732; // placeholder
-      setForm((f: any) => ({ ...f, exchange_rate: mockRate }));
+      const d = shippedOnBoardDate.slice(0, 10);
+      const res = await fetch(`https://api.exchangerate.host/${d}?base=USD&symbols=TTD`);
+      const json = await res.json();
+      const rate = Number(json?.rates?.TTD ?? 0);
+      if (!rate || Number.isNaN(rate)) throw new Error("No exchange rate available for date");
+      setForm((f: any) => ({ ...f, exchange_rate: Number(rate.toFixed(5)) }));
       setCbttConfirmed(true);
-      setCbttDate(shippedOnBoardDate ?? null);
+      setCbttDate(d);
+    } catch {
+      setCbttConfirmed(false);
     } finally {
       setCbttLoading(false);
     }

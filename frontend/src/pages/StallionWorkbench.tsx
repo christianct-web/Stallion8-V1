@@ -263,7 +263,63 @@ export default function StallionWorkbench() {
   const handleSaveDraft = async () => {
     setSavingDraft(true);
     try {
-      await new Promise(r => setTimeout(r, 400));
+      const snapshot = {
+        id: `${form.declarationRef || 'draft'}-${Date.now()}`,
+        createdAt: new Date().toISOString(),
+        status: "Draft",
+        header: {
+          declarationRef: form.declarationRef,
+          port: form.port,
+          term: form.term,
+          modeOfTransport: form.modeOfTransport,
+          customsRegime: form.customsRegime,
+          consignorName: form.consignorName,
+          consignorAddress: form.consignorAddress,
+          consignorStreet: form.consignorStreet,
+          consignorCity: form.consignorCity,
+          consignorCountry: form.consignorCountry,
+          consigneeCode: form.consigneeCode,
+          consigneeName: form.consigneeName,
+          consigneeAddress: form.consigneeAddress,
+          declarantTIN: form.declarantTIN,
+          declarantName: form.declarantName,
+          vesselName: form.vesselName,
+          blAwbNumber: form.blAwbNumber,
+          blAwbDate: form.blAwbDate,
+          etaDate: form.etaDate,
+          invoiceNumber: form.invoiceNumber,
+          invoiceDate: form.invoiceDate,
+          currency: form.currency,
+          bankCode: form.bankCode,
+          modeOfPayment: form.modeOfPayment,
+          termsCode: form.termsCode,
+          termsDescription: form.termsDescription,
+          countryFirstDestination: form.countryFirstDestination,
+          tradingCountry: form.tradingCountry,
+          exportCountryCode: form.exportCountryCode,
+          exportCountryName: form.exportCountryName,
+          countryOfOriginName: form.countryOfOriginName,
+        },
+        worksheet: {
+          invoice_value_foreign: form.invoice_value_foreign,
+          exchange_rate: form.exchange_rate,
+          freight_foreign: form.freight_foreign,
+          insurance_foreign: form.insurance_foreign,
+          other_foreign: form.other_foreign,
+          deduction_foreign: form.deduction_foreign,
+          duty_rate_pct: form.duty_rate_pct,
+          surcharge_rate_pct: form.surcharge_rate_pct,
+          vat_rate_pct: form.vat_rate_pct,
+          extra_fees_local: form.extra_fees_local,
+          global_fee: form.global_fee,
+        },
+        items,
+        containers,
+      };
+
+      const key = "stallion_workbench_drafts";
+      const existing = JSON.parse(localStorage.getItem(key) || "[]");
+      localStorage.setItem(key, JSON.stringify([snapshot, ...existing].slice(0, 100)));
       toast.success("Draft saved");
     } catch (err: any) {
       toast.error(err?.message ?? "Save failed");
