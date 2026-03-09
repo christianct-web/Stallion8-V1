@@ -1,0 +1,196 @@
+[
+  {
+    "id": "UPSL-001",
+    "status": "pending_review",
+    "source": { "type": "INVOICE", "filename": "INV-446506-CENTRAL.pdf" },
+    "confidence": 94,
+    "header": {
+      "declarationRef": "LB01/23",
+      "invoiceNumber": "446506",
+      "invoiceDate": "2023-07-25",
+      "blAwbNumber": "TSCW16401583",
+      "blAwbDate": "2023-07-29",
+      "consignorName": "CENTRAL INTERNATIONAL CO. LLC",
+      "consignorStreet": "ONE WHITMAN ROAD, P.O BOX 525",
+      "consignorCity": "CANTON, MASSACHUSETTS",
+      "consignorCountry": "US",
+      "consigneeName": "BASCO FOOD DISTRIBUTORS LTD",
+      "consigneeCode": "N108974",
+      "consigneeAddress": "#31 HENRY STREET, GASPARILLO",
+      "declarantName": "ANTHONY CHOW",
+      "declarantTIN": "BR0286",
+      "port": "TTPTS",
+      "customsRegime": "C4",
+      "vesselName": "TROPIC ISLAND",
+      "term": "CIF",
+      "currency": "USD",
+      "etaDate": "2023-08-02"
+    },
+    "worksheet": {
+      "exchange_rate": 6.77608,
+      "fob_foreign": 60220.8,
+      "freight_foreign": 0,
+      "insurance_foreign": 0,
+      "grossWeight": 26245
+    },
+    "items": [
+      {
+        "hsCode": "02071490",
+        "description": "BONELESS SKINLESS CHICKEN BREAST FILETS",
+        "countryOfOrigin": "US",
+        "qty": 1394,
+        "packageType": "CT",
+        "grossKg": 26245,
+        "netKg": 23620.5,
+        "itemValue": 60220.8
+      }
+    ],
+    "review_notes": ""
+  },
+  {
+    "id": "UPSL-002",
+    "status": "approved",
+    "source": { "type": "AWB", "filename": "AWB-81025944660.pdf" },
+    "confidence": 88,
+    "header": {
+      "declarationRef": "AZI01-0726",
+      "invoiceNumber": "36702",
+      "invoiceDate": "2025-12-29",
+      "blAwbNumber": "81025944660",
+      "blAwbDate": "2026-01-05",
+      "consignorName": "GENEL-LANDEC INC.",
+      "consignorStreet": "10845 NW 29 STREET",
+      "consignorCity": "DORAL",
+      "consignorCountry": "US",
+      "consigneeName": "KAYVANIC TRADING LIMITED",
+      "consigneeCode": "V123073",
+      "consigneeAddress": "84 POWDHARIE ROAD, PREYSAL, COUVA",
+      "declarantName": "KENNETH MEDINA",
+      "declarantTIN": "BR0293",
+      "port": "TTPIA",
+      "customsRegime": "C4",
+      "vesselName": "AIRFREIGHT",
+      "term": "CFR",
+      "currency": "USD",
+      "etaDate": "2026-01-06"
+    },
+    "worksheet": {
+      "exchange_rate": 6.7732,
+      "fob_foreign": 44446.39,
+      "freight_foreign": 0,
+      "insurance_foreign": 0,
+      "grossWeight": 15
+    },
+    "items": [
+      {
+        "hsCode": "84713000",
+        "description": "APPLE IPAD 11-INCH M4 WI-FI 256GB",
+        "countryOfOrigin": "US",
+        "qty": 1,
+        "packageType": "CT",
+        "grossKg": 15,
+        "netKg": 13.5,
+        "itemValue": 44446.39
+      }
+    ],
+    "review_notes": "Verified against AWB. Approved.",
+    "reviewed_by": "A. Chow",
+    "reviewed_at": "2026-03-09T05:20:00Z"
+  },
+  {
+    "id": "UPSL-003",
+    "status": "needs_correction",
+    "source": { "type": "INVOICE", "filename": "INV-887234-MIAMI.pdf" },
+    "confidence": 71,
+    "header": {
+      "declarationRef": "",
+      "invoiceNumber": "887234",
+      "invoiceDate": "2026-02-14",
+      "blAwbNumber": "MIA2026021488",
+      "blAwbDate": "2026-02-18",
+      "consignorName": "MIAMI TRADING CORP",
+      "consignorStreet": "2200 NW 102 AVE",
+      "consignorCity": "MIAMI",
+      "consignorCountry": "US",
+      "consigneeName": "RICHLAND DISTRIBUTORS",
+      "consigneeCode": "",
+      "consigneeAddress": "LOT 5 SOUTH QUAY, PORT OF SPAIN",
+      "declarantName": "",
+      "declarantTIN": "",
+      "port": "TTPTS",
+      "customsRegime": "C4",
+      "vesselName": "",
+      "term": "FOB",
+      "currency": "USD",
+      "etaDate": ""
+    },
+    "worksheet": {
+      "exchange_rate": 6.79,
+      "fob_foreign": 18500,
+      "freight_foreign": 0,
+      "insurance_foreign": 0,
+      "grossWeight": 4200
+    },
+    "items": [
+      {
+        "hsCode": "21069090",
+        "description": "ASSORTED FOOD PREPARATIONS",
+        "countryOfOrigin": "US",
+        "qty": 240,
+        "packageType": "CT",
+        "grossKg": 4200,
+        "netKg": 3800,
+        "itemValue": 18500
+      }
+    ],
+    "review_notes": "Consignee code missing. Declarant missing. Vessel missing."
+  },
+  {
+    "id": "UPSL-004",
+    "status": "pending_review",
+    "source": { "type": "INVOICE", "filename": "INV-334521-BOSTON.pdf" },
+    "confidence": 96,
+    "header": {
+      "declarationRef": "POS04/23",
+      "invoiceNumber": "334521",
+      "invoiceDate": "2023-09-10",
+      "blAwbNumber": "BOST334521",
+      "blAwbDate": "2023-09-12",
+      "consignorName": "BOSTON SEAFOOD EXPORTS LTD",
+      "consignorStreet": "44 HARBOR VIEW BLVD",
+      "consignorCity": "BOSTON",
+      "consignorCountry": "US",
+      "consigneeName": "PREMIER FOODS TT LTD",
+      "consigneeCode": "N204311",
+      "consigneeAddress": "12 EASTERN MAIN ROAD, LAVENTILLE",
+      "declarantName": "CAMILLE PIERRE",
+      "declarantTIN": "BR0412",
+      "port": "TTPTS",
+      "customsRegime": "C4",
+      "vesselName": "SEA SPIRIT",
+      "term": "CIF",
+      "currency": "USD",
+      "etaDate": "2023-09-28"
+    },
+    "worksheet": {
+      "exchange_rate": 6.7891,
+      "fob_foreign": 38900,
+      "freight_foreign": 1200,
+      "insurance_foreign": 420,
+      "grossWeight": 18600
+    },
+    "items": [
+      {
+        "hsCode": "03037900",
+        "description": "FROZEN ATLANTIC COD FILLETS",
+        "countryOfOrigin": "US",
+        "qty": 880,
+        "packageType": "CT",
+        "grossKg": 18600,
+        "netKg": 17200,
+        "itemValue": 38900
+      }
+    ],
+    "review_notes": ""
+  }
+]
