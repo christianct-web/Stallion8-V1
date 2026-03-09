@@ -150,6 +150,7 @@ export async function upsertDeclaration(payload: Record<string, unknown>) {
   });
 }
 
+// TODO(customs-receipt): add idempotency key header/payload once receipt workflow is implemented.
 export async function reviewDeclaration(
   declarationId: string,
   payload: Record<string, unknown>

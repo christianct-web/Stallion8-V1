@@ -852,7 +852,7 @@ export default function BrokerReview4() {
       setLoading(true);
       try {
         const res = await listDeclarations();
-        const items = (res.items || (res as any).declarations || (res as any) || []).map(normaliseDecl);
+        const items = res.items.map(normaliseDecl);
         setBatch(items);
       } catch {
         setBatch([]);

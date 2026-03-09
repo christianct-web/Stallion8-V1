@@ -1,15 +1,21 @@
+import { Suspense, lazy } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import DeclarationsList from "./pages/DeclarationsList";
-import DeclarationEditor from "./pages/DeclarationEditor";
-import NotFound from "./pages/NotFound";
-import StallionWorkbench from "./pages/StallionWorkbench";
-import BrokerReview4 from "./pages/BrokerReview4";
+
+const DeclarationsList = lazy(() => import("./pages/DeclarationsList"));
+const DeclarationEditor = lazy(() => import("./pages/DeclarationEditor"));
+const StallionWorkbench = lazy(() => import("./pages/StallionWorkbench"));
+const BrokerReview4 = lazy(() => import("./pages/BrokerReview4"));
+const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
+
+const RouteFallback = () => (
+  <div style={{ padding: 24, fontFamily: "system-ui", color: "#666" }}>Loading…</div>
+);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -17,14 +23,16 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<DeclarationsList />} />
-          <Route path="/declaration/:id" element={<DeclarationEditor />} />
-          <Route path="/stallion/workbench" element={<StallionWorkbench />} />
-          <Route path="/stallion/brokerreview4" element={<BrokerReview4 />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <Suspense fallback={<RouteFallback />}>
+          <Routes>
+            <Route path="/" element={<DeclarationsList />} />
+            <Route path="/declaration/:id" element={<DeclarationEditor />} />
+            <Route path="/stallion/workbench" element={<StallionWorkbench />} />
+            <Route path="/stallion/brokerreview4" element={<BrokerReview4 />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Suspense>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
