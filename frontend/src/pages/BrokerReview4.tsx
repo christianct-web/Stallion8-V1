@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { generatePack, listDeclarations, reviewDeclaration } from "@/services/stallionApi";
+import { toast } from "sonner";
 
 // ─── Design tokens ─────────────────────────────────────────────────────────
 const C = {
@@ -380,6 +381,7 @@ function ReviewPanel({ decl, onStatusChange, onBack, idx, total }: {
   const handleExport = async () => {
     if (decl.status !== "approved") return;
     setExporting(true);
+    toast.info(`Generating export ZIP for ${decl.id}...`);
     try {
       const res = await generatePack({
         declaration_id: decl.id,
@@ -388,8 +390,28 @@ function ReviewPanel({ decl, onStatusChange, onBack, idx, total }: {
         items,
         containers: [],
       });
+
+      if (res.status === "blocked") {
+        const errorCount = res.preflight?.counts?.errors ?? 0;
+        toast.error(`Export blocked by validation (${errorCount} error${errorCount === 1 ? "" : "s"}).`);
+        return;
+      }
+
       const zipDoc = res.documents?.find((d) => /zip/i.test(d.name) || /zip/i.test(d.ref));
-      if (zipDoc?.url) window.open(zipDoc.url, "_blank", "noopener,noreferrer");
+      if (zipDoc?.url) {
+        window.open(zipDoc.url, "_blank", "noopener,noreferrer");
+        toast.success("Export ZIP generated.");
+        return;
+      }
+
+      const refs = (res.documents || []).map((d) => d.ref || d.name).filter(Boolean).slice(0, 3);
+      toast.success(
+        refs.length
+          ? `Export generated. ZIP URL missing; refs: ${refs.join(", ")}`
+          : "Export generated, but ZIP URL missing in response."
+      );
+    } catch (e: any) {
+      toast.error(`Export failed: ${e?.message || "unknown error"}`);
     } finally {
       setExporting(false);
     }
