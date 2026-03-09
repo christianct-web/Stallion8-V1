@@ -2,13 +2,83 @@ const BASE_URL =
   (import.meta.env.VITE_STALLION_API_URL as string | undefined)?.replace(/\/$/, "") ||
   `${window.location.protocol}//${window.location.hostname}:8022`;
 
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
-    ...init,
+const REQUEST_TIMEOUT_MS = 12000;
+const RETRYABLE_STATUSES = new Set([502, 503, 504]);
+const warnedKeys = new Set<string>();
+
+function warnOnce(key: string, message: string, data?: unknown) {
+  if (warnedKeys.has(key)) return;
+  warnedKeys.add(key);
+  // eslint-disable-next-line no-console
+  console.warn(`[stallionApi] ${message}`, data);
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  return new Promise<T>((resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(`Request timed out after ${ms}ms`)), ms);
+    promise
+      .then((v) => resolve(v))
+      .catch((e) => reject(e))
+      .finally(() => {
+        if (timer) clearTimeout(timer);
+      });
   });
-  if (!res.ok) throw new Error(`${path} failed (${res.status})`);
+}
+
+async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const request = () =>
+    fetch(`${BASE_URL}${path}`, {
+      headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
+      ...init,
+    });
+
+  let res: Response;
+  try {
+    res = await withTimeout(request(), REQUEST_TIMEOUT_MS);
+  } catch (e) {
+    // one retry for transient network/process churn
+    res = await withTimeout(request(), REQUEST_TIMEOUT_MS).catch((retryErr) => {
+      throw retryErr ?? e;
+    });
+  }
+
+  if (!res.ok) {
+    if (RETRYABLE_STATUSES.has(res.status)) {
+      const retryRes = await withTimeout(request(), REQUEST_TIMEOUT_MS);
+      if (!retryRes.ok) throw new Error(`${path} failed (${retryRes.status})`);
+      return (await retryRes.json()) as T;
+    }
+    throw new Error(`${path} failed (${res.status})`);
+  }
+
   return (await res.json()) as T;
+}
+
+function normalizeListEnvelope<T = any>(res: unknown, endpoint: string): T[] {
+  if (Array.isArray(res)) return res as T[];
+
+  if (res && typeof res === "object") {
+    const o = res as Record<string, unknown>;
+    if (Array.isArray(o.items)) return o.items as T[];
+    if (Array.isArray(o.declarations)) return o.declarations as T[];
+
+    if (o.data && typeof o.data === "object") {
+      const d = o.data as Record<string, unknown>;
+      if (Array.isArray(d.items)) return d.items as T[];
+      if (Array.isArray(d.declarations)) return d.declarations as T[];
+    }
+
+    warnOnce(
+      `${endpoint}-envelope`,
+      `Unexpected list envelope from ${endpoint}; expected array/items/declarations. Falling back to [].`,
+      res
+    );
+    return [];
+  }
+
+  warnOnce(`${endpoint}-nonobject`, `Unexpected non-object response from ${endpoint}. Falling back to [].`, res);
+  return [];
 }
 
 export type LookupKind = "ports" | "terms" | "packages" | "duty_tax_codes" | "duty_tax_bases" | "cpc_codes" | "transport_modes" | "unit_codes" | "box23_types" | "customs_regimes" | "hs_tariff_samples";
@@ -67,9 +137,10 @@ export async function generatePack(payload: {
   }>("/pack/generate", { method: "POST", body: JSON.stringify(payload) });
 }
 
-export async function listDeclarations(status?: string) {
+export async function listDeclarations(status?: string): Promise<{ items: any[] }> {
   const q = status ? `?status=${encodeURIComponent(status)}` : "";
-  return api<{ items: any[] }>(`/declarations${q}`);
+  const res = await api<unknown>(`/declarations${q}`);
+  return { items: normalizeListEnvelope(res, "/declarations") };
 }
 
 export async function upsertDeclaration(payload: Record<string, unknown>) {
