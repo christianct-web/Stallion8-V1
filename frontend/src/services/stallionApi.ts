@@ -119,6 +119,7 @@ export async function calculateWorksheet(payload: {
 }
 
 export async function generatePack(payload: {
+  declaration_id?: string;
   header: Record<string, unknown>;
   worksheet: Record<string, unknown>;
   items: Array<Record<string, unknown>>;

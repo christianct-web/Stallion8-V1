@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { listDeclarations, reviewDeclaration } from "@/services/stallionApi";
+import { generatePack, listDeclarations, reviewDeclaration } from "@/services/stallionApi";
 
 // ─── Design tokens ─────────────────────────────────────────────────────────
 const C = {
@@ -322,6 +322,7 @@ function ReviewPanel({ decl, onStatusChange, onBack, idx, total }: {
   const [tab,      setTab]      = useState("header");
   const [view,     setView]     = useState<"fields"|"doc">("fields");
   const [saving,   setSaving]   = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [cbttRate, setCbttRate] = useState<number | null>(decl.cbttRate ?? null);
   const [cbttLoading, setCbttL] = useState(false);
   const [cbttDate, setCbttDate] = useState<string | null>(null);
@@ -373,6 +374,24 @@ function ReviewPanel({ decl, onStatusChange, onBack, idx, total }: {
       await onStatusChange(decl.id, status, notes, { header, worksheet, items });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleExport = async () => {
+    if (decl.status !== "approved") return;
+    setExporting(true);
+    try {
+      const res = await generatePack({
+        declaration_id: decl.id,
+        header,
+        worksheet,
+        items,
+        containers: [],
+      });
+      const zipDoc = res.documents?.find((d) => /zip/i.test(d.name) || /zip/i.test(d.ref));
+      if (zipDoc?.url) window.open(zipDoc.url, "_blank", "noopener,noreferrer");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -818,7 +837,8 @@ function ReviewPanel({ decl, onStatusChange, onBack, idx, total }: {
             {saving ? "Saving…" : "✓  Approve"}
           </button>
           <button
-            disabled={decl.status !== "approved"}
+            onClick={handleExport}
+            disabled={decl.status !== "approved" || exporting}
             style={{
               padding: "7px 14px",
               background: decl.status === "approved" ? C.ink : C.paperBorder,
@@ -829,7 +849,7 @@ function ReviewPanel({ decl, onStatusChange, onBack, idx, total }: {
               fontFamily: "'Fraunces', serif", fontWeight: 600,
             }}
           >
-            ↓ Export ZIP
+            {exporting ? "Exporting…" : "↓ Export ZIP"}
           </button>
         </div>
         <div style={{ marginTop: 7, fontSize: 11, color: C.inkLight, fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.06em" }}>
