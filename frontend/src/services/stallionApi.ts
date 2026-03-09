@@ -1,6 +1,6 @@
 const BASE_URL =
   (import.meta.env.VITE_STALLION_API_URL as string | undefined)?.replace(/\/$/, "") ||
-  "http://127.0.0.1:8020";
+  `${window.location.protocol}//${window.location.hostname}:8022`;
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
