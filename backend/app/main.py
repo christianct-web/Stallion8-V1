@@ -123,14 +123,42 @@ def declarations_review(declaration_id: str, req: Dict[str, Any]):
 @app.post("/pack/generate")
 def pack_generate(req: Dict[str, Any]):
     declaration_id = req.get("declaration_id")
+    items: list[dict[str, Any]] | None = None
+    row_idx: int | None = None
+
     if declaration_id:
         items = load_declarations()
-        row = next((r for r in items if str(r.get("id")) == str(declaration_id)), None)
-        if not row:
+        row_idx = next((i for i, r in enumerate(items) if str(r.get("id")) == str(declaration_id)), None)
+        if row_idx is None:
             raise HTTPException(status_code=404, detail="Declaration not found")
+
+        row = items[row_idx]
         if str(row.get("status", "")).lower() != "approved":
             raise HTTPException(status_code=409, detail="Declaration must be approved before export")
-    return generate_pack(req)
+
+    result = generate_pack(req)
+
+    if declaration_id and items is not None and row_idx is not None:
+        event = {
+            "at": result.get("generatedAt"),
+            "status": result.get("status"),
+            "ref": next((d.get("ref") for d in (result.get("documents") or []) if d.get("ref")), None),
+            "preflight": result.get("preflight", {}).get("counts", {}),
+        }
+        row = items[row_idx]
+        events = row.get("export_events") or []
+        if not isinstance(events, list):
+            events = []
+        events.append(event)
+
+        items[row_idx] = {
+            **row,
+            "export_events": events[-10:],
+            "last_export": event,
+        }
+        save_declarations(items)
+
+    return result
 
 
 @app.get("/pack/file/{doc_id}")

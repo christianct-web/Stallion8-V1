@@ -102,6 +102,7 @@ function normaliseDecl(d: any): any {
     brokerNotes: d.brokerNotes || d.review_notes || "",
     reviewedBy:  d.reviewedBy  || d.reviewed_by  || null,
     reviewedAt:  d.reviewedAt  || d.reviewed_at  || null,
+    lastExport: d.lastExport || d.last_export || (Array.isArray(d.export_events) && d.export_events.length ? d.export_events[d.export_events.length - 1] : null),
   };
 }
 
@@ -338,7 +339,7 @@ function ReviewPanel({ decl, onStatusChange, onBack, idx, total }: {
     setView("fields");
     setCbttRate(decl.cbttRate ?? null);
     setCbttDate(null);
-    setLastExport(null);
+    setLastExport(decl.lastExport || null);
   }, [decl.id]);
 
   const H  = (k: string) => (v: string) => setHeader((h: any) => ({ ...h, [k]: v }));
