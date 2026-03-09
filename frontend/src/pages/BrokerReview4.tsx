@@ -324,6 +324,7 @@ function ReviewPanel({ decl, onStatusChange, onBack, idx, total }: {
   const [view,     setView]     = useState<"fields"|"doc">("fields");
   const [saving,   setSaving]   = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [lastExport, setLastExport] = useState<{ at: string; status: string; ref?: string } | null>(null);
   const [cbttRate, setCbttRate] = useState<number | null>(decl.cbttRate ?? null);
   const [cbttLoading, setCbttL] = useState(false);
   const [cbttDate, setCbttDate] = useState<string | null>(null);
@@ -337,6 +338,7 @@ function ReviewPanel({ decl, onStatusChange, onBack, idx, total }: {
     setView("fields");
     setCbttRate(decl.cbttRate ?? null);
     setCbttDate(null);
+    setLastExport(null);
   }, [decl.id]);
 
   const H  = (k: string) => (v: string) => setHeader((h: any) => ({ ...h, [k]: v }));
@@ -393,11 +395,17 @@ function ReviewPanel({ decl, onStatusChange, onBack, idx, total }: {
 
       if (res.status === "blocked") {
         const errorCount = res.preflight?.counts?.errors ?? 0;
+        setLastExport({ at: new Date().toISOString(), status: "blocked" });
         toast.error(`Export blocked by validation (${errorCount} error${errorCount === 1 ? "" : "s"}).`);
         return;
       }
 
       const zipDoc = res.documents?.find((d) => /zip/i.test(d.name) || /zip/i.test(d.ref));
+      setLastExport({
+        at: res.generatedAt || new Date().toISOString(),
+        status: res.status || "generated",
+        ref: zipDoc?.ref || res.documents?.[0]?.ref,
+      });
       if (zipDoc?.url) {
         window.open(zipDoc.url, "_blank", "noopener,noreferrer");
         toast.success("Export ZIP generated.");
@@ -874,6 +882,21 @@ function ReviewPanel({ decl, onStatusChange, onBack, idx, total }: {
             {exporting ? "Exporting…" : "↓ Export ZIP"}
           </button>
         </div>
+        {lastExport && (
+          <div style={{
+            marginTop: 7,
+            padding: "6px 8px",
+            border: `1px solid ${C.paperBorder}`,
+            borderRadius: 3,
+            fontSize: 11,
+            color: C.inkLight,
+            fontFamily: "'JetBrains Mono', monospace",
+            background: C.paper,
+          }}>
+            EXPORT HISTORY · {lastExport.status.toUpperCase()} · {new Date(lastExport.at).toLocaleString("en-TT")}
+            {lastExport.ref ? ` · ${lastExport.ref}` : ""}
+          </div>
+        )}
         <div style={{ marginTop: 7, fontSize: 11, color: C.inkLight, fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.06em" }}>
           ← → navigate batch · A approve · C flag correction
         </div>
