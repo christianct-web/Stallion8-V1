@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   calculateWorksheet,
@@ -25,7 +25,70 @@ const uid = () =>
   globalThis.crypto?.randomUUID?.() ??
   `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
+// Stable declaration ID for this workbench session.
+// Persisted so Save Draft + Generate Pack always reference the same record.
+function useStableId() {
+  const ref = useRef<string>(uid());
+  return ref.current;
+}
+
+function buildHeader(form: any) {
+  return {
+    declarationRef:          form.declarationRef,
+    port:                    form.port,
+    term:                    form.term,
+    modeOfTransport:         form.modeOfTransport,
+    customsRegime:           form.customsRegime,
+    consignorName:           form.consignorName,
+    consignorAddress:        form.consignorAddress,
+    consignorStreet:         form.consignorStreet,
+    consignorCity:           form.consignorCity,
+    consignorCountry:        form.consignorCountry,
+    consigneeCode:           form.consigneeCode,
+    consigneeName:           form.consigneeName,
+    consigneeAddress:        form.consigneeAddress,
+    declarantTIN:            form.declarantTIN,
+    declarantName:           form.declarantName,
+    vesselName:              form.vesselName,
+    blAwbNumber:             form.blAwbNumber,
+    blAwbDate:               form.blAwbDate,
+    etaDate:                 form.etaDate,
+    invoiceNumber:           form.invoiceNumber,
+    invoiceDate:             form.invoiceDate,
+    currency:                form.currency,
+    bankCode:                form.bankCode,
+    modeOfPayment:           form.modeOfPayment,
+    termsCode:               form.termsCode,
+    termsDescription:        form.termsDescription,
+    countryFirstDestination: form.countryFirstDestination,
+    tradingCountry:          form.tradingCountry,
+    exportCountryCode:       form.exportCountryCode,
+    exportCountryName:       form.exportCountryName,
+    countryOfOriginName:     form.countryOfOriginName,
+  };
+}
+
+function buildWorksheet(form: any) {
+  return {
+    invoice_value_foreign: form.invoice_value_foreign,
+    exchange_rate:         form.exchange_rate,
+    freight_foreign:       form.freight_foreign,
+    insurance_foreign:     form.insurance_foreign,
+    other_foreign:         form.other_foreign,
+    deduction_foreign:     form.deduction_foreign,
+    duty_rate_pct:         form.duty_rate_pct,
+    surcharge_rate_pct:    form.surcharge_rate_pct,
+    vat_rate_pct:          form.vat_rate_pct,
+    extra_fees_local:      form.extra_fees_local,
+    global_fee:            form.global_fee,
+  };
+}
+
 export default function StallionWorkbench() {
+  // ── stable declaration ID for this session ──────────────────────────────
+  const declarationId = useStableId();
+
+  // ── lookups ──────────────────────────────────────────────────────────────
   const [ports,          setPorts]          = useState<Array<{ code: string; label: string }>>([]);
   const [terms,          setTerms]          = useState<Array<{ code: string; label: string }>>([]);
   const [packages,       setPackages]       = useState<Array<{ code: string; label: string }>>([]);
@@ -38,9 +101,11 @@ export default function StallionWorkbench() {
   const [box23Types,     setBox23Types]     = useState<Array<{ type: string; label: string; amount: number; auto: boolean }>>([]);
   const [hsTariffSamples, setHsTariffSamples] = useState<Array<{ description: string; tariff: string; taxes?: Array<{ code: string; rate: number }> }>>([]);
 
+  // ── templates ─────────────────────────────────────────────────────────────
   const [templates,          setTemplates]          = useState<Array<{ id: string; name: string; payload: any }>>([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
 
+  // ── form state ─────────────────────────────────────────────────────────────
   const [form, setForm] = useState({
     declarationRef: "",
     port: "",
@@ -89,27 +154,15 @@ export default function StallionWorkbench() {
   const [items, setItems] = useState([
     {
       id: uid(),
-      description: "",
-      hsCode: "",
-      qty: 1,
-      packageType: "",
-      grossKg: 0,
-      netKg: 0,
-      itemValue: 0,
-      dutyTaxCode: "",
-      dutyTaxBase: "",
-      cpc: "",
-      unitCode: "",
+      description: "", hsCode: "", qty: 1,
+      packageType: "", grossKg: 0, netKg: 0, itemValue: 0,
+      dutyTaxCode: "", dutyTaxBase: "", cpc: "", unitCode: "",
     },
   ]);
 
   const [containers, setContainers] = useState<Array<{
-    id: string;
-    containerNo: string;
-    type: string;
-    packageType: string;
-    packages: number;
-    goodsWeight: number;
+    id: string; containerNo: string; type: string;
+    packageType: string; packages: number; goodsWeight: number;
   }>>([]);
 
   const [calc,          setCalc]          = useState<any>(null);
@@ -119,20 +172,16 @@ export default function StallionWorkbench() {
   const [generating,    setGenerating]    = useState(false);
   const [savingDraft,   setSavingDraft]   = useState(false);
 
+  // ── bootstrap ──────────────────────────────────────────────────────────────
   useEffect(() => {
     (async () => {
       try {
         const [p, t, pk, tr, cr, uc, dt, db, cpc, b23, hs] = await Promise.all([
-          getLookup("ports"),
-          getLookup("terms"),
-          getLookup("packages"),
-          getLookup("transport_modes"),
-          getLookup("customs_regimes"),
-          getLookup("unit_codes"),
-          getLookup("duty_tax_codes"),
-          getLookup("duty_tax_bases"),
-          getLookup("cpc_codes"),
-          getLookup("box23_types"),
+          getLookup("ports"),         getLookup("terms"),
+          getLookup("packages"),      getLookup("transport_modes"),
+          getLookup("customs_regimes"), getLookup("unit_codes"),
+          getLookup("duty_tax_codes"), getLookup("duty_tax_bases"),
+          getLookup("cpc_codes"),     getLookup("box23_types"),
           getLookup("hs_tariff_samples"),
         ]);
         setPorts(p.items);
@@ -147,7 +196,7 @@ export default function StallionWorkbench() {
         setBox23Types(b23.items as any);
         setHsTariffSamples(hs.items as any);
         setSelectedBox23((b23.items as any[]).filter(x => x.auto).map(x => x.type));
-      } catch (err) {
+      } catch {
         toast.error("Failed to load lookups");
       }
     })();
@@ -158,13 +207,11 @@ export default function StallionWorkbench() {
   }, []);
 
   useEffect(() => {
-    const dutyCodes = items.map(item => item.dutyTaxCode).filter(Boolean);
-    setForm(f => ({
-      ...f,
-      extra_fees_local: dutyCodes.length * 40,
-    }));
+    const dutyCodes = items.map(i => i.dutyTaxCode).filter(Boolean);
+    setForm(f => ({ ...f, extra_fees_local: dutyCodes.length * 40 }));
   }, [items]);
 
+  // ── template load ──────────────────────────────────────────────────────────
   const handleLoadTemplate = (id: string) => {
     const tpl = templates.find(t => t.id === id);
     if (!tpl) return;
@@ -172,19 +219,20 @@ export default function StallionWorkbench() {
     toast.success(`Template "${tpl.name}" loaded`);
   };
 
+  // ── worksheet calculate ────────────────────────────────────────────────────
   const handleCalculate = async () => {
     try {
       const r = await calculateWorksheet({
         invoice_value_foreign: Number(form.invoice_value_foreign),
-        exchange_rate: Number(form.exchange_rate),
-        freight_foreign: Number(form.freight_foreign),
-        insurance_foreign: Number(form.insurance_foreign),
-        other_foreign: Number(form.other_foreign),
-        deduction_foreign: Number(form.deduction_foreign),
-        duty_rate_pct: Number(form.duty_rate_pct),
-        surcharge_rate_pct: Number(form.surcharge_rate_pct),
-        vat_rate_pct: Number(form.vat_rate_pct),
-        extra_fees_local: Number(form.extra_fees_local),
+        exchange_rate:         Number(form.exchange_rate),
+        freight_foreign:       Number(form.freight_foreign),
+        insurance_foreign:     Number(form.insurance_foreign),
+        other_foreign:         Number(form.other_foreign),
+        deduction_foreign:     Number(form.deduction_foreign),
+        duty_rate_pct:         Number(form.duty_rate_pct),
+        surcharge_rate_pct:    Number(form.surcharge_rate_pct),
+        vat_rate_pct:          Number(form.vat_rate_pct),
+        extra_fees_local:      Number(form.extra_fees_local),
       });
       setCalc(r);
       if ((r as any).preflight) setPreflight((r as any).preflight);
@@ -194,142 +242,24 @@ export default function StallionWorkbench() {
     }
   };
 
-  const handleGenerate = async () => {
-    if (!calc) {
-      toast.error("Run worksheet calculation first.");
-      return;
-    }
-    setGenerating(true);
-    try {
-      const result = await generatePack({
-        header: {
-          declarationRef:          form.declarationRef,
-          port:                    form.port,
-          term:                    form.term,
-          modeOfTransport:         form.modeOfTransport,
-          customsRegime:           form.customsRegime,
-          consignorName:           form.consignorName,
-          consignorAddress:        form.consignorAddress,
-          consignorStreet:         form.consignorStreet,
-          consignorCity:           form.consignorCity,
-          consignorCountry:        form.consignorCountry,
-          consigneeCode:           form.consigneeCode,
-          consigneeName:           form.consigneeName,
-          consigneeAddress:        form.consigneeAddress,
-          declarantTIN:            form.declarantTIN,
-          declarantName:           form.declarantName,
-          vesselName:              form.vesselName,
-          blAwbNumber:             form.blAwbNumber,
-          blAwbDate:               form.blAwbDate,
-          etaDate:                 form.etaDate,
-          invoiceNumber:           form.invoiceNumber,
-          invoiceDate:             form.invoiceDate,
-          currency:                form.currency,
-          bankCode:                form.bankCode,
-          modeOfPayment:           form.modeOfPayment,
-          termsCode:               form.termsCode,
-          termsDescription:        form.termsDescription,
-          countryFirstDestination: form.countryFirstDestination,
-          tradingCountry:          form.tradingCountry,
-          exportCountryCode:       form.exportCountryCode,
-          exportCountryName:       form.exportCountryName,
-          countryOfOriginName:     form.countryOfOriginName,
-        },
-        worksheet: {
-          invoice_value_foreign: form.invoice_value_foreign,
-          exchange_rate:         form.exchange_rate,
-          freight_foreign:       form.freight_foreign,
-          insurance_foreign:     form.insurance_foreign,
-          other_foreign:         form.other_foreign,
-          deduction_foreign:     form.deduction_foreign,
-          duty_rate_pct:         form.duty_rate_pct,
-          surcharge_rate_pct:    form.surcharge_rate_pct,
-          vat_rate_pct:          form.vat_rate_pct,
-          extra_fees_local:      form.extra_fees_local,
-          global_fee:            form.global_fee,
-        },
-        items,
-        containers,
-      });
-      setPackResult(result);
-      if (result.preflight) setPreflight(result.preflight);
-      toast.success(result.status === "blocked" ? "Pack blocked: fix fields" : "Pack generated");
-    } catch (err: any) {
-      toast.error(err?.message ?? "Pack generation failed");
-    } finally {
-      setGenerating(false);
-    }
-  };
-
+  // ── save draft ─────────────────────────────────────────────────────────────
+  // FIX: uses stable declarationId and persists to backend JSON store.
   const handleSaveDraft = async () => {
     setSavingDraft(true);
     try {
-      const snapshot = {
-        id: `${form.declarationRef || 'draft'}-${Date.now()}`,
-        createdAt: new Date().toISOString(),
-        status: "Draft",
-        header: {
-          declarationRef: form.declarationRef,
-          port: form.port,
-          term: form.term,
-          modeOfTransport: form.modeOfTransport,
-          customsRegime: form.customsRegime,
-          consignorName: form.consignorName,
-          consignorAddress: form.consignorAddress,
-          consignorStreet: form.consignorStreet,
-          consignorCity: form.consignorCity,
-          consignorCountry: form.consignorCountry,
-          consigneeCode: form.consigneeCode,
-          consigneeName: form.consigneeName,
-          consigneeAddress: form.consigneeAddress,
-          declarantTIN: form.declarantTIN,
-          declarantName: form.declarantName,
-          vesselName: form.vesselName,
-          blAwbNumber: form.blAwbNumber,
-          blAwbDate: form.blAwbDate,
-          etaDate: form.etaDate,
-          invoiceNumber: form.invoiceNumber,
-          invoiceDate: form.invoiceDate,
-          currency: form.currency,
-          bankCode: form.bankCode,
-          modeOfPayment: form.modeOfPayment,
-          termsCode: form.termsCode,
-          termsDescription: form.termsDescription,
-          countryFirstDestination: form.countryFirstDestination,
-          tradingCountry: form.tradingCountry,
-          exportCountryCode: form.exportCountryCode,
-          exportCountryName: form.exportCountryName,
-          countryOfOriginName: form.countryOfOriginName,
-        },
-        worksheet: {
-          invoice_value_foreign: form.invoice_value_foreign,
-          exchange_rate: form.exchange_rate,
-          freight_foreign: form.freight_foreign,
-          insurance_foreign: form.insurance_foreign,
-          other_foreign: form.other_foreign,
-          deduction_foreign: form.deduction_foreign,
-          duty_rate_pct: form.duty_rate_pct,
-          surcharge_rate_pct: form.surcharge_rate_pct,
-          vat_rate_pct: form.vat_rate_pct,
-          extra_fees_local: form.extra_fees_local,
-          global_fee: form.global_fee,
-        },
-        items,
-        containers,
-      };
-
-      const key = "stallion_workbench_drafts";
-      const existing = JSON.parse(localStorage.getItem(key) || "[]");
-      localStorage.setItem(key, JSON.stringify([snapshot, ...existing].slice(0, 100)));
+      const header    = buildHeader(form);
+      const worksheet = buildWorksheet(form);
 
       await upsertDeclaration({
-        id: String(snapshot.id),
-        status: "draft",
-        source: { type: "WORKBENCH", filename: "manual-entry" },
+        id:         declarationId,
+        status:     "draft",
+        updated_at: new Date().toISOString(),
+        source:     { type: "WORKBENCH", filename: "manual-entry" },
         confidence: 100,
-        header: snapshot.header,
-        worksheet: snapshot.worksheet,
-        items: snapshot.items,
+        header,
+        worksheet,
+        items,
+        containers,
         review_notes: "",
       });
 
@@ -341,6 +271,60 @@ export default function StallionWorkbench() {
     }
   };
 
+  // ── generate pack ──────────────────────────────────────────────────────────
+  // FIX: upserts first (status=pending_review) then passes declaration_id
+  // to /pack/generate so export events are logged against the correct record.
+  const handleGenerate = async () => {
+    if (!calc) {
+      toast.error("Run worksheet calculation first.");
+      return;
+    }
+    setGenerating(true);
+    try {
+      const header    = buildHeader(form);
+      const worksheet = buildWorksheet(form);
+
+      // Upsert as pending_review before generating so broker queue sees it
+      await upsertDeclaration({
+        id:         declarationId,
+        status:     "pending_review",
+        updated_at: new Date().toISOString(),
+        source:     { type: "WORKBENCH", filename: "manual-entry" },
+        confidence: 100,
+        header,
+        worksheet,
+        items,
+        containers,
+        review_notes: "",
+      });
+
+      const result = await generatePack({
+        declaration_id: declarationId,
+        header,
+        worksheet: {
+          ...worksheet,
+          ...(calc ?? {}),
+        },
+        items,
+        containers,
+      });
+
+      setPackResult(result);
+      if (result.preflight) setPreflight(result.preflight);
+
+      if (result.status === "blocked") {
+        toast.error("Pack blocked — fix required fields");
+      } else {
+        toast.success("Pack generated — declaration queued for broker review");
+      }
+    } catch (err: any) {
+      toast.error(err?.message ?? "Pack generation failed");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // ── section issue counts ───────────────────────────────────────────────────
   const sectionIssueCounts = useMemo(() => {
     const counts = {
       Header:     { e: 0, w: 0 },
@@ -389,20 +373,16 @@ export default function StallionWorkbench() {
               fontFamily: "var(--wb-font-mono)", fontSize: 11,
               color: "var(--wb-ghost-dim)", letterSpacing: "0.06em",
             }}>
-              Modern worksheet-first customs entry
+              {declarationId.slice(0, 8).toUpperCase()}
             </span>
           </div>
         </div>
 
         <div style={{ flex: 1, maxWidth: 860, margin: "0 auto", width: "100%", padding: "24px 16px 120px" }}>
-
           <WorkbenchHeader
-            form={form}
-            setForm={setForm}
-            ports={ports}
-            terms={terms}
-            transportModes={transportModes}
-            customsRegimes={customsRegimes}
+            form={form} setForm={setForm}
+            ports={ports} terms={terms}
+            transportModes={transportModes} customsRegimes={customsRegimes}
             templates={templates}
             selectedTemplateId={selectedTemplateId}
             setSelectedTemplateId={setSelectedTemplateId}
@@ -410,58 +390,40 @@ export default function StallionWorkbench() {
             sectionErrors={sectionIssueCounts.Header.e}
             sectionWarnings={sectionIssueCounts.Header.w}
           />
-
           <WorkbenchParties
-            form={form}
-            setForm={setForm}
+            form={form} setForm={setForm}
             sectionErrors={sectionIssueCounts.Parties.e}
             sectionWarnings={sectionIssueCounts.Parties.w}
           />
-
           <WorkbenchItems
-            items={items}
-            setItems={setItems}
-            packages={packages}
-            unitCodes={unitCodes}
-            dutyTaxCodes={dutyTaxCodes}
-            dutyTaxBases={dutyTaxBases}
-            cpcCodes={cpcCodes}
-            hsTariffSamples={hsTariffSamples}
+            items={items} setItems={setItems}
+            packages={packages} unitCodes={unitCodes}
+            dutyTaxCodes={dutyTaxCodes} dutyTaxBases={dutyTaxBases}
+            cpcCodes={cpcCodes} hsTariffSamples={hsTariffSamples}
             sectionErrors={sectionIssueCounts.Items.e}
             sectionWarnings={sectionIssueCounts.Items.w}
           />
-
           <WorkbenchContainers
-            containers={containers}
-            setContainers={setContainers}
+            containers={containers} setContainers={setContainers}
             packages={packages}
             sectionErrors={sectionIssueCounts.Containers.e}
             sectionWarnings={sectionIssueCounts.Containers.w}
           />
-
           <WorkbenchWorksheet
-            form={form}
-            setForm={setForm}
-            calc={calc}
-            onCalculate={handleCalculate}
+            form={form} setForm={setForm}
+            calc={calc} onCalculate={handleCalculate}
             box23Types={box23Types}
-            selectedBox23={selectedBox23}
-            setSelectedBox23={setSelectedBox23}
+            selectedBox23={selectedBox23} setSelectedBox23={setSelectedBox23}
             shippedOnBoardDate={form.blAwbDate}
             sectionErrors={sectionIssueCounts.Worksheet.e}
             sectionWarnings={sectionIssueCounts.Worksheet.w}
           />
-
           <WorkbenchActions
-            preflight={preflight}
-            packResult={packResult}
-            onGenerate={handleGenerate}
-            onSaveDraft={handleSaveDraft}
-            generating={generating}
-            savingDraft={savingDraft}
+            preflight={preflight} packResult={packResult}
+            onGenerate={handleGenerate} onSaveDraft={handleSaveDraft}
+            generating={generating} savingDraft={savingDraft}
             calc={calc}
           />
-
         </div>
       </div>
     </TooltipProvider>
