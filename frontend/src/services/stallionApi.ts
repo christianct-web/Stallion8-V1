@@ -87,6 +87,15 @@ export async function getLookup(kind: LookupKind): Promise<{ kind: string; items
   return api(`/lookups/${kind}`);
 }
 
+export async function getCbttRate(date: string): Promise<{ rate: number; source: string } | null> {
+  try {
+    const q = date ? `?date=${encodeURIComponent(date)}` : "";
+    return await api<{ rate: number; source: string }>(`/lookups/cbtt-rate${q}`);
+  } catch {
+    return null;
+  }
+}
+
 export async function getTemplates(): Promise<Array<{ id: string; name: string; kind: string; scope: string; payload: any }>> {
   return api("/templates");
 }
