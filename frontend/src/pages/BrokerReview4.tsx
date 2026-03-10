@@ -1,925 +1,666 @@
-import { useState, useEffect } from "react";
-import { generatePack, listDeclarations, reviewDeclaration } from "@/services/stallionApi";
-import { toast } from "sonner";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  listDeclarations,
+  reviewDeclaration,
+  receiptDeclaration,
+  submitDeclaration,
+  STALLION_BASE_URL,
+} from "@/services/stallionApi";
 
-// ─── Design tokens ─────────────────────────────────────────────────────────
+// ─── Design tokens ────────────────────────────────────────────────────────────
 const C = {
-  paper:       "#F6F3EE",
-  paperAlt:    "#EFECE6",
-  paperBorder: "#E2DDD6",
-  paperMid:    "#CCC7BE",
-  ink:         "#18150F",
-  inkMid:      "#3D3830",
-  inkLight:    "#6B6560",
-  void:        "#111318",
-  voidMid:     "#191D26",
-  voidSurface: "#1F2430",
-  voidBorder:  "#2E3748",
-  ghost:       "#A0AABB",
-  ghostDim:    "#6B7585",
-  pending:     "#96700A",
-  approved:    "#1A5E3A",
-  correction:  "#963A10",
-  rejected:    "#7A1E1E",
-  warn:        "#FEF3DC",
-  warnBorder:  "#D4A020",
-  warnText:    "#7A5000",
-  critical:    "#FEE8E8",
-  critBorder:  "#B02020",
+  paper:      "#F6F3EE", paperAlt:  "#EFECE6", paperBorder: "#E2DDD6",
+  paperMid:   "#CCC7BE", ink:       "#18150F", inkMid:      "#3D3830",
+  inkLight:   "#6B6560", void:      "#111318", voidMid:     "#191D26",
+  voidSurface:"#1F2430", voidBorder:"#2E3748", ghost:       "#A0AABB",
+  ghostDim:   "#6B7585", approved:  "#1A5E3A", pending:     "#96700A",
+  correction: "#963A10", warn:      "#FEF3DC", warnBorder:  "#D4A020",
+  warnText:   "#7A5000", critical:  "#FEE8E8", critBorder:  "#B02020",
+  submitted:  "#1E4A8C", receipted: "#1E4A8C",
 };
 
-const STATUS_CFG: Record<string, { color: string; label: string; short: string }> = {
-  pending:          { color: C.pending,    label: "Pending Review",   short: "PENDING"    },
-  pending_review:   { color: C.pending,    label: "Pending Review",   short: "PENDING"    },
-  draft:            { color: C.ghostDim,   label: "Draft",            short: "DRAFT"      },
-  approved:         { color: C.approved,   label: "Approved",         short: "APPROVED"   },
-  needs_correction: { color: C.correction, label: "Needs Correction", short: "CORRECTION" },
-  rejected:         { color: C.rejected,   label: "Rejected",         short: "REJECTED"   },
-  submitted:        { color: "#1E4A8C",    label: "Submitted",        short: "SUBMITTED"  },
-  receipted:        { color: "#1E4A8C",    label: "Receipted",        short: "RECEIPTED"  },
+const STATUS_CFG: Record<string, { color: string; bg: string; label: string }> = {
+  draft:            { color: C.ghostDim,   bg: C.voidSurface, label: "DRAFT"       },
+  pending_review:   { color: C.pending,    bg: C.warn,        label: "PENDING"     },
+  pending:          { color: C.pending,    bg: C.warn,        label: "PENDING"     },
+  approved:         { color: C.approved,   bg: "#EBF7F1",     label: "APPROVED"    },
+  needs_correction: { color: C.correction, bg: "#FEF0E8",     label: "CORRECTION"  },
+  rejected:         { color: C.critBorder, bg: C.critical,    label: "REJECTED"    },
+  submitted:        { color: C.submitted,  bg: "#EEF2FA",     label: "SUBMITTED"   },
+  receipted:        { color: C.receipted,  bg: "#EEF2FA",     label: "RECEIPTED"   },
 };
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
-function getBlockers(h: any): string[] {
-  if (!h) return [];
-  return [
-    [!h.declarationRef, "Declaration Ref"],
-    [!h.consigneeCode,  "Consignee Code"],
-    [!h.declarantTIN,   "Declarant TIN"],
-    [!h.vesselName,     "Vessel / Flight"],
-    [!h.etaDate,        "ETA Date"],
-    [!h.blAwbNumber,    "B/L · AWB No."],
-  ].filter(([f]) => f).map(([, l]) => l as string);
+function statusCfg(s: string) {
+  return STATUS_CFG[s?.toLowerCase?.()] ?? STATUS_CFG.draft;
 }
 
-// Normalise declaration from API — field names may vary across extraction sources
-function normaliseDecl(d: any): any {
-  const h = d.header || d;
+// ─── Normalise API shape to ReviewDecl ───────────────────────────────────────
+interface ReviewDecl {
+  id:           string;
+  status:       string;
+  reference?:   string;
+  brokerNotes?: string;
+  reviewedBy?:  string;
+  reviewedAt?:  string;
+  receiptNumber?: string;
+  source?:      { type?: string; filename?: string };
+  confidence?:  number;
+  header?:      Record<string, any>;
+  worksheet?:   Record<string, any>;
+  items?:       any[];
+  containers?:  any[];
+  export_events?: any[];
+  last_export?: any;
+}
+
+function normaliseDecl(raw: any): ReviewDecl {
   return {
-    ...d,
-    id:                 d.id || d.declaration_id || d.ref,
-    status:             d.status || "pending",
-    confidence:         d.confidence ?? d.ai_confidence ?? null,
-    shippedOnBoardDate: d.shippedOnBoardDate || h.blAwbDate || h.shipped_on_board_date || null,
-    blAwbDateLabel:     d.blAwbDateLabel || h.blAwbDateLabel || "Shipped on Board",
-    cbttRate:           d.cbttRate || d.exchange_rate_confirmed || null,
-    source: d.source || {
-      type:     d.source_type || "INVOICE",
-      filename: d.source_filename || d.filename || "—",
-      url:      d.source_url || null,
-    },
-    header: {
-      declarationRef:   h.declarationRef   || h.declaration_ref  || "",
-      invoiceNumber:    h.invoiceNumber     || h.invoice_number   || "",
-      invoiceDate:      h.invoiceDate       || h.invoice_date     || "",
-      blAwbNumber:      h.blAwbNumber       || h.bl_awb_number    || "",
-      blAwbDate:        h.blAwbDate         || h.bl_awb_date      || "",
-      consignorName:    h.consignorName     || h.consignor_name   || "",
-      consignorStreet:  h.consignorStreet   || h.consignor_street || "",
-      consignorCity:    h.consignorCity     || h.consignor_city   || "",
-      consignorCountry: h.consignorCountry  || h.consignor_country || "",
-      consigneeName:    h.consigneeName     || h.consignee_name   || "",
-      consigneeCode:    h.consigneeCode     || h.consignee_code   || "",
-      consigneeAddress: h.consigneeAddress  || h.consignee_address || "",
-      declarantName:    h.declarantName     || h.declarant_name   || "",
-      declarantTIN:     h.declarantTIN      || h.declarant_tin    || "",
-      port:             h.port              || "",
-      customsRegime:    h.customsRegime     || h.customs_regime   || "",
-      vesselName:       h.vesselName        || h.vessel_name      || "",
-      term:             h.term              || "",
-      currency:         h.currency          || "USD",
-      totalPackages:    h.totalPackages     || h.total_packages   || 0,
-      etaDate:          h.etaDate           || h.eta_date         || "",
-    },
-    worksheet: d.worksheet || {
-      exchange_rate:    d.exchange_rate     || 6.77,
-      fob_foreign:      d.fob_foreign       || 0,
-      freight_foreign:  d.freight_foreign   || 0,
-      insurance_foreign: d.insurance_foreign || 0,
-      grossWeight:      d.gross_weight      || 0,
-    },
-    items:       d.items || [],
-    brokerNotes: d.brokerNotes || d.review_notes || "",
-    reviewedBy:  d.reviewedBy  || d.reviewed_by  || null,
-    reviewedAt:  d.reviewedAt  || d.reviewed_at  || null,
-    lastExport: d.lastExport || d.last_export || (Array.isArray(d.export_events) && d.export_events.length ? d.export_events[d.export_events.length - 1] : null),
+    id:            raw.id          ?? "",
+    status:        raw.status      ?? "draft",
+    reference:     raw.reference_number ?? raw.header?.declarationRef ?? raw.id?.slice(0, 12) ?? "",
+    brokerNotes:   raw.review_notes ?? raw.brokerNotes ?? "",
+    reviewedBy:    raw.reviewed_by  ?? raw.reviewedBy  ?? "",
+    reviewedAt:    raw.reviewed_at  ?? raw.reviewedAt  ?? "",
+    receiptNumber: raw.receipt_number ?? raw.receiptNumber ?? "",
+    source:        raw.source       ?? {},
+    confidence:    raw.confidence   ?? null,
+    header:        raw.header       ?? {},
+    worksheet:     raw.worksheet    ?? {},
+    items:         raw.items        ?? [],
+    containers:    raw.containers   ?? [],
+    export_events: raw.export_events ?? [],
+    last_export:   raw.last_export  ?? null,
   };
 }
 
-// ─── Field component ────────────────────────────────────────────────────────
-function Field({
-  label, value, onChange, mono = false,
-  warn = false, critical = false, note, readOnly = false,
-  action,
-}: {
-  label: string; value: string | number; onChange?: (v: string) => void;
-  mono?: boolean; warn?: boolean; critical?: boolean;
-  note?: string; readOnly?: boolean;
-  action?: { label: string; fn: () => void; loading?: boolean };
-}) {
-  const bg = critical ? C.critical : warn ? C.warn : "transparent";
-  const lc = critical ? C.critBorder : warn ? C.warnText : C.inkLight;
-  const vc = critical ? C.critBorder : warn ? C.warnText : C.ink;
+// ─── Status pill ─────────────────────────────────────────────────────────────
+function StatusPill({ status }: { status: string }) {
+  const cfg = statusCfg(status);
   return (
-    <div style={{ borderBottom: `1px solid ${C.paperBorder}`, background: bg }}>
-      <div style={{ display: "grid", gridTemplateColumns: "130px 1fr" }}>
-        <div style={{
-          padding: "8px 8px 8px 14px", fontSize: 11, color: lc,
-          fontFamily: "'Fraunces', serif",
-          borderRight: `1px solid ${C.paperBorder}`,
-          display: "flex", alignItems: "center",
-        }}>
-          {label}{(warn || critical) && <span style={{ marginLeft: 4 }}>·</span>}
-        </div>
-        <div style={{ display: "flex", alignItems: "center" }}>
-          <input
-            value={value ?? ""}
-            readOnly={readOnly}
-            onChange={e => onChange?.(e.target.value)}
-            style={{
-              flex: 1, padding: "8px 10px",
-              background: "transparent", border: "none", outline: "none",
-              color: vc,
-              fontFamily: mono ? "'JetBrains Mono', monospace" : "'Fraunces', serif",
-              fontSize: mono ? 12 : 13,
-            }}
-          />
-          {action && (
-            <button
-              onClick={action.fn}
-              disabled={action.loading}
-              style={{
-                marginRight: 8, padding: "3px 9px",
-                background: "transparent",
-                border: `1px solid ${C.paperBorder}`,
-                borderRadius: 3, color: C.inkLight,
-                fontSize: 10, cursor: "pointer",
-                fontFamily: "'JetBrains Mono', monospace",
-                letterSpacing: "0.08em", whiteSpace: "nowrap",
-              }}
-            >
-              {action.loading ? "FETCHING…" : action.label}
-            </button>
-          )}
+    <span style={{
+      fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+      fontWeight: 700, letterSpacing: "0.1em",
+      color: cfg.color, background: cfg.bg,
+      padding: "3px 8px", borderRadius: 3,
+      border: `1px solid ${cfg.color}44`, display: "inline-block",
+    }}>{cfg.label}</span>
+  );
+}
+
+// ─── Batch list (left panel) ─────────────────────────────────────────────────
+function BatchList({
+  batch, onSelect, loading,
+}: {
+  batch: ReviewDecl[]; onSelect: (id: string) => void; loading: boolean;
+}) {
+  const navigate = useNavigate();
+  const pending  = batch.filter(d => d.status === "pending_review" || d.status === "pending");
+  const others   = batch.filter(d => d.status !== "pending_review" && d.status !== "pending");
+
+  return (
+    <div style={{ flex: 1, overflow: "auto", background: C.voidMid }}>
+      {/* Sub-header */}
+      <div style={{ padding: "12px 18px", borderBottom: `1px solid ${C.voidBorder}`, display: "flex", alignItems: "center", gap: 10 }}>
+        <button onClick={() => navigate("/")} style={{ background: "transparent", border: `1px solid ${C.voidBorder}`, borderRadius: 3, color: C.ghost, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, padding: "4px 10px", cursor: "pointer" }}>
+          ← HOME
+        </button>
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.ghostDim, letterSpacing: "0.1em" }}>
+          {batch.length} DECLARATION{batch.length !== 1 ? "S" : ""}
         </div>
       </div>
-      {note && (
-        <div style={{
-          padding: "2px 14px 6px", fontSize: 11, color: C.warnText,
-          fontFamily: "'Fraunces', serif", fontStyle: "italic",
-          background: bg,
-        }}>
-          {note}
+
+      {loading ? (
+        <div style={{ padding: 40, textAlign: "center", fontFamily: "'Fraunces', serif", fontStyle: "italic", color: C.ghostDim }}>
+          Loading…
+        </div>
+      ) : batch.length === 0 ? (
+        <div style={{ padding: 48, textAlign: "center" }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 28, color: C.voidBorder, marginBottom: 16 }}>▤</div>
+          <div style={{ fontFamily: "'Fraunces', serif", fontSize: 15, color: C.ghost, fontWeight: 600, marginBottom: 8 }}>Queue is clear</div>
+          <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 12, color: C.ghostDim }}>
+            No declarations pending review
+          </div>
+        </div>
+      ) : (
+        <div>
+          {/* Pending group */}
+          {pending.length > 0 && (
+            <>
+              <div style={{ padding: "8px 18px 4px", fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.14em", color: C.ghostDim }}>
+                PENDING REVIEW · {pending.length}
+              </div>
+              {pending.map(d => <BatchRow key={d.id} d={d} onSelect={onSelect} />)}
+            </>
+          )}
+          {/* Other group */}
+          {others.length > 0 && (
+            <>
+              <div style={{ padding: "12px 18px 4px", fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.14em", color: C.ghostDim }}>
+                ALL · {others.length}
+              </div>
+              {others.map(d => <BatchRow key={d.id} d={d} onSelect={onSelect} />)}
+            </>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-function SecHead({ label, warn = false }: { label: string; warn?: boolean }) {
+function BatchRow({ d, onSelect }: { d: ReviewDecl; onSelect: (id: string) => void }) {
+  const [hov, setHov] = useState(false);
+  const cfg = statusCfg(d.status);
+  const consignee = d.header?.consigneeName ?? d.header?.consignee_name ?? "";
   return (
-    <div style={{
-      padding: "7px 14px",
-      fontFamily: "'JetBrains Mono', monospace",
-      fontSize: 10, fontWeight: 700,
-      letterSpacing: "0.12em", textTransform: "uppercase" as const,
-      color: warn ? C.warnText : C.inkLight,
-      background: warn ? C.warn : C.paperAlt,
-      borderTop: `1px solid ${C.paperBorder}`,
-      borderBottom: `1px solid ${C.paperBorder}`,
-    }}>
-      {label}
-    </div>
-  );
-}
-
-// ─── Batch list ─────────────────────────────────────────────────────────────
-function BatchList({ batch, onSelect, loading }: {
-  batch: any[]; onSelect: (id: string) => void; loading: boolean;
-}) {
-  const counts = batch.reduce((acc, d) => {
-    const s = d.status || "pending";
-    acc[s] = (acc[s] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const reviewed = batch.filter(d =>
-    d.status !== "pending" && d.status !== "pending_review" && d.status !== "draft"
-  ).length;
-  const progress = batch.length ? Math.round(reviewed / batch.length * 100) : 0;
-
-  return (
-    <div style={{ background: C.void, flex: 1, overflowY: "auto", display: "flex", flexDirection: "column" }}>
-      {/* Batch header */}
-      <div style={{ padding: "12px 16px", borderBottom: `1px solid ${C.voidBorder}`, flexShrink: 0 }}>
-        <div style={{
-          fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
-          color: C.ghostDim, letterSpacing: "0.12em", marginBottom: 10,
-        }}>
-          BATCH · {loading ? "LOADING…" : `${batch.length} DECLARATIONS`}
+    <div
+      onClick={() => onSelect(d.id)}
+      onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
+      style={{
+        padding: "11px 18px", cursor: "pointer", transition: "background 0.12s",
+        background: hov ? C.voidSurface : "transparent",
+        borderBottom: `1px solid ${C.voidBorder}`,
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, color: hov ? "#fff" : C.ghost, letterSpacing: "0.04em" }}>
+          {d.reference || d.id.slice(0, 14)}
         </div>
-        {/* Progress bar */}
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-          <div style={{ flex: 1, height: 2, background: C.voidBorder, borderRadius: 1 }}>
-            <div style={{
-              height: "100%", borderRadius: 1,
-              width: `${progress}%`, background: C.approved,
-              transition: "width 0.4s",
-            }} />
-          </div>
-          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: C.ghost, flexShrink: 0 }}>
-            {reviewed}/{batch.length} reviewed
-          </span>
-        </div>
-        {/* Status counts */}
-        <div style={{ display: "flex", gap: 20 }}>
-          {[
-            ["PEND",  (counts.pending || 0) + (counts.pending_review || 0), C.ghost],
-            ["APPR",  counts.approved    || 0, C.approved],
-            ["CORR",  counts.needs_correction || 0, C.pending],
-            ["REJ",   counts.rejected    || 0, C.rejected],
-          ].map(([label, count, color]) => (
-            <div key={label as string}>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 15, color: color as string, fontWeight: 700, lineHeight: 1 }}>
-                {count}
-              </div>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.ghostDim, letterSpacing: "0.1em", marginTop: 2 }}>
-                {label}
-              </div>
-            </div>
-          ))}
-        </div>
+        <StatusPill status={d.status} />
       </div>
-
-      {/* Declaration rows */}
-      {loading ? (
-        <div style={{ padding: 32, textAlign: "center", fontFamily: "'Fraunces', serif", fontStyle: "italic", color: C.ghostDim, fontSize: 13 }}>
-          Loading declarations…
+      {consignee && (
+        <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 11, color: C.ghostDim }}>
+          {consignee}
         </div>
-      ) : batch.length === 0 ? (
-        <div style={{ padding: 32, textAlign: "center", fontFamily: "'Fraunces', serif", fontStyle: "italic", color: C.ghostDim, fontSize: 13 }}>
-          No declarations in this batch.
+      )}
+      {d.items && d.items.length > 0 && (
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.ghostDim, marginTop: 2 }}>
+          {d.items.length} item{d.items.length !== 1 ? "s" : ""}
+          {d.confidence != null && ` · ${d.confidence}% conf.`}
         </div>
-      ) : batch.map((d) => {
-        const cfg = STATUS_CFG[d.status] || STATUS_CFG.pending;
-        const blockers = getBlockers(d.header);
-        return (
-          <div
-            key={d.id}
-            onClick={() => onSelect(d.id)}
-            style={{
-              padding: "12px 16px", borderBottom: `1px solid ${C.voidBorder}`,
-              cursor: "pointer", borderLeft: `3px solid ${cfg.color}`,
-              transition: "background 0.1s",
-            }}
-            onMouseEnter={e => (e.currentTarget.style.background = C.voidSurface)}
-            onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-          >
-            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: C.ghost, letterSpacing: "0.04em" }}>
-                {d.id}
-              </span>
-              <span style={{
-                fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
-                color: blockers.length ? C.warnText : cfg.color,
-              }}>
-                {blockers.length ? `${blockers.length} MISSING` : cfg.short}
-              </span>
-            </div>
-            <div style={{
-              fontFamily: "'Fraunces', serif", fontSize: 13, color: "#E4DFD8",
-              marginBottom: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-            }}>
-              {d.header?.consigneeName || "Unnamed"}
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: C.ghostDim }}>
-                {d.source?.type} · {d.header?.invoiceNumber || "—"}
-              </span>
-              {d.confidence != null && (
-                <span style={{
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
-                  color: d.confidence >= 90 ? C.approved : d.confidence >= 75 ? C.pending : C.correction,
-                }}>
-                  {d.confidence}%
-                </span>
-              )}
-            </div>
-          </div>
-        );
-      })}
+      )}
     </div>
   );
 }
 
-// ─── Review panel ────────────────────────────────────────────────────────────
-function ReviewPanel({ decl, onStatusChange, onBack, idx, total }: {
-  decl: any; onStatusChange: (id: string, status: string, notes: string, updated: any) => Promise<void>;
-  onBack: () => void; idx: number; total: number;
+// ─── Field row ────────────────────────────────────────────────────────────────
+function FieldRow({
+  label, value, mono = false, highlight = false, editable = false,
+  editValue, onEdit,
+}: {
+  label: string; value: string | number | null | undefined;
+  mono?: boolean; highlight?: boolean; editable?: boolean;
+  editValue?: string; onEdit?: (v: string) => void;
 }) {
-  const [header,   setHeader]   = useState({ ...decl.header });
-  const [worksheet, setWs]      = useState({ ...decl.worksheet });
-  const [items,    setItems]    = useState((decl.items || []).map((i: any) => ({ ...i })));
-  const [notes,    setNotes]    = useState(decl.brokerNotes || "");
-  const [tab,      setTab]      = useState("header");
-  const [view,     setView]     = useState<"fields"|"doc">("fields");
-  const [saving,   setSaving]   = useState(false);
-  const [exporting, setExporting] = useState(false);
-  const [lastExport, setLastExport] = useState<{ at: string; status: string; ref?: string } | null>(null);
-  const [cbttRate, setCbttRate] = useState<number | null>(decl.cbttRate ?? null);
-  const [cbttLoading, setCbttL] = useState(false);
-  const [cbttDate, setCbttDate] = useState<string | null>(null);
+  const displayVal = value == null || value === "" ? "—" : String(value);
+  return (
+    <div style={{ padding: "7px 0", borderBottom: `1px solid ${C.paperBorder}`, display: "flex", gap: 12 }}>
+      <div style={{ width: 160, flexShrink: 0, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.inkLight, letterSpacing: "0.06em", paddingTop: 2 }}>
+        {label}
+      </div>
+      {editable && onEdit ? (
+        <input
+          value={editValue ?? displayVal}
+          onChange={e => onEdit(e.target.value)}
+          style={{
+            flex: 1, fontFamily: mono ? "'JetBrains Mono', monospace" : "'Fraunces', serif",
+            fontSize: 13, color: C.ink, background: highlight ? "#FEF9EC" : "transparent",
+            border: `1px solid ${highlight ? C.warnBorder : C.paperBorder}`,
+            borderRadius: 3, padding: "3px 8px",
+          }}
+        />
+      ) : (
+        <div style={{
+          flex: 1, fontFamily: mono ? "'JetBrains Mono', monospace" : "'Fraunces', serif",
+          fontSize: 13, color: displayVal === "—" ? C.inkLight : C.ink,
+          fontStyle: !mono && displayVal === "—" ? "italic" : "normal",
+          background: highlight ? "#FEF9EC" : "transparent",
+          borderRadius: 2, padding: highlight ? "2px 6px" : 0,
+        }}>
+          {displayVal}
+        </div>
+      )}
+    </div>
+  );
+}
 
-  useEffect(() => {
-    setHeader({ ...decl.header });
-    setWs({ ...decl.worksheet });
-    setItems((decl.items || []).map((i: any) => ({ ...i })));
-    setNotes(decl.brokerNotes || "");
-    setTab("header");
-    setView("fields");
-    setCbttRate(decl.cbttRate ?? null);
-    setCbttDate(null);
-    setLastExport(decl.lastExport || null);
-  }, [decl.id]);
+// ─── Receipt input panel ─────────────────────────────────────────────────────
+function ReceiptPanel({
+  decl, onReceipt,
+}: {
+  decl: ReviewDecl; onReceipt: (receiptNo: string) => Promise<void>;
+}) {
+  const [receiptNo, setReceiptNo] = useState(decl.receiptNumber ?? "");
+  const [saving,    setSaving]    = useState(false);
 
-  const H  = (k: string) => (v: string) => setHeader((h: any) => ({ ...h, [k]: v }));
-  const W  = (k: string) => (v: string) => setWs((w: any) => ({ ...w, [k]: parseFloat(v) || 0 }));
-  const Ii = (i: number, k: string) => (v: string) =>
-    setItems((its: any[]) => its.map((it, j) => j === i ? { ...it, [k]: v } : it));
-
-  const blockers   = getBlockers(header);
-  const canApprove = blockers.length === 0;
-
-  const cifLocal = (
-    (parseFloat(worksheet.fob_foreign)       || 0) +
-    (parseFloat(worksheet.freight_foreign)   || 0) +
-    (parseFloat(worksheet.insurance_foreign) || 0)
-  ) * (parseFloat(worksheet.exchange_rate) || 1);
-
-  const lookupCBTT = async () => {
-    if (!decl.shippedOnBoardDate) return;
-    setCbttL(true);
-    try {
-      // TODO: replace with real Central Bank TT API call
-      // GET https://www.central-bank.org.tt/api/exchange-rates?date={date}&currency=USD
-      await new Promise(r => setTimeout(r, 800));
-      const rate = 6.7732; // placeholder
-      setCbttRate(rate);
-      setCbttDate(decl.shippedOnBoardDate);
-      setWs((w: any) => ({ ...w, exchange_rate: rate }));
-    } finally {
-      setCbttL(false);
-    }
-  };
-
-  const doAction = async (status: string) => {
+  const handleSubmit = async () => {
+    const v = receiptNo.trim();
+    if (!v) return;
     setSaving(true);
     try {
-      await onStatusChange(decl.id, status, notes, { header, worksheet, items });
+      await onReceipt(v);
     } finally {
       setSaving(false);
     }
   };
 
-  const handleExport = async () => {
-    if (decl.status !== "approved") return;
-    setExporting(true);
-    toast.info(`Generating export ZIP for ${decl.id}...`);
-    try {
-      const res = await generatePack({
-        declaration_id: decl.id,
-        header,
-        worksheet,
-        items,
-        containers: [],
-      });
+  if (decl.status === "receipted") {
+    return (
+      <div style={{ padding: "14px 18px", background: "#EEF2FA", border: `1px solid #1E4A8C44`, borderRadius: 3, marginBottom: 16 }}>
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", color: C.submitted, marginBottom: 6 }}>CUSTOMS RECEIPT</div>
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 700, color: C.submitted }}>
+          {decl.receiptNumber || "—"}
+        </div>
+        <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 11, color: C.inkLight, marginTop: 4 }}>
+          Receipted by {decl.reviewedBy || "Broker"} · {decl.reviewedAt ? new Date(decl.reviewedAt).toLocaleString() : ""}
+        </div>
+      </div>
+    );
+  }
 
-      if (res.status === "blocked") {
-        const errorCount = res.preflight?.counts?.errors ?? 0;
-        setLastExport({ at: new Date().toISOString(), status: "blocked" });
-        toast.error(`Export blocked by validation (${errorCount} error${errorCount === 1 ? "" : "s"}).`);
-        return;
-      }
-
-      const zipDoc = res.documents?.find((d) => /zip/i.test(d.name) || /zip/i.test(d.ref));
-      setLastExport({
-        at: res.generatedAt || new Date().toISOString(),
-        status: res.status || "generated",
-        ref: zipDoc?.ref || res.documents?.[0]?.ref,
-      });
-      if (zipDoc?.url) {
-        window.open(zipDoc.url, "_blank", "noopener,noreferrer");
-        toast.success("Export ZIP generated.");
-        return;
-      }
-
-      const refs = (res.documents || []).map((d) => d.ref || d.name).filter(Boolean).slice(0, 3);
-      toast.success(
-        refs.length
-          ? `Export generated. ZIP URL missing; refs: ${refs.join(", ")}`
-          : "Export generated, but ZIP URL missing in response."
-      );
-    } catch (e: any) {
-      toast.error(`Export failed: ${e?.message || "unknown error"}`);
-    } finally {
-      setExporting(false);
-    }
-  };
-
-  // Tab config with blocker dots
-  const tabBlockers: Record<string, string[]> = {
-    header:    ["Declaration Ref", "ETA Date", "B/L · AWB No."].filter(b => blockers.includes(b)),
-    parties:   ["Consignee Code", "Declarant TIN"].filter(b => blockers.includes(b)),
-    transport: ["Vessel / Flight"].filter(b => blockers.includes(b)),
-    worksheet: [],
-    items:     [],
-  };
-  const TABS = [
-    { id: "header",    label: "Header"    },
-    { id: "parties",   label: "Parties"   },
-    { id: "transport", label: "Transport" },
-    { id: "worksheet", label: "Worksheet" },
-    { id: "items",     label: `Items (${items.length})` },
-  ];
+  // Only show receipt entry for submitted declarations
+  if (decl.status !== "submitted") return null;
 
   return (
-    <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden", background: C.paper }}>
-
-      {/* ── Nav bar ── */}
-      <div style={{
-        display: "flex", alignItems: "center", gap: 10,
-        padding: "8px 14px", background: C.void,
-        borderBottom: `1px solid ${C.voidBorder}`, flexShrink: 0,
-        flexWrap: "wrap",
-      }}>
-        <button
-          onClick={onBack}
+    <div style={{ padding: "14px 18px", background: "#EEF2FA", border: `1px solid #1E4A8C55`, borderRadius: 3, marginBottom: 16 }}>
+      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", color: C.submitted, marginBottom: 10 }}>
+        ENTER CUSTOMS RECEIPT NUMBER
+      </div>
+      <div style={{ display: "flex", gap: 8 }}>
+        <input
+          value={receiptNo}
+          onChange={e => setReceiptNo(e.target.value)}
+          placeholder="e.g. C82/2025/001234"
           style={{
-            background: "transparent", border: `1px solid ${C.voidBorder}`,
-            borderRadius: 3, color: C.ghost, fontSize: 11, cursor: "pointer",
-            padding: "4px 10px", fontFamily: "'JetBrains Mono', monospace",
-            letterSpacing: "0.06em",
+            flex: 1, fontFamily: "'JetBrains Mono', monospace", fontSize: 13,
+            padding: "8px 12px", border: `1px solid #1E4A8C55`,
+            borderRadius: 3, background: "#fff", color: C.ink,
+          }}
+          onKeyDown={e => { if (e.key === "Enter") handleSubmit(); }}
+        />
+        <button
+          onClick={handleSubmit}
+          disabled={!receiptNo.trim() || saving}
+          style={{
+            padding: "8px 18px",
+            background: receiptNo.trim() ? C.submitted : C.voidBorder,
+            border: "none", borderRadius: 3,
+            color: "#fff", fontFamily: "'Fraunces', serif",
+            fontSize: 13, fontWeight: 600, cursor: receiptNo.trim() ? "pointer" : "not-allowed",
           }}
         >
-          ← BATCH
+          {saving ? "Saving…" : "Confirm"}
         </button>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: C.ghostDim, letterSpacing: "0.08em" }}>
-            {decl.id} · {idx + 1} of {total}
-          </div>
-          <div style={{
-            fontFamily: "'Fraunces', serif", fontSize: 13, color: C.ghost,
-            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-          }}>
-            {header.consigneeName || "—"}
-          </div>
-        </div>
-        {/* FIELDS / DOC toggle */}
-        <div style={{ display: "flex", borderRadius: 3, overflow: "hidden", border: `1px solid ${C.voidBorder}` }}>
-          {(["fields", "doc"] as const).map(v => (
-            <button
-              key={v}
-              onClick={() => setView(v)}
-              style={{
-                padding: "4px 10px", background: view === v ? C.voidSurface : "transparent",
-                border: "none", color: view === v ? C.ghost : C.ghostDim,
-                fontSize: 11, cursor: "pointer", fontFamily: "'JetBrains Mono', monospace",
-                letterSpacing: "0.08em",
-              }}
-            >
-              {v === "fields" ? "FIELDS" : "DOC"}
-            </button>
-          ))}
-        </div>
-        {decl.confidence != null && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 11, color: C.ghostDim, fontFamily: "'JetBrains Mono', monospace" }}>CONF</span>
-            <span style={{
-              fontSize: 13, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700,
-              color: decl.confidence >= 90 ? C.approved : decl.confidence >= 75 ? C.pending : C.correction,
-            }}>
-              {decl.confidence}%
-            </span>
-          </div>
-        )}
-        {blockers.length > 0 && (
-          <div style={{
-            padding: "3px 9px", background: C.warn,
-            border: `1px solid ${C.warnBorder}55`, borderRadius: 3,
-            fontSize: 11, color: C.warnText,
-            fontFamily: "'JetBrains Mono', monospace",
-          }}>
-            {blockers.length} REQUIRED
-          </div>
-        )}
-      </div>
-
-      {view === "doc" ? (
-        /* ── Doc view ── */
-        <div style={{ flex: 1, overflowY: "auto", background: C.void, padding: 20 }}>
-          <div style={{ marginBottom: 14 }}>
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: C.ghostDim, letterSpacing: "0.12em", marginBottom: 8 }}>
-              {decl.source?.type} · {decl.source?.filename}
-            </div>
-            {/* SOB date + CBTT lookup */}
-            <div style={{
-              display: "flex", alignItems: "center", gap: 12,
-              padding: "10px 14px", background: C.voidSurface,
-              border: `1px solid ${C.voidBorder}`, borderRadius: 3,
-              flexWrap: "wrap",
-            }}>
-              <div>
-                <div style={{ fontSize: 10, color: C.ghostDim, fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.1em", marginBottom: 3 }}>
-                  {(decl.blAwbDateLabel || "SHIPPED ON BOARD").toUpperCase()}
-                </div>
-                <div style={{ fontSize: 13, color: C.ghost, fontFamily: "'JetBrains Mono', monospace" }}>
-                  {decl.shippedOnBoardDate || "—"}
-                </div>
-              </div>
-              <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 10, color: C.ghostDim, fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.1em", marginBottom: 2 }}>
-                    CBTT RATE {cbttDate ? `· ${cbttDate}` : ""}
-                  </div>
-                  <div style={{ fontSize: 14, color: cbttRate ? C.ghost : C.ghostDim, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700 }}>
-                    {cbttRate ? cbttRate.toFixed(4) : "—"}
-                  </div>
-                </div>
-                <button
-                  onClick={lookupCBTT}
-                  disabled={cbttLoading || !decl.shippedOnBoardDate}
-                  style={{
-                    padding: "5px 12px", background: "transparent",
-                    border: `1px solid ${C.voidBorder}`, borderRadius: 3,
-                    color: C.ghostDim, fontSize: 11, cursor: "pointer",
-                    fontFamily: "'JetBrains Mono', monospace",
-                  }}
-                >
-                  {cbttLoading ? "FETCHING…" : "LOOKUP CBTT"}
-                </button>
-              </div>
-            </div>
-          </div>
-          {/* Extracted summary */}
-          <div style={{ border: `1px solid ${C.voidBorder}`, borderRadius: 3, overflow: "hidden" }}>
-            {[
-              ["Invoice No.",  header.invoiceNumber],
-              ["B/L · AWB",   header.blAwbNumber],
-              ["Consignor",   header.consignorName],
-              ["Consignee",   header.consigneeName],
-              ["Declarant",   header.declarantName || "—"],
-              ["HS Code",     items[0]?.hsCode || "—"],
-              ["Description", items[0]?.description || "—"],
-              ["Packages",    String(header.totalPackages || 0)],
-              ["Gross Wt.",   `${worksheet.grossWeight || 0} kg`],
-              ["FOB Value",   `USD ${(worksheet.fob_foreign || 0).toLocaleString()}`],
-              ["Exch. Rate",  String(worksheet.exchange_rate)],
-            ].map(([lbl, val]) => (
-              <div key={lbl} style={{
-                display: "grid", gridTemplateColumns: "110px 1fr",
-                borderBottom: `1px solid ${C.voidBorder}`,
-              }}>
-                <div style={{
-                  padding: "7px 10px", fontSize: 11, color: C.ghostDim,
-                  fontFamily: "'Fraunces', serif", fontStyle: "italic",
-                  borderRight: `1px solid ${C.voidBorder}`,
-                }}>
-                  {lbl}
-                </div>
-                <div style={{ padding: "7px 10px", fontSize: 12, color: C.ghost, fontFamily: "'JetBrains Mono', monospace", wordBreak: "break-all" }}>
-                  {val || "—"}
-                </div>
-              </div>
-            ))}
-          </div>
-          {decl.source?.url ? (
-            <a
-              href={decl.source.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                display: "block", marginTop: 14, width: "100%",
-                padding: "9px", textAlign: "center",
-                background: "transparent",
-                border: `1px solid ${C.voidBorder}`, borderRadius: 3,
-                color: C.ghostDim, fontSize: 11, textDecoration: "none",
-                fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.1em",
-              }}
-            >
-              OPEN SOURCE PDF ↗
-            </a>
-          ) : (
-            <button style={{
-              marginTop: 14, width: "100%", padding: "9px",
-              background: "transparent", border: `1px solid ${C.voidBorder}`,
-              borderRadius: 3, color: C.ghostDim, fontSize: 11, cursor: "pointer",
-              fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.1em",
-            }}>
-              ↑ UPLOAD SOURCE PDF
-            </button>
-          )}
-        </div>
-      ) : (
-        /* ── Fields view ── */
-        <>
-          {/* 5 Tabs */}
-          <div style={{
-            display: "flex", borderBottom: `1px solid ${C.paperBorder}`,
-            background: C.paper, flexShrink: 0, overflowX: "auto",
-          }}>
-            {TABS.map(t => {
-              const hasIssue = (tabBlockers[t.id]?.length ?? 0) > 0;
-              return (
-                <button
-                  key={t.id}
-                  onClick={() => setTab(t.id)}
-                  style={{
-                    padding: "9px 14px", background: "transparent", border: "none",
-                    borderBottom: tab === t.id ? `2px solid ${C.ink}` : "2px solid transparent",
-                    color: tab === t.id ? C.ink : hasIssue ? C.warnText : C.inkLight,
-                    fontSize: 12, cursor: "pointer", fontFamily: "'Fraunces', serif",
-                    whiteSpace: "nowrap", transition: "color 0.15s",
-                    position: "relative",
-                  }}
-                >
-                  {t.label}
-                  {hasIssue && (
-                    <span style={{
-                      position: "absolute", top: 6, right: 4,
-                      width: 5, height: 5, borderRadius: "50%",
-                      background: C.warnBorder,
-                    }} />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Tab content */}
-          <div style={{ flex: 1, overflowY: "auto" }}>
-
-            {tab === "header" && <>
-              <SecHead label="Declaration" />
-              <Field label="Ref. Number"   value={header.declarationRef} onChange={H("declarationRef")} critical={!header.declarationRef} mono />
-              <Field label="Invoice No."   value={header.invoiceNumber}  onChange={H("invoiceNumber")}  mono />
-              <Field label="Invoice Date"  value={header.invoiceDate}    onChange={H("invoiceDate")}    mono />
-              <Field label="B/L · AWB No." value={header.blAwbNumber}    onChange={H("blAwbNumber")}    critical={!header.blAwbNumber} mono />
-              <Field
-                label={`AWB Date (${decl.blAwbDateLabel || "SOB"})`}
-                value={header.blAwbDate}
-                onChange={H("blAwbDate")}
-                mono
-                note={`Extracted label: "${decl.blAwbDateLabel || "Shipped on Board"}" — switch to DOC view to run CBTT lookup`}
-              />
-              <Field label="Port"          value={header.port}           onChange={H("port")}           mono />
-              <Field label="Regime"        value={header.customsRegime}  onChange={H("customsRegime")}  mono />
-              <Field label="Currency"      value={header.currency}       onChange={H("currency")}       mono />
-              <Field label="Delivery Term" value={header.term}           onChange={H("term")}           mono />
-              <Field label="Packages"      value={header.totalPackages}  onChange={H("totalPackages")}  mono />
-              <Field label="ETA"           value={header.etaDate}        onChange={H("etaDate")}        critical={!header.etaDate} mono />
-            </>}
-
-            {tab === "parties" && <>
-              <SecHead label="Consignor (Exporter)" />
-              <Field label="Name"    value={header.consignorName}    onChange={H("consignorName")} />
-              <Field label="Street"  value={header.consignorStreet}  onChange={H("consignorStreet")} />
-              <Field label="City"    value={header.consignorCity}    onChange={H("consignorCity")} />
-              <Field label="Country" value={header.consignorCountry} onChange={H("consignorCountry")} mono />
-              <SecHead label="Consignee" warn={blockers.includes("Consignee Code")} />
-              <Field label="Name"    value={header.consigneeName}    onChange={H("consigneeName")} />
-              <Field label="Code"    value={header.consigneeCode}    onChange={H("consigneeCode")}    critical={!header.consigneeCode} mono />
-              <Field label="Address" value={header.consigneeAddress} onChange={H("consigneeAddress")} />
-              <SecHead label="Declarant" warn={blockers.includes("Declarant TIN")} />
-              <Field label="Name"     value={header.declarantName} onChange={H("declarantName")} warn={!header.declarantName} />
-              <Field label="TIN/Code" value={header.declarantTIN}  onChange={H("declarantTIN")}  critical={!header.declarantTIN} mono />
-            </>}
-
-            {tab === "transport" && <>
-              <SecHead label="Transport" warn={blockers.includes("Vessel / Flight")} />
-              <Field
-                label="Vessel / Flight"
-                value={header.vesselName}
-                onChange={H("vesselName")}
-                critical={!header.vesselName}
-                note={!header.vesselName ? "Required — check source document for vessel name or flight number" : undefined}
-              />
-              <Field label="Delivery Term" value={header.term} onChange={H("term")} mono />
-              <Field label="Port Code"     value={header.port} onChange={H("port")} mono />
-            </>}
-
-            {tab === "worksheet" && <>
-              <SecHead label="Exchange Rate" />
-              <Field
-                label="Exchange Rate"
-                value={worksheet.exchange_rate}
-                onChange={W("exchange_rate")}
-                mono
-                warn={!cbttRate}
-                note={
-                  cbttRate
-                    ? `CBTT confirmed · ${cbttDate} · USD → TTD`
-                    : "Switch to DOC view → LOOKUP CBTT to auto-fill from Central Bank rate"
-                }
-              />
-              <SecHead label="Valuation" />
-              <Field label="FOB (Foreign)"   value={worksheet.fob_foreign}       onChange={W("fob_foreign")}       mono />
-              <Field label="Freight"         value={worksheet.freight_foreign}    onChange={W("freight_foreign")}    mono />
-              <Field label="Insurance"       value={worksheet.insurance_foreign}  onChange={W("insurance_foreign")}  mono />
-              <Field label="Gross Weight kg" value={worksheet.grossWeight}        onChange={W("grossWeight")}        mono />
-              <div style={{
-                padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center",
-                background: C.paperAlt, borderBottom: `1px solid ${C.paperBorder}`,
-              }}>
-                <span style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 12, color: C.inkLight }}>
-                  Computed CIF (Local)
-                </span>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 17, color: C.ink, fontWeight: 700 }}>
-                  TTD {cifLocal.toLocaleString("en-TT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </div>
-            </>}
-
-            {tab === "items" && items.map((item: any, idx: number) => (
-              <div key={idx}>
-                <SecHead label={`Item ${idx + 1} of ${items.length}`} />
-                {/* HS Code — prominent */}
-                <div style={{
-                  padding: "12px 14px", background: C.paperAlt,
-                  borderBottom: `2px solid ${C.paperBorder}`,
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                }}>
-                  <div>
-                    <div style={{
-                      fontSize: 10, color: C.inkLight,
-                      fontFamily: "'JetBrains Mono', monospace",
-                      letterSpacing: "0.12em", marginBottom: 4,
-                    }}>
-                      HS CODE · VERIFY AGAINST TARIFF
-                    </div>
-                    <input
-                      value={item.hsCode || ""}
-                      onChange={e => Ii(idx, "hsCode")(e.target.value)}
-                      style={{
-                        fontFamily: "'JetBrains Mono', monospace", fontSize: 22,
-                        color: C.ink, background: "transparent",
-                        border: "none", outline: "none",
-                        fontWeight: 700, letterSpacing: "0.08em", width: 180,
-                      }}
-                    />
-                  </div>
-                  <a
-                    href="https://trtc.gov.tt/customs-tariff/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{
-                      padding: "5px 12px", background: "transparent",
-                      border: `1px solid ${C.paperBorder}`, borderRadius: 3,
-                      color: C.inkMid, fontSize: 11, textDecoration: "none",
-                      fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.08em",
-                    }}
-                  >
-                    TT TARIFF ↗
-                  </a>
-                </div>
-                <Field label="Description"  value={item.description}     onChange={Ii(idx, "description")} />
-                <Field label="Origin"       value={item.countryOfOrigin} onChange={Ii(idx, "countryOfOrigin")} mono />
-                <Field label="Qty / Pkgs"   value={item.qty}             onChange={Ii(idx, "qty")}          mono />
-                <Field label="Pkg Type"     value={item.packageType}     onChange={Ii(idx, "packageType")}   mono />
-                <Field label="Gross kg"     value={item.grossKg}         onChange={Ii(idx, "grossKg")}       mono />
-                <Field label="Net kg"       value={item.netKg}           onChange={Ii(idx, "netKg")}         mono />
-                <Field label="Item Value"   value={item.itemValue}       onChange={Ii(idx, "itemValue")}     mono />
-              </div>
-            ))}
-
-          </div>
-        </>
-      )}
-
-      {/* ── Action bar ── */}
-      <div style={{
-        borderTop: `1px solid ${C.paperBorder}`,
-        background: C.paperAlt, flexShrink: 0, padding: "10px 14px",
-      }}>
-        <textarea
-          value={notes}
-          onChange={e => setNotes(e.target.value)}
-          placeholder="Broker notes — flagged issues, corrections made, reference details…"
-          rows={2}
-          style={{
-            width: "100%", background: C.paper,
-            border: `1px solid ${C.paperBorder}`, borderRadius: 3,
-            color: C.ink, fontSize: 12, padding: "7px 10px",
-            fontFamily: "'Fraunces', serif", fontStyle: "italic",
-            resize: "none", outline: "none", boxSizing: "border-box", marginBottom: 8,
-          }}
-        />
-        {!canApprove && (
-          <div style={{
-            padding: "6px 10px", background: C.warn,
-            border: `1px solid ${C.warnBorder}55`, borderRadius: 3,
-            marginBottom: 8, fontSize: 11, color: C.warnText,
-            fontFamily: "'Fraunces', serif", fontStyle: "italic",
-          }}>
-            Cannot approve — complete first: {blockers.join(", ")}
-          </div>
-        )}
-        <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-          {decl.reviewedBy && (
-            <span style={{
-              fontSize: 11, color: C.inkLight, fontFamily: "'JetBrains Mono', monospace",
-              alignSelf: "center", flex: 1, minWidth: 80,
-            }}>
-              {decl.reviewedBy} · {decl.reviewedAt ? new Date(decl.reviewedAt).toLocaleDateString("en-TT") : ""}
-            </span>
-          )}
-          {!decl.reviewedBy && <div style={{ flex: 1 }} />}
-          <button
-            onClick={() => doAction("needs_correction")}
-            style={{
-              padding: "7px 12px", background: "transparent",
-              border: `1px solid ${C.correction}55`, borderRadius: 3,
-              color: C.correction, fontSize: 11, cursor: "pointer", fontFamily: "'Fraunces', serif",
-            }}
-          >
-            Flag Correction
-          </button>
-          <button
-            onClick={() => doAction("rejected")}
-            style={{
-              padding: "7px 12px", background: "transparent",
-              border: `1px solid ${C.rejected}55`, borderRadius: 3,
-              color: C.rejected, fontSize: 11, cursor: "pointer", fontFamily: "'Fraunces', serif",
-            }}
-          >
-            Reject
-          </button>
-          <button
-            onClick={() => canApprove && doAction("approved")}
-            disabled={!canApprove || saving}
-            style={{
-              padding: "7px 16px",
-              background: !canApprove ? C.paperBorder : saving ? C.paperMid : C.approved,
-              border: "none", borderRadius: 3,
-              color: !canApprove ? C.inkLight : "#fff",
-              fontSize: 12, cursor: !canApprove ? "not-allowed" : "pointer",
-              fontFamily: "'Fraunces', serif", fontWeight: 600, transition: "background 0.2s",
-            }}
-          >
-            {saving ? "Saving…" : "✓  Approve"}
-          </button>
-          <button
-            onClick={handleExport}
-            disabled={decl.status !== "approved" || exporting}
-            style={{
-              padding: "7px 14px",
-              background: decl.status === "approved" ? C.ink : C.paperBorder,
-              border: "none", borderRadius: 3,
-              color: decl.status === "approved" ? C.paper : C.inkLight,
-              fontSize: 12,
-              cursor: decl.status === "approved" ? "pointer" : "not-allowed",
-              fontFamily: "'Fraunces', serif", fontWeight: 600,
-            }}
-          >
-            {exporting ? "Exporting…" : "↓ Export ZIP"}
-          </button>
-        </div>
-        {lastExport && (
-          <div style={{
-            marginTop: 7,
-            padding: "6px 8px",
-            border: `1px solid ${C.paperBorder}`,
-            borderRadius: 3,
-            fontSize: 11,
-            color: C.inkLight,
-            fontFamily: "'JetBrains Mono', monospace",
-            background: C.paper,
-          }}>
-            EXPORT HISTORY · {lastExport.status.toUpperCase()} · {new Date(lastExport.at).toLocaleString("en-TT")}
-            {lastExport.ref ? ` · ${lastExport.ref}` : ""}
-          </div>
-        )}
-        <div style={{ marginTop: 7, fontSize: 11, color: C.inkLight, fontFamily: "'JetBrains Mono', monospace", letterSpacing: "0.06em" }}>
-          ← → navigate batch · A approve · C flag correction
-        </div>
       </div>
     </div>
   );
 }
 
-// ─── Root ────────────────────────────────────────────────────────────────────
-export default function BrokerReview4() {
-  const [batch,    setBatch]    = useState<any[]>([]);
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [loading,  setLoading]  = useState(true);
+// ─── Export history panel ─────────────────────────────────────────────────────
+function ExportHistory({ events }: { events: any[] }) {
+  if (!events || events.length === 0) return null;
+  return (
+    <div style={{ marginBottom: 16 }}>
+      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.14em", color: C.inkLight, marginBottom: 6 }}>
+        EXPORT HISTORY
+      </div>
+      <div style={{ border: `1px solid ${C.paperBorder}`, borderRadius: 3, overflow: "hidden" }}>
+        {events.slice(-5).reverse().map((ev, i) => (
+          <div key={i} style={{ padding: "7px 12px", borderBottom: i < Math.min(events.length, 5) - 1 ? `1px solid ${C.paperBorder}` : "none", display: "flex", gap: 12, alignItems: "center" }}>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: ev.status === "generated" ? C.approved : C.critBorder, fontWeight: 700 }}>
+              {(ev.status ?? "—").toUpperCase()}
+            </span>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.inkLight, flex: 1 }}>
+              {ev.at ? new Date(ev.at).toLocaleString() : "—"}
+            </span>
+            {ev.ref && (
+              <a href={`${STALLION_BASE_URL}/pack/file/${ev.ref}`} target="_blank" rel="noopener noreferrer"
+                style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.approved, textDecoration: "none" }}>
+                ↓ {ev.ref.slice(0, 16)}
+              </a>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
-  // Load from real API
+// ─── Review panel (right side) ───────────────────────────────────────────────
+type ReviewTab = "FIELDS" | "ITEMS" | "WORKSHEET" | "HISTORY" | "NOTES";
+
+function ReviewPanel({
+  decl, onStatusChange, onBack, idx, total,
+}: {
+  decl: ReviewDecl;
+  onStatusChange: (id: string, status: string, notes: string, updated: any) => Promise<void>;
+  onBack: () => void;
+  idx: number; total: number;
+}) {
+  const [tab,      setTab]      = useState<ReviewTab>("FIELDS");
+  const [notes,    setNotes]    = useState(decl.brokerNotes ?? "");
+  const [submitting, setSubmitting] = useState<string | null>(null);
+
+  // Editable header fields
+  const [editHeader, setEditHeader] = useState<Record<string, string>>({});
+  const hdr = (key: string) => editHeader[key] ?? (decl.header?.[key] ?? "");
+  const setHdr = (key: string, val: string) => setEditHeader(p => ({ ...p, [key]: val }));
+
+  const ws  = decl.worksheet ?? {};
+  const itms = decl.items ?? [];
+
+  const isPending   = decl.status === "pending_review" || decl.status === "pending";
+  const isApproved  = decl.status === "approved";
+  const isSubmitted = decl.status === "submitted";
+  const isReceipted = decl.status === "receipted";
+  const isDone      = isReceipted;
+
+  // Action button helper
+  const action = async (status: string) => {
+    setSubmitting(status);
+    try {
+      const updatedHeader = Object.keys(editHeader).length > 0
+        ? { ...decl.header, ...editHeader }
+        : undefined;
+      await onStatusChange(decl.id, status, notes, updatedHeader ? { header: updatedHeader } : null);
+    } finally {
+      setSubmitting(null);
+    }
+  };
+
+  const handleReceipt = async (receiptNo: string) => {
+    setSubmitting("receipted");
+    try {
+      await onStatusChange(decl.id, "receipted", notes, { receipt_number: receiptNo });
+    } finally {
+      setSubmitting(null);
+    }
+  };
+
+  const tabs: ReviewTab[] = ["FIELDS", "ITEMS", "WORKSHEET", "HISTORY", "NOTES"];
+
+  return (
+    <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", background: C.paper }}>
+      {/* Panel top bar */}
+      <div style={{ padding: "10px 18px", borderBottom: `1px solid ${C.paperBorder}`, display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+        <button onClick={onBack} style={{ background: "transparent", border: `1px solid ${C.paperBorder}`, borderRadius: 3, color: C.inkLight, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, padding: "4px 10px", cursor: "pointer" }}>
+          ← LIST
+        </button>
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, color: C.ink, letterSpacing: "0.04em" }}>
+          {decl.reference || decl.id.slice(0, 16)}
+        </div>
+        <StatusPill status={decl.status} />
+        {decl.confidence != null && (
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.inkLight }}>
+            {decl.confidence}% conf.
+          </span>
+        )}
+        <div style={{ marginLeft: "auto", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: C.ghost }}>
+          {idx + 1} / {total}
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div style={{ display: "flex", borderBottom: `1px solid ${C.paperBorder}`, flexShrink: 0, background: C.paperAlt }}>
+        {tabs.map(t => (
+          <button key={t} onClick={() => setTab(t)} style={{
+            padding: "9px 16px", background: "transparent", border: "none",
+            borderBottom: tab === t ? `2px solid ${C.ink}` : "2px solid transparent",
+            fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+            letterSpacing: "0.1em", fontWeight: tab === t ? 700 : 400,
+            color: tab === t ? C.ink : C.inkLight, cursor: "pointer",
+          }}>{t}</button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      <div style={{ flex: 1, overflow: "auto", padding: "18px 22px" }}>
+
+        {/* Receipt + export history always visible at top of FIELDS */}
+        {tab === "FIELDS" && (
+          <>
+            <ReceiptPanel decl={decl} onReceipt={handleReceipt} />
+            <ExportHistory events={decl.export_events ?? []} />
+
+            {/* Header fields */}
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.14em", color: C.inkLight, marginBottom: 8 }}>
+              HEADER
+            </div>
+
+            {/* HS code hero */}
+            {itms.length > 0 && (
+              <div style={{ padding: "10px 14px", background: C.void, borderRadius: 3, marginBottom: 14, display: "flex", alignItems: "center", gap: 14 }}>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 700, color: "#fff", letterSpacing: "0.04em" }}>
+                  {itms[0].hsCode ?? itms[0].tarification_hscode_commodity_code ?? "——"}
+                </span>
+                <div>
+                  <div style={{ fontFamily: "'Fraunces', serif", fontSize: 12, color: C.ghost }}>
+                    {itms[0].description ?? ""}
+                  </div>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.ghostDim }}>
+                    {itms.length} line item{itms.length !== 1 ? "s" : ""}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {[
+              ["DECLARATION REF",  "declarationRef",          true,  isPending],
+              ["PORT",             "port",                    true,  false],
+              ["CONSIGNEE",        "consigneeName",           false, isPending],
+              ["CONSIGNEE CODE",   "consigneeCode",           true,  isPending],
+              ["CONSIGNOR",        "consignorName",           false, false],
+              ["DECLARANT TIN",    "declarantTIN",            true,  false],
+              ["VESSEL",           "vesselName",              false, isPending],
+              ["AWB / B/L",        "blAwbNumber",             true,  isPending],
+              ["AWB DATE",         "blAwbDate",               true,  false],
+              ["ETA DATE",         "etaDate",                 true,  false],
+              ["INVOICE NO",       "invoiceNumber",           true,  isPending],
+              ["INVOICE DATE",     "invoiceDate",             true,  false],
+              ["CURRENCY",         "currency",                true,  false],
+              ["EXPORT COUNTRY",   "exportCountryCode",       true,  false],
+              ["TERMS",            "termsCode",               true,  false],
+            ].map(([label, key, mono, hl]) => (
+              <FieldRow key={key as string}
+                label={label as string}
+                value={decl.header?.[key as string]}
+                mono={mono as boolean}
+                highlight={!!hl && (!decl.header?.[key as string])}
+                editable={isPending}
+                editValue={hdr(key as string)}
+                onEdit={v => setHdr(key as string, v)}
+              />
+            ))}
+
+            {(decl.reviewedBy || decl.reviewedAt) && (
+              <div style={{ marginTop: 14, fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 11, color: C.inkLight }}>
+                Reviewed by {decl.reviewedBy || "—"} · {decl.reviewedAt ? new Date(decl.reviewedAt).toLocaleString() : ""}
+              </div>
+            )}
+          </>
+        )}
+
+        {tab === "ITEMS" && (
+          <div>
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.14em", color: C.inkLight, marginBottom: 10 }}>
+              LINE ITEMS · {itms.length}
+            </div>
+            {itms.length === 0 ? (
+              <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", color: C.inkLight, padding: "20px 0" }}>No items</div>
+            ) : itms.map((item: any, i: number) => (
+              <div key={item.id ?? i} style={{ border: `1px solid ${C.paperBorder}`, borderRadius: 3, padding: "12px 14px", marginBottom: 10 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700, color: C.ink, letterSpacing: "0.04em" }}>
+                    {item.hsCode ?? item.tarification_hscode_commodity_code ?? "——"}
+                  </span>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.inkLight }}>
+                    LINE {item.line_number ?? i + 1}
+                  </span>
+                </div>
+                {[
+                  ["DESCRIPTION", item.description ?? ""],
+                  ["QTY",         `${item.qty ?? item.quantity ?? ""} ${item.unitCode ?? item.unit_of_measure ?? ""}`.trim()],
+                  ["GROSS KG",    item.grossKg ?? item.gross_weight ?? ""],
+                  ["NET KG",      item.netKg   ?? item.net_weight   ?? ""],
+                  ["ITEM VALUE",  item.itemValue ?? item.customs_value ?? ""],
+                  ["DUTY CODE",   item.dutyTaxCode ?? ""],
+                  ["CPC",         item.cpc ?? ""],
+                  ["PKG TYPE",    item.packageType ?? item.packages_kind ?? ""],
+                ].map(([l, v]) => (
+                  <FieldRow key={l as string} label={l as string} value={v as any} mono={typeof v === "number"} />
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {tab === "WORKSHEET" && (
+          <div>
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.14em", color: C.inkLight, marginBottom: 10 }}>
+              VALUATION
+            </div>
+            {[
+              ["INVOICE VALUE (FOREIGN)", ws.invoice_value_foreign ?? ""],
+              ["EXCHANGE RATE",           ws.exchange_rate          ?? ""],
+              ["FREIGHT (FOREIGN)",       ws.freight_foreign        ?? ""],
+              ["INSURANCE (FOREIGN)",     ws.insurance_foreign      ?? ""],
+              ["OTHER (FOREIGN)",         ws.other_foreign          ?? ""],
+              ["DEDUCTION (FOREIGN)",     ws.deduction_foreign      ?? ""],
+              ["CIF (FOREIGN)",           ws.cif_foreign            ?? ""],
+              ["CIF (TTD)",               ws.cif_local              ?? ""],
+              ["DUTY RATE %",             ws.duty_rate_pct          ?? ""],
+              ["DUTY",                    ws.duty                   ?? ""],
+              ["SURCHARGE RATE %",        ws.surcharge_rate_pct     ?? ""],
+              ["SURCHARGE",               ws.surcharge              ?? ""],
+              ["VAT RATE %",              ws.vat_rate_pct           ?? ""],
+              ["VAT",                     ws.vat                    ?? ""],
+              ["TOTAL ASSESSED (TTD)",    ws.total_assessed         ?? ""],
+            ].map(([l, v]) => (
+              <FieldRow key={l as string} label={l as string} value={v as any} mono />
+            ))}
+          </div>
+        )}
+
+        {tab === "HISTORY" && (
+          <div>
+            <ExportHistory events={decl.export_events ?? []} />
+            {(decl.export_events?.length ?? 0) === 0 && (
+              <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", color: C.inkLight, padding: "20px 0" }}>
+                No export history yet
+              </div>
+            )}
+            {/* Lifecycle summary */}
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.14em", color: C.inkLight, marginBottom: 8 }}>
+                LIFECYCLE
+              </div>
+              {[
+                { stage: "Extracted",     done: true },
+                { stage: "Pending Review",done: decl.status !== "pending_review" && decl.status !== "pending" },
+                { stage: "Approved",      done: ["approved","submitted","receipted"].includes(decl.status) },
+                { stage: "Submitted",     done: ["submitted","receipted"].includes(decl.status) },
+                { stage: "Receipted",     done: decl.status === "receipted" },
+              ].map(({ stage, done }) => (
+                <div key={stage} style={{ display: "flex", gap: 10, alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.paperBorder}` }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: done ? C.approved : C.paperMid }}>
+                    {done ? "✓" : "○"}
+                  </span>
+                  <span style={{ fontFamily: "'Fraunces', serif", fontSize: 13, color: done ? C.ink : C.inkLight }}>
+                    {stage}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {decl.receiptNumber && (
+              <div style={{ marginTop: 14, padding: "10px 14px", background: "#EEF2FA", borderRadius: 3 }}>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: C.submitted, marginBottom: 4 }}>RECEIPT NUMBER</div>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, color: C.submitted }}>{decl.receiptNumber}</div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === "NOTES" && (
+          <div>
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.14em", color: C.inkLight, marginBottom: 8 }}>
+              BROKER NOTES
+            </div>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder={isDone ? "No notes" : "Enter correction notes or remarks…"}
+              disabled={isDone}
+              style={{
+                width: "100%", minHeight: 180, padding: "10px 12px",
+                fontFamily: "'Fraunces', serif", fontSize: 13, color: C.ink,
+                background: isDone ? C.paperAlt : C.paper,
+                border: `1px solid ${C.paperBorder}`, borderRadius: 3, resize: "vertical",
+              }}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Action bar */}
+      {!isDone && (
+        <div style={{
+          padding: "12px 22px", borderTop: `1px solid ${C.paperBorder}`,
+          background: C.paper, flexShrink: 0,
+          display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center",
+        }}>
+          {/* Pending → Approve / Correction */}
+          {isPending && (
+            <>
+              <button onClick={() => action("needs_correction")} disabled={!!submitting}
+                style={{ padding: "9px 18px", background: "transparent", border: `1px solid ${C.correction}`, borderRadius: 3, color: C.correction, fontFamily: "'Fraunces', serif", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                {submitting === "needs_correction" ? "Saving…" : "Needs Correction"}
+              </button>
+              <button onClick={() => action("approved")} disabled={!!submitting}
+                style={{ padding: "9px 24px", background: C.approved, border: "none", borderRadius: 3, color: "#fff", fontFamily: "'Fraunces', serif", fontSize: 13, fontWeight: 700, cursor: "pointer", marginLeft: "auto" }}>
+                {submitting === "approved" ? "Approving…" : "Approve →"}
+              </button>
+            </>
+          )}
+
+          {/* Correction → Re-review */}
+          {decl.status === "needs_correction" && (
+            <button onClick={() => action("pending_review")} disabled={!!submitting}
+              style={{ padding: "9px 18px", background: C.pending, border: "none", borderRadius: 3, color: "#fff", fontFamily: "'Fraunces', serif", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+              {submitting === "pending_review" ? "Saving…" : "Send for Re-review"}
+            </button>
+          )}
+
+          {/* Approved → Submit */}
+          {isApproved && (
+            <button onClick={() => action("submitted")} disabled={!!submitting}
+              style={{ padding: "9px 24px", background: C.submitted, border: "none", borderRadius: 3, color: "#fff", fontFamily: "'Fraunces', serif", fontSize: 13, fontWeight: 700, cursor: "pointer", marginLeft: "auto" }}>
+              {submitting === "submitted" ? "Submitting…" : "Mark Submitted →"}
+            </button>
+          )}
+
+          {/* Submitted → receipt number shown inline via ReceiptPanel */}
+          {isSubmitted && (
+            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 12, color: C.inkLight }}>
+              Switch to Fields tab to enter the Customs receipt number
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Root component ───────────────────────────────────────────────────────────
+export default function BrokerReview4() {
+  const [batch,    setBatch]    = useState<ReviewDecl[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [activeId, setActiveId] = useState<string | null>(null);
+
   useEffect(() => {
     (async () => {
-      setLoading(true);
       try {
-        const res = await listDeclarations();
-        const items = res.items.map(normaliseDecl);
-        setBatch(items);
+        const { items } = await listDeclarations();
+        setBatch(items.map(normaliseDecl));
       } catch {
         setBatch([]);
       } finally {
@@ -931,41 +672,48 @@ export default function BrokerReview4() {
   const activeIdx = batch.findIndex(d => d.id === activeId);
   const active    = batch[activeIdx] ?? null;
 
-  const reviewed = batch.filter(d =>
-    d.status !== "pending" && d.status !== "pending_review" && d.status !== "draft"
+  const reviewed  = batch.filter(d =>
+    !["pending", "pending_review", "draft"].includes(d.status)
   ).length;
-  const progress = batch.length ? Math.round(reviewed / batch.length * 100) : 0;
+  const progress  = batch.length ? Math.round(reviewed / batch.length * 100) : 0;
 
   const handleStatusChange = async (
     id: string, status: string, notes: string, updated: any
   ) => {
     try {
       await reviewDeclaration(id, {
-        action:       status,
-        review_notes: notes,
-        reviewed_by:  "Broker",
-        reviewed_at:  new Date().toISOString(),
-        header:       updated?.header,
-        worksheet:    updated?.worksheet,
-        items:        updated?.items,
+        action:         status,
+        review_notes:   notes,
+        reviewed_by:    "Broker",
+        reviewed_at:    new Date().toISOString(),
+        receipt_number: updated?.receipt_number,
+        header:         updated?.header,
+        worksheet:      updated?.worksheet,
+        items:          updated?.items,
       });
     } catch {
-      // API error — still update local state optimistically
+      // optimistic update regardless
     }
+
     setBatch(b => b.map(d => d.id === id ? {
-      ...d, status,
-      brokerNotes: notes,
-      header:      updated?.header    || d.header,
-      worksheet:   updated?.worksheet || d.worksheet,
-      items:       updated?.items     || d.items,
-      reviewedBy:  "Broker",
-      reviewedAt:  new Date().toISOString(),
+      ...d,
+      status,
+      brokerNotes:   notes,
+      reviewedBy:    "Broker",
+      reviewedAt:    new Date().toISOString(),
+      receiptNumber: updated?.receipt_number ?? d.receiptNumber,
+      header:        updated?.header    ?? d.header,
+      worksheet:     updated?.worksheet ?? d.worksheet,
+      items:         updated?.items     ?? d.items,
     } : d));
+
     // Auto-advance to next pending
     const next = batch.find((d, i) =>
-      i > activeIdx && (d.status === "pending" || d.status === "pending_review")
+      i > activeIdx && ["pending", "pending_review"].includes(d.status)
     );
-    setActiveId(next ? next.id : null);
+    if (status !== "submitted" && status !== "receipted") {
+      setActiveId(next ? next.id : null);
+    }
   };
 
   // Keyboard navigation
@@ -989,8 +737,8 @@ export default function BrokerReview4() {
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400;1,9..144,600&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: #2E3748; border-radius: 2px; }
-        input:focus { background: #FDFAF5 !important; } textarea:focus { outline: none; }
-        button { transition: opacity 0.15s; } button:hover:not(:disabled) { opacity: 0.82; }
+        input:focus { background: #FDFAF5 !important; outline: none; } textarea:focus { outline: none; }
+        button { transition: opacity 0.15s; } button:hover:not(:disabled) { opacity: 0.85; }
       `}</style>
 
       <div style={{ height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: "'Fraunces', serif" }}>
@@ -1021,22 +769,39 @@ export default function BrokerReview4() {
           </div>
         </div>
 
-        {/* Body */}
+        {/* Body — split layout */}
         <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
-          {activeId && active ? (
-            <ReviewPanel
-              key={active.id}
-              decl={active}
-              onStatusChange={handleStatusChange}
-              onBack={() => setActiveId(null)}
-              idx={activeIdx}
-              total={batch.length}
-            />
-          ) : (
+          {/* Left: batch list (always visible on wider screens) */}
+          <div style={{ width: 280, borderRight: `1px solid ${C.voidBorder}`, display: "flex", flexDirection: "column", overflow: "hidden", flexShrink: 0 }}>
             <BatchList batch={batch} onSelect={setActiveId} loading={loading} />
-          )}
-        </div>
+          </div>
 
+          {/* Right: review panel or empty state */}
+          <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+            {active ? (
+              <ReviewPanel
+                key={active.id}
+                decl={active}
+                onStatusChange={handleStatusChange}
+                onBack={() => setActiveId(null)}
+                idx={activeIdx}
+                total={batch.length}
+              />
+            ) : (
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", background: C.paper }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 36, color: C.paperMid, marginBottom: 16 }}>▤</div>
+                  <div style={{ fontFamily: "'Fraunces', serif", fontSize: 16, color: C.inkMid, fontWeight: 600, marginBottom: 8 }}>
+                    Select a declaration
+                  </div>
+                  <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 12, color: C.inkLight }}>
+                    Choose from the list on the left
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </>
   );

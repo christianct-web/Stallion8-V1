@@ -162,4 +162,62 @@ export async function reviewDeclaration(
   });
 }
 
+export async function submitDeclaration(declarationId: string, payload: Record<string, unknown> = {}) {
+  return reviewDeclaration(declarationId, { action: "submitted", ...payload });
+}
+
+export async function receiptDeclaration(declarationId: string, receiptNumber: string, payload: Record<string, unknown> = {}) {
+  return reviewDeclaration(declarationId, {
+    action: "receipted",
+    receipt_number: receiptNumber,
+    ...payload,
+  });
+}
+
+export async function downloadRegisterCsv(period?: string) {
+  const q = period ? `?period=${encodeURIComponent(period)}` : "";
+  const endpoint = `${BASE_URL}/register/export${q}`;
+
+  const tryFetch = async () => fetch(endpoint);
+  const res = await tryFetch();
+
+  // Graceful fallback: if endpoint is not available yet, export current declarations list as CSV client-side.
+  if (!res.ok) {
+    const { items } = await listDeclarations();
+    const header = ["id", "reference", "status", "updated_at", "consignee", "receipt_number"];
+    const lines = items.map((d: any) => [
+      d.id ?? "",
+      d.reference_number ?? d.header?.declarationRef ?? "",
+      d.status ?? "",
+      d.updated_at ?? "",
+      d.header?.consigneeName ?? d.header?.consignee_name ?? "",
+      d.receipt_number ?? d.receiptNumber ?? "",
+    ]);
+    const csv = [header, ...lines]
+      .map((row) => row.map((v) => `"${String(v ?? "").replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `register-${period || "all"}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    return;
+  }
+
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `register-${period || "all"}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export { BASE_URL as STALLION_BASE_URL };
