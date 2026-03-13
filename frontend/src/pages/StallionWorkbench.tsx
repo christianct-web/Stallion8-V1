@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { TopNav } from "@/components/TopNav";
+import { HelpBox, HelpTip, HelpHeading } from "@/components/HelpBox";
 import {
   calculateWorksheet,
   createTemplate,
@@ -366,6 +367,45 @@ export default function StallionWorkbench() {
             </span>
           </div>
         } />
+
+        <div style={{ maxWidth: 1100, margin: "0 auto", padding: "12px 16px 0" }}>
+          <HelpBox title="Workbench: manual declaration entry">
+            <p style={{ margin: "0 0 10px" }}>
+              Use the Workbench to create or edit declarations manually. Fill in the five tabs in order —
+              then click Generate Pack to produce the C82 XML and LB01 worksheet.
+            </p>
+            <HelpHeading>THE FIVE TABS</HelpHeading>
+            <div style={{ display: "grid", gap: 5 }}>
+              {[
+                ["Header", "Declaration reference, port of entry, customs regime (usually IM4), terms of delivery (CIF/FOB/EXW)."],
+                ["Parties", "Consignee (the TT importer — name, address, TIN) and consignor (the overseas exporter)."],
+                ["Transport", "Vessel or flight name, AWB/BL number, shipped-on-board date, ETA."],
+                ["Worksheet", "Invoice value, exchange rate, freight, insurance. Stallion calculates duty, VAT, and surcharge automatically. Click LOOKUP CBTT to fetch the official exchange rate by date."],
+                ["Items", "One row per HS code line. Enter the HS code, description, country of origin, quantity, weight, and value."],
+              ].map(([tab, desc]) => (
+                <div key={tab} style={{ display: "flex", gap: 8, fontSize: 12 }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: "#1A5E3A", minWidth: 90, flexShrink: 0 }}>{tab}</span>
+                  <span style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", color: "#6B6560" }}>{desc}</span>
+                </div>
+              ))}
+            </div>
+            <HelpHeading>KEY FIELDS</HelpHeading>
+            <div style={{ display: "grid", gap: 5 }}>
+              {[
+                ["HS Code", "Format: 9021.29.00.00 (dots included). Must be at least 6 digits. Determines the duty rate."],
+                ["Exchange Rate", "Click LOOKUP CBTT to auto-fetch the Central Bank TT rate for the shipped-on-board date."],
+                ["Customs Regime", "IM4 is the standard import code for commercial shipments into Trinidad."],
+                ["CPC", "Customs Procedure Code — usually 4000 for standard import. Leave as default unless advised otherwise."],
+              ].map(([field, desc]) => (
+                <div key={field} style={{ display: "flex", gap: 8, fontSize: 12 }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: "#96700A", minWidth: 120, flexShrink: 0 }}>{field}</span>
+                  <span style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", color: "#6B6560" }}>{desc}</span>
+                </div>
+              ))}
+            </div>
+            <HelpTip>Save Draft at any time — the declaration is stored in the backend and will appear in the broker review queue when you're ready.</HelpTip>
+          </HelpBox>
+        </div>
 
         <div style={{ flex: 1, maxWidth: 860, margin: "0 auto", width: "100%", padding: "24px 16px 120px" }}>
           <WorkbenchHeader

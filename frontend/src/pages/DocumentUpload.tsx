@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { extractDocuments } from "@/services/stallionApi";
 import { TopNav } from "@/components/TopNav";
+import { HelpBox, HelpTip, HelpHeading } from "@/components/HelpBox";
 
 // Design tokens (matching paper/void system from other pages)
 const C = {
@@ -104,6 +105,65 @@ export default function DocumentUpload() {
 
         {/* Body */}
         <div style={{ maxWidth: 960, margin: "0 auto", padding: "28px 32px 48px" }}>
+
+          {/* ─── Help ─────────────────────────────────────────────────────────── */}
+          <HelpBox title="What to upload and how extraction works" defaultOpen={true}>
+            <p style={{ margin: "0 0 10px" }}>
+              Stallion uses AI to read your commercial documents and pre-fill the customs declaration form.
+              You upload the documents — Stallion extracts the fields and sends them to broker review.
+            </p>
+
+            <HelpHeading>WHAT TO UPLOAD</HelpHeading>
+            <div style={{ display: "grid", gap: 6 }}>
+              {[
+                ["Commercial Invoice", "Required. Provides consignee, consignor, HS code, description, invoice value, and currency. This is the most important document."],
+                ["Air Waybill (AWB) or Bill of Lading (BL)", "Recommended. Adds AWB/BL number, shipped-on-board date, vessel or flight, and port of loading. Upload together with the invoice in Batch mode."],
+                ["Packing List", "Optional but useful. Adds package count, gross weight, net weight, and item breakdown."],
+              ].map(([name, desc]) => (
+                <div key={name} style={{ paddingLeft: 12, borderLeft: "2px solid #E2DDD6" }}>
+                  <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 12, color: "#3D3830", marginBottom: 2 }}>{name}</div>
+                  <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 12, color: "#6B6560" }}>{desc}</div>
+                </div>
+              ))}
+            </div>
+
+            <HelpHeading>BATCH vs SEPARATE MODE</HelpHeading>
+            <div style={{ display: "grid", gap: 6 }}>
+              <div style={{ paddingLeft: 12, borderLeft: "2px solid #D4A020" }}>
+                <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 12, color: "#3D3830", marginBottom: 2 }}>Batch mode</div>
+                <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 12, color: "#6B6560" }}>
+                  All uploaded files relate to <strong>one shipment</strong>. Stallion reads them together and merges the data.
+                  Use this when you have an invoice + AWB for the same consignment.
+                </div>
+              </div>
+              <div style={{ paddingLeft: 12, borderLeft: "2px solid #E2DDD6" }}>
+                <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 12, color: "#3D3830", marginBottom: 2 }}>Separate mode</div>
+                <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 12, color: "#6B6560" }}>
+                  Each uploaded file is a <strong>different shipment</strong>. Stallion creates one declaration per file.
+                  Use this when processing multiple invoices at once.
+                </div>
+              </div>
+            </div>
+
+            <HelpHeading>CONFIDENCE SCORE</HelpHeading>
+            <p style={{ margin: "0 0 6px", fontStyle: "italic", color: "#6B6560", fontSize: 12 }}>
+              After extraction, each result shows a confidence score (0–100%). This reflects how completely and clearly the AI could read the document.
+            </p>
+            <div style={{ display: "grid", gap: 4 }}>
+              {[
+                ["90–100%", "All critical fields found clearly. Broker review should be quick."],
+                ["70–89%", "Most fields found. Some items may need broker attention — check the notes."],
+                ["Below 70%", "Significant gaps. The document may be unclear, a scanned image, or missing key data. Broker will need to fill in missing fields."],
+              ].map(([range, desc]) => (
+                <div key={range} style={{ display: "flex", gap: 8, fontSize: 12 }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: "#1A5E3A", minWidth: 70 }}>{range}</span>
+                  <span style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", color: "#6B6560" }}>{desc}</span>
+                </div>
+              ))}
+            </div>
+
+            <HelpTip>After extraction, click "Send to Review →" to pass the declaration to the broker queue. The broker will verify fields, set the duty rate, and approve before generating the C82 XML.</HelpTip>
+          </HelpBox>
 
           {/* Mode toggle */}
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>

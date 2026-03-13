@@ -6,6 +6,7 @@ const NAV_LINKS = [
   { label: "Workbench",  path: "/stallion/workbench" },
   { label: "Review",     path: "/stallion/brokerreview4" },
   { label: "Extract",    path: "/stallion/extract" },
+  { label: "Log",        path: "/stallion/log" },
 ];
 
 const void_ = "#111318";

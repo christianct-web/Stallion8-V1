@@ -606,6 +606,63 @@ def declarations_review(declaration_id: str, req: Dict[str, Any]):
     return {"ok": True, "id": declaration_id, "status": action}
 
 
+# ─── Activity log ──────────────────────────────────────────────────────────────
+@app.get("/log")
+def activity_log(limit: int = 200):
+    """
+    Derives a time-sorted activity timeline from declarations.
+    Returns events: created, pending_review, approved, needs_correction,
+    rejected, submitted, receipted — with timestamps, actors, and notes.
+    """
+    items = load_declarations()
+    events = []
+
+    EVENT_ORDER = ["receipted", "submitted", "approved", "needs_correction", "rejected"]
+
+    for d in items:
+        ref = d.get("reference_number") or (d.get("id") or "")[:12] or "—"
+        consignee = (d.get("header") or {}).get("consigneeName", "")
+        src = (d.get("source") or {}).get("type", "MANUAL")
+        dec_id = d.get("id", "")
+
+        # Creation / extraction event
+        created_at = d.get("created_at") or d.get("updated_at", "")
+        if created_at:
+            events.append({
+                "event": "extracted" if src == "EXTRACT" else "created",
+                "declaration_id": dec_id,
+                "reference": ref,
+                "consignee": consignee,
+                "source": src,
+                "confidence": d.get("confidence"),
+                "timestamp": created_at,
+                "actor": "AI extraction" if src == "EXTRACT" else "ops",
+                "notes": "",
+            })
+
+        # Review / status events
+        reviewed_at = d.get("reviewed_at") or ""
+        status = d.get("status", "")
+        if reviewed_at and status in EVENT_ORDER:
+            notes = d.get("review_notes") or ""
+            if status == "receipted" and d.get("receipt_number"):
+                notes = f"Receipt #{d['receipt_number']}"
+            events.append({
+                "event": status,
+                "declaration_id": dec_id,
+                "reference": ref,
+                "consignee": consignee,
+                "source": src,
+                "confidence": None,
+                "timestamp": reviewed_at,
+                "actor": d.get("reviewed_by") or "broker",
+                "notes": notes,
+            })
+
+    events.sort(key=lambda e: e.get("timestamp", ""), reverse=True)
+    return {"events": events[:limit], "total": len(events)}
+
+
 # ─── Pack generation ──────────────────────────────────────────────────────────
 @app.post("/pack/generate")
 def pack_generate(req: Dict[str, Any]):

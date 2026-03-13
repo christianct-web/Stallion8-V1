@@ -10,6 +10,7 @@ const StallionWorkbench = lazy(() => import("./pages/StallionWorkbench"));
 const BrokerReview4 = lazy(() => import("./pages/BrokerReview4"));
 const DocumentUpload = lazy(() => import("./pages/DocumentUpload"));
 const NotFound = lazy(() => import("./pages/NotFound"));
+const ActivityLog = lazy(() => import("./pages/ActivityLog"));
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/stallion/workbench" element={<StallionWorkbench />} />
             <Route path="/stallion/brokerreview4" element={<BrokerReview4 />} />
             <Route path="/stallion/extract" element={<DocumentUpload />} />
+            <Route path="/stallion/log" element={<ActivityLog />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

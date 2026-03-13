@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { listDeclarations, downloadRegisterCsv, deleteDeclaration } from "@/services/stallionApi";
 import { TopNav } from "@/components/TopNav";
+import { HelpBox, HelpTip, HelpHeading } from "@/components/HelpBox";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -500,6 +501,27 @@ export default function DeclarationsList() {
                   </button>
                 ))}
               </div>
+
+              {/* Getting started */}
+              <HelpBox title="How Stallion works">
+                <p style={{ margin: "0 0 10px" }}>
+                  Stallion automates the Trinidad &amp; Tobago customs declaration process from document upload to ASYCUDA C82 XML generation.
+                </p>
+                <div style={{ display: "grid", gap: 6 }}>
+                  {[
+                    ["1. Extract", "Upload commercial invoices and AWBs. AI reads them and pre-fills the declaration fields."],
+                    ["2. Review", "Broker verifies HS codes, values, and transport details. Approves or flags for correction."],
+                    ["3. Generate", "Stallion produces the C82 XML for ASYCUDA upload and the LB01 worksheet PDF."],
+                    ["4. Receipt", "After ASYCUDA processing, enter the receipt number to complete the record."],
+                  ].map(([step, desc]) => (
+                    <div key={step} style={{ display: "flex", gap: 8, fontSize: 12 }}>
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: "#1A5E3A", minWidth: 60, flexShrink: 0 }}>{step}</span>
+                      <span style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", color: "#6B6560" }}>{desc}</span>
+                    </div>
+                  ))}
+                </div>
+                <HelpTip>Start by clicking "Extract Documents" — upload your invoice and AWB, and Stallion will have a draft declaration ready for review in under 30 seconds.</HelpTip>
+              </HelpBox>
 
               {/* Recent activity */}
               <div style={{ border: `1px solid ${C.paperBorder}`, borderRadius: 3, overflow: "hidden" }}>
