@@ -33,7 +33,7 @@ def _write_lb01_worksheet_pdf(header: Dict[str, Any], worksheet: Dict[str, Any],
     currency = header.get("currency", "USD")
 
     ex_rate = float(worksheet.get("exchange_rate", 6.77608) or 6.77608)
-    fob_foreign = float(worksheet.get("fob_foreign", 0) or 0)
+    fob_foreign = float(worksheet.get("fob_foreign") or worksheet.get("invoice_value_foreign", 0) or 0)
     freight_foreign = float(worksheet.get("freight_foreign", 0) or 0)
     insurance_foreign = float(worksheet.get("insurance_foreign", 0) or 0)
     other_foreign = float(worksheet.get("other_foreign", 0) or 0)
@@ -221,7 +221,7 @@ def preflight_workbench(header: Dict[str, Any], worksheet: Dict[str, Any], items
 
         if not hs:
             errors.append({"path": f"items[{i}].hsCode", "message": "HS code is required"})
-        if hs and (not hs.isdigit() or len(hs) < 6):
+        if hs and (not hs.replace(".", "").isdigit() or len(hs.replace(".", "")) < 6):
             errors.append({"path": f"items[{i}].hsCode", "message": "HS code must be numeric and at least 6 digits"})
         if not desc:
             errors.append({"path": f"items[{i}].description", "message": "Description is required"})

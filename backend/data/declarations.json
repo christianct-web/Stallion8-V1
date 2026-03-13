@@ -1,8 +1,11 @@
 [
   {
     "id": "UPSL-001",
-    "status": "pending_review",
-    "source": { "type": "INVOICE", "filename": "INV-446506-CENTRAL.pdf" },
+    "status": "submitted",
+    "source": {
+      "type": "INVOICE",
+      "filename": "INV-446506-CENTRAL.pdf"
+    },
     "confidence": 94,
     "header": {
       "declarationRef": "LB01/23",
@@ -45,12 +48,17 @@
         "itemValue": 60220.8
       }
     ],
-    "review_notes": ""
+    "review_notes": "",
+    "reviewed_by": "Broker",
+    "reviewed_at": "2026-03-12T16:57:15.487Z"
   },
   {
     "id": "UPSL-002",
     "status": "approved",
-    "source": { "type": "AWB", "filename": "AWB-81025944660.pdf" },
+    "source": {
+      "type": "AWB",
+      "filename": "AWB-81025944660.pdf"
+    },
     "confidence": 88,
     "header": {
       "declarationRef": "AZI01-0726",
@@ -100,7 +108,10 @@
   {
     "id": "UPSL-003",
     "status": "needs_correction",
-    "source": { "type": "INVOICE", "filename": "INV-887234-MIAMI.pdf" },
+    "source": {
+      "type": "INVOICE",
+      "filename": "INV-887234-MIAMI.pdf"
+    },
     "confidence": 71,
     "header": {
       "declarationRef": "",
@@ -147,8 +158,11 @@
   },
   {
     "id": "UPSL-004",
-    "status": "pending_review",
-    "source": { "type": "INVOICE", "filename": "INV-334521-BOSTON.pdf" },
+    "status": "submitted",
+    "source": {
+      "type": "INVOICE",
+      "filename": "INV-334521-BOSTON.pdf"
+    },
     "confidence": 96,
     "header": {
       "declarationRef": "POS04/23",
@@ -191,6 +205,263 @@
         "itemValue": 38900
       }
     ],
-    "review_notes": ""
+    "review_notes": "",
+    "reviewed_by": "Broker",
+    "reviewed_at": "2026-03-12T20:16:42.815Z"
+  },
+  {
+    "id": "PERSIST-TEST-001",
+    "status": "approved",
+    "header": {
+      "declarationRef": "LB01/23-PERSIST",
+      "port": "TTPTS",
+      "term": "CIF",
+      "modeOfTransport": "1",
+      "customsRegime": "C4",
+      "consigneeCode": "N108974",
+      "consignorName": "CENTRAL INTERNATIONAL CO .LLC",
+      "invoiceNumber": "446506",
+      "invoiceDate": "2023-07-25",
+      "vesselName": "TROPIC ISLAND",
+      "etaDate": "2023-08-02",
+      "blAwbNumber": "TSCW16401583",
+      "declarantTIN": "BR0286"
+    },
+    "worksheet": {
+      "exchange_rate": 6.77608,
+      "fob_foreign": 60220.8,
+      "freight_foreign": 0,
+      "insurance_foreign": 0,
+      "extra_fees_local": 0,
+      "customs_user_fee": 40,
+      "ces_fees": 0,
+      "cf2_fee": 525,
+      "duty": 163224.38,
+      "surcharge": 61209.14,
+      "vat": 0,
+      "total_assessed": 224998.52
+    },
+    "items": [
+      {
+        "hsCode": "02071490000",
+        "description": "BONELESS SKINLESS CHICKEN BREAST FILETS",
+        "itemValue": 408060.96,
+        "qty": 1394,
+        "grossKg": 26245,
+        "netKg": 23620.5
+      }
+    ],
+    "containers": []
+  },
+  {
+    "id": "PERSIST-TEST-002",
+    "status": "approved",
+    "header": {
+      "declarationRef": "LB01/23-PERSIST2",
+      "port": "TTPTS",
+      "term": "CIF",
+      "modeOfTransport": "1",
+      "customsRegime": "C4",
+      "consigneeCode": "N108974",
+      "consignorName": "CENTRAL INTERNATIONAL CO .LLC",
+      "invoiceNumber": "446506",
+      "invoiceDate": "2023-07-25",
+      "vesselName": "TROPIC ISLAND",
+      "etaDate": "2023-08-02",
+      "blAwbNumber": "TSCW16401583",
+      "declarantTIN": "BR0286"
+    },
+    "worksheet": {
+      "exchange_rate": 6.77608,
+      "fob_foreign": 60220.8,
+      "freight_foreign": 0,
+      "insurance_foreign": 0,
+      "extra_fees_local": 0,
+      "customs_user_fee": 40,
+      "ces_fees": 0,
+      "cf2_fee": 525,
+      "duty": 163224.38,
+      "surcharge": 61209.14,
+      "vat": 0,
+      "total_assessed": 224998.52
+    },
+    "items": [
+      {
+        "hsCode": "02071490000",
+        "description": "BONELESS SKINLESS CHICKEN BREAST FILETS",
+        "itemValue": 408060.96,
+        "qty": 1394,
+        "grossKg": 26245,
+        "netKg": 23620.5
+      }
+    ],
+    "containers": [],
+    "export_events": [
+      {
+        "at": "2026-03-10T04:40:08.496830Z",
+        "status": "blocked",
+        "ref": "worksheet-lb01-b669abb17a",
+        "preflight": {
+          "errors": 0,
+          "warnings": 0
+        }
+      }
+    ],
+    "last_export": {
+      "at": "2026-03-10T04:40:08.496830Z",
+      "status": "blocked",
+      "ref": "worksheet-lb01-b669abb17a",
+      "preflight": {
+        "errors": 0,
+        "warnings": 0
+      }
+    }
+  },
+  {
+    "id": "SMOKE-WB-001",
+    "status": "needs_correction",
+    "updated_at": "2026-03-10T06:00:00Z",
+    "header": {
+      "declarationRef": "SMOKE-WB-001",
+      "port": "TTPTS",
+      "term": "CIF",
+      "modeOfTransport": "1",
+      "customsRegime": "C4",
+      "consigneeCode": "N108974",
+      "consignorName": "CENTRAL INTERNATIONAL",
+      "invoiceNumber": "INV-1",
+      "invoiceDate": "2026-03-10",
+      "vesselName": "TEST VESSEL",
+      "etaDate": "2026-03-12",
+      "blAwbNumber": "BLAWB-1",
+      "declarantTIN": "BR0286"
+    },
+    "worksheet": {
+      "exchange_rate": 6.7732,
+      "fob_foreign": 1000,
+      "freight_foreign": 10,
+      "insurance_foreign": 0,
+      "extra_fees_local": 40,
+      "customs_user_fee": 40,
+      "cf2_fee": 0,
+      "ces_fees": 0,
+      "duty": 100,
+      "surcharge": 20,
+      "vat": 0,
+      "total_assessed": 160
+    },
+    "items": [
+      {
+        "hsCode": "02071490000",
+        "description": "TEST ITEM",
+        "itemValue": 1000,
+        "qty": 10,
+        "grossKg": 100,
+        "netKg": 90
+      }
+    ],
+    "containers": [],
+    "export_events": [
+      {
+        "at": "2026-03-10T06:46:39.161817Z",
+        "status": "blocked",
+        "ref": "worksheet-lb01-e5e4d972b7",
+        "preflight": {
+          "errors": 0,
+          "warnings": 1
+        }
+      }
+    ],
+    "last_export": {
+      "at": "2026-03-10T06:46:39.161817Z",
+      "status": "blocked",
+      "ref": "worksheet-lb01-e5e4d972b7",
+      "preflight": {
+        "errors": 0,
+        "warnings": 1
+      }
+    },
+    "review_notes": "",
+    "reviewed_by": "Broker",
+    "reviewed_at": "2026-03-12T15:32:36.890Z"
+  },
+  {
+    "id": "UAT-SMOKE-001",
+    "status": "receipted",
+    "updated_at": "2026-03-10T06:50:46.675974Z",
+    "reference_number": "UAT-SMOKE-001",
+    "header": {
+      "declarationRef": "UAT-SMOKE-001",
+      "port": "TTPTS",
+      "term": "CIF",
+      "modeOfTransport": "1",
+      "customsRegime": "C4",
+      "consigneeCode": "N108974",
+      "consigneeName": "BASCO FOOD DISTRIBUTORS LTD",
+      "consignorName": "CENTRAL INTERNATIONAL",
+      "invoiceNumber": "INV-UAT-1",
+      "invoiceDate": "2026-03-10",
+      "vesselName": "TROPIC ISLAND",
+      "etaDate": "2026-03-12",
+      "blAwbNumber": "BL-UAT-1",
+      "blAwbDate": "2026-03-10",
+      "declarantTIN": "BR0286"
+    },
+    "worksheet": {
+      "invoice_value_foreign": 1000,
+      "exchange_rate": 6.7732,
+      "freight_foreign": 10,
+      "insurance_foreign": 0,
+      "other_foreign": 0,
+      "deduction_foreign": 0,
+      "duty_rate_pct": 40,
+      "surcharge_rate_pct": 15,
+      "vat_rate_pct": 0,
+      "extra_fees_local": 40,
+      "duty": 100,
+      "surcharge": 20,
+      "vat": 0,
+      "customs_user_fee": 40,
+      "cf2_fee": 0,
+      "ces_fees": 0,
+      "total_assessed": 160,
+      "cif_local": 6800
+    },
+    "items": [
+      {
+        "hsCode": "02071490000",
+        "description": "TEST ITEM",
+        "itemValue": 1000,
+        "qty": 10,
+        "grossKg": 100,
+        "netKg": 90,
+        "packageType": "CT"
+      }
+    ],
+    "containers": [],
+    "review_notes": "",
+    "reviewed_by": "Broker",
+    "reviewed_at": "2026-03-10T06:50:46.696754Z",
+    "export_events": [
+      {
+        "at": "2026-03-10T06:50:46.689942Z",
+        "status": "blocked",
+        "ref": "worksheet-lb01-4ce5a8ee3e",
+        "preflight": {
+          "errors": 0,
+          "warnings": 1
+        }
+      }
+    ],
+    "last_export": {
+      "at": "2026-03-10T06:50:46.689942Z",
+      "status": "blocked",
+      "ref": "worksheet-lb01-4ce5a8ee3e",
+      "preflight": {
+        "errors": 0,
+        "warnings": 1
+      }
+    },
+    "receipt_number": "C82/2026/001234"
   }
 ]

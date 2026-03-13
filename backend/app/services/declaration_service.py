@@ -143,7 +143,7 @@ def _to_contract_items(workbench_items: List[Dict[str, Any]]) -> List[Dict[str, 
             continue
 
         bl_digits = "".join(filter(str.isdigit, str(it.get("blAwbNumber", ""))))
-        previous_doc = int(bl_digits) if bl_digits else None
+        previous_doc = int(bl_digits) if bl_digits else 0
 
         row: Dict[str, Any] = {
             "tarification_hscode_commodity_code": int(hs_digits),
@@ -189,7 +189,7 @@ def build_complete_declaration(
     decl_subcode = (regime_row or {}).get("asycudaSubCode", "4")
 
     exch = float(worksheet.get("exchange_rate", 1.0) or 1.0)
-    fob_foreign = float(worksheet.get("fob_foreign", 0) or 0)
+    fob_foreign = float(worksheet.get("fob_foreign") or worksheet.get("invoice_value_foreign", 0) or 0)
     freight_foreign = float(worksheet.get("freight_foreign", 0) or 0)
     insurance_foreign = float(worksheet.get("insurance_foreign", 0) or 0)
     other_foreign = float(worksheet.get("other_foreign", 0) or 0)

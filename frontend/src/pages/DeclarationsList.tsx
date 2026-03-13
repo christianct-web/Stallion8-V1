@@ -234,8 +234,7 @@ export default function DeclarationsList() {
 
   // ── Actions ────────────────────────────────────────────────────────────────
   const handleNew = () => {
-    const d = createDeclaration();
-    navigate(`/declaration/${d.id}`);
+    navigate("/stallion/workbench");
   };
 
   const handleDelete = () => {

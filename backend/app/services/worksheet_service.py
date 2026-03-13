@@ -15,6 +15,11 @@ def calculate_worksheet(req: WorksheetInput) -> dict:
     total = duty + surcharge + vat + req.extra_fees_local
 
     return {
+        "fob_foreign": round(req.invoice_value_foreign, 2),
+        "invoice_value_foreign": round(req.invoice_value_foreign, 2),
+        "freight_foreign": round(req.freight_foreign, 2),
+        "insurance_foreign": round(req.insurance_foreign, 2),
+        "exchange_rate": round(req.exchange_rate, 6),
         "cif_foreign": round(cif_foreign, 2),
         "cif_local": round(cif_local, 2),
         "duty": round(duty, 2),
