@@ -184,6 +184,9 @@ export async function extractDocuments(files: File[], mode: "batch" | "separate"
       confidence: number;
       notes: string[];
       status: string;
+      certificates: Array<{ type: string; number: string; issueDate: string | null; issuer: string; country: string }>;
+      permitFlags: Array<{ invoiceName: string; ttbizlinkName: string; category: string; sequence: number; permitType: string }>;
+      containerNumber: string;
     }>;
   };
 }

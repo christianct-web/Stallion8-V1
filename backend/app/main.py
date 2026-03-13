@@ -53,6 +53,9 @@ async def lookups(kind: str, date: str | None = Query(default=None)):
     if kind == "cbtt-rate":
       return await cbtt_rate(date)
 
+    if kind == "permits":
+        return {"kind": "permits", "items": PERMIT_LOOKUP}
+
     if kind not in LOOKUPS:
         raise HTTPException(status_code=404, detail=f"Lookup kind '{kind}' not found")
     return {"kind": kind, "items": LOOKUPS[kind]}
@@ -258,7 +261,7 @@ def declarations_delete(declaration_id: str):
 # ─── Document extraction — Claude API ────────────────────────────────────────
 
 EXTRACTION_SYSTEM_PROMPT = """You are a customs declaration data extraction specialist for Trinidad and Tobago (ASYCUDA World).
-Extract all available fields from the uploaded documents (commercial invoices, airway bills, packing lists).
+Extract all available fields from the uploaded documents (commercial invoices, airway bills, packing lists, Caricom certificates, health certificates, free-sale certificates).
 
 Return ONLY a valid JSON object with these fields (use null for fields not found):
 {
@@ -267,7 +270,7 @@ Return ONLY a valid JSON object with these fields (use null for fields not found
   "consignorName": "string — the exporter / shipper",
   "consignorAddress": "string — consignor full address",
   "hsCode": "string — HS tariff code in format XXXX.XX.XX.XX if available, else null",
-  "description": "string — description of goods (be specific)",
+  "description": "string — description of goods (be specific — include product name, form, and any brand if present)",
   "countryOfOrigin": "string — 2-letter ISO country code of origin",
   "invoiceNumber": "string",
   "invoiceDate": "string — ISO date YYYY-MM-DD",
@@ -283,6 +286,17 @@ Return ONLY a valid JSON object with these fields (use null for fields not found
   "packageType": "string — e.g. CTN, BOX, PKG",
   "grossWeightKg": number or null,
   "netWeightKg": number or null,
+  "containerNumber": "string — shipping container number (e.g. MSCU1234567) from packing list or BL, else null",
+  "sealNumber": "string — container seal number from packing list or BL, else null",
+  "certificates": [
+    {
+      "type": "string — one of: CARICOM, HEALTH, FREE_SALE, PHYTO, COO, OTHER",
+      "number": "string — certificate reference number",
+      "issueDate": "string — ISO date YYYY-MM-DD if present, else null",
+      "issuer": "string — issuing authority, ministry, or organisation name",
+      "country": "string — country of issue (2-letter ISO code if possible)"
+    }
+  ],
   "confidence": number — between 0.0 and 1.0 reflecting how complete and certain the extraction is,
   "notes": ["array of strings — flag any fields that are missing, ambiguous, or need broker attention"]
 }
@@ -291,10 +305,54 @@ Rules:
 - For invoiceValueForeign: use the EXW or FOB subtotal, NOT the grand total if freight/insurance are included.
   If only one total is shown, use that.
 - For hsCode: only return if clearly printed on the document. Do not guess.
+- For certificates: extract every certificate present. A Caricom certificate of origin has type CARICOM. A health or veterinary certificate has type HEALTH. A free-sale certificate has type FREE_SALE. A phytosanitary certificate has type PHYTO.
+- For containerNumber: format is typically 4 letters + 7 digits (e.g. MSCU1234567). Look on packing list or BL.
 - For confidence: 0.90+ means all critical fields found clearly. 0.70-0.89 means some fields missing.
   Below 0.70 means significant gaps.
 - Critical fields (required for TT customs): consigneeName, invoiceValueForeign, currency, invoiceNumber.
+- Add a note if a packing list is present but containerNumber or sealNumber could not be found.
 - Return ONLY the JSON object, no markdown, no explanation."""
+
+
+# ─── TTBizLink permit lookup ──────────────────────────────────────────────────
+
+def _load_permit_lookup() -> List[Dict[str, Any]]:
+    path = os.path.join(os.path.dirname(__file__), "..", "data", "permit_lookup.json")
+    try:
+        with open(path) as f:
+            data = json.load(f)
+        return data.get("entries", [])
+    except Exception:
+        return []
+
+PERMIT_LOOKUP: List[Dict[str, Any]] = _load_permit_lookup()
+
+
+def _check_permits(description: str) -> List[Dict[str, Any]]:
+    """
+    Match a goods description against the TTBizLink permit lookup table.
+    Returns a list of matching permit entries (without the keywords field).
+    """
+    if not description or not PERMIT_LOOKUP:
+        return []
+    desc_lower = description.lower()
+    matches: List[Dict[str, Any]] = []
+    seen_sequences: set = set()
+    for entry in PERMIT_LOOKUP:
+        if entry["sequence"] in seen_sequences:
+            continue
+        for kw in entry.get("keywords", []):
+            if kw.lower() in desc_lower:
+                matches.append({
+                    "invoiceName": entry["invoiceName"],
+                    "ttbizlinkName": entry["ttbizlinkName"],
+                    "category": entry["category"],
+                    "sequence": entry["sequence"],
+                    "permitType": entry["permitType"],
+                })
+                seen_sequences.add(entry["sequence"])
+                break
+    return matches
 
 
 def _read_file_bytes(upload: UploadFile) -> bytes:
@@ -505,7 +563,12 @@ def _build_declaration_record(ex: Dict[str, Any], mode: str, filenames: List[str
             "cpc": "4000",
             "countryOfOrigin": ex.get("countryOfOrigin") or "",
         }],
-        "containers": [],
+        "containers": (
+            [{"containerNumber": ex["containerNumber"], "sealNumber": ex.get("sealNumber") or ""}]
+            if ex.get("containerNumber") else []
+        ),
+        "certificates": ex.get("certificates") or [],
+        "permit_flags": _check_permits(ex.get("description") or ""),
     }
 
 
@@ -563,6 +626,9 @@ async def extract_documents(files: list[UploadFile] = File(...), mode: str = For
             "confidence": d.get("confidence", 0),
             "notes": d.get("extraction_notes", []),
             "status": d.get("status", "pending_review"),
+            "certificates": d.get("certificates", []),
+            "permitFlags": d.get("permit_flags", []),
+            "containerNumber": (d.get("containers") or [{}])[0].get("containerNumber", ""),
         } for d in declarations_payload],
     }
 

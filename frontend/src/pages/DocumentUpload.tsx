@@ -13,6 +13,22 @@ const C = {
   approved: "#1A5E3A", pending: "#96700A", warn: "#FEF3DC", warnBorder: "#D4A020",
 };
 
+type PermitFlag = {
+  invoiceName: string;
+  ttbizlinkName: string;
+  category: string;
+  sequence: number;
+  permitType: string;
+};
+
+type Certificate = {
+  type: string;
+  number: string;
+  issueDate: string | null;
+  issuer: string;
+  country: string;
+};
+
 type ExtractedItem = {
   id: string;
   consigneeName: string;
@@ -23,6 +39,9 @@ type ExtractedItem = {
   confidence: number;
   notes: string[];
   status: string;
+  certificates: Certificate[];
+  permitFlags: PermitFlag[];
+  containerNumber: string;
 };
 
 function ConfidencePill({ confidence }: { confidence: number }) {
@@ -118,7 +137,9 @@ export default function DocumentUpload() {
               {[
                 ["Commercial Invoice", "Required. Provides consignee, consignor, HS code, description, invoice value, and currency. This is the most important document."],
                 ["Air Waybill (AWB) or Bill of Lading (BL)", "Recommended. Adds AWB/BL number, shipped-on-board date, vessel or flight, and port of loading. Upload together with the invoice in Batch mode."],
-                ["Packing List", "Optional but useful. Adds package count, gross weight, net weight, and item breakdown."],
+                ["Packing List", "Recommended. Adds package count, gross weight, net weight, container number, and seal number — used for cross-checking against the BL."],
+                ["Caricom Certificate of Origin", "If present, Stallion extracts the certificate number and issuing country for the declaration record."],
+                ["Health / Free-Sale Certificate", "If present, certificate number and issuing authority are extracted and stored against the declaration."],
               ].map(([name, desc]) => (
                 <div key={name} style={{ paddingLeft: 12, borderLeft: "2px solid #E2DDD6" }}>
                   <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 12, color: "#3D3830", marginBottom: 2 }}>{name}</div>
@@ -222,7 +243,7 @@ export default function DocumentUpload() {
               ⇪
             </div>
             <div style={{ fontFamily: "'Fraunces', serif", fontSize: 15, fontWeight: 600, color: C.inkMid, marginBottom: 6 }}>
-              Drop invoices, AWBs, packing lists here
+              Drop invoices, AWBs, packing lists, certificates here
             </div>
             <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 12, color: C.inkLight }}>
               or click to browse · PDF, XLSX, CSV accepted
@@ -304,7 +325,7 @@ export default function DocumentUpload() {
                       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "8px 20px", marginBottom: 10 }}>
                         {[
                           ["HS CODE", r.hsCode || "—"],
-                          ["VALUE", r.hsCode ? `${r.currency} ${Number(r.invoiceValueForeign || 0).toLocaleString()}` : "—"],
+                          ["VALUE", r.invoiceValueForeign ? `${r.currency} ${Number(r.invoiceValueForeign).toLocaleString()}` : "—"],
                           ["REF", r.id],
                         ].map(([label, value]) => (
                           <div key={label}>
@@ -313,6 +334,56 @@ export default function DocumentUpload() {
                           </div>
                         ))}
                       </div>
+
+                      {/* TTBizLink permit flags */}
+                      {!!r.permitFlags?.length && (
+                        <div style={{ marginBottom: 10 }}>
+                          {r.permitFlags.map((p, i) => (
+                            <div key={i} style={{
+                              display: "flex", alignItems: "baseline", gap: 8,
+                              padding: "6px 10px", marginBottom: 4,
+                              background: "#FFF7E6", border: "1px solid #D4A02044",
+                              borderLeft: "3px solid #D4A020", borderRadius: 3,
+                            }}>
+                              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", color: "#96700A" }}>
+                                IMPORT PERMIT REQUIRED
+                              </span>
+                              <span style={{ fontFamily: "'Fraunces', serif", fontSize: 12, color: "#3D3830" }}>
+                                {p.ttbizlinkName}
+                              </span>
+                              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: "#96700A", marginLeft: "auto" }}>
+                                {p.category} · SEQ {p.sequence} · {p.permitType.toUpperCase()}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Extracted certificates */}
+                      {!!r.certificates?.length && (
+                        <div style={{ marginBottom: 10 }}>
+                          {r.certificates.map((c, i) => (
+                            <div key={i} style={{
+                              display: "flex", alignItems: "baseline", gap: 8,
+                              padding: "5px 10px", marginBottom: 3,
+                              background: "#F0F5F0", border: "1px solid #1A5E3A22",
+                              borderLeft: "3px solid #1A5E3A", borderRadius: 3,
+                            }}>
+                              <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700, letterSpacing: "0.1em", color: "#1A5E3A" }}>
+                                {c.type}
+                              </span>
+                              <span style={{ fontFamily: "'Fraunces', serif", fontSize: 12, color: "#3D3830" }}>
+                                {c.number || "No cert number"}
+                              </span>
+                              {c.issuer && (
+                                <span style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 11, color: "#6B6560" }}>
+                                  {c.issuer}
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                       {!!r.notes?.length && (
                         <div style={{ padding: "7px 10px", background: C.warn, border: `1px solid ${C.warnBorder}44`, borderRadius: 3, marginBottom: 10, fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 12, color: "#7A5000" }}>

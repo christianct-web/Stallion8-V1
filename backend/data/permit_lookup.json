@@ -1,0 +1,648 @@
+{
+  "_note": "Generated from TTBIZLINK_IMPORT_PERMIT_LISTING spreadsheet (Sheet1) on 2026-03-13 UTC.",
+  "entries": [
+    {
+      "invoiceName": "PROVOLONE SLICED CHEESE",
+      "searchTerm": "ASSORTED CHEESE",
+      "ttbizlinkName": "ASSORTED CHEESE PRODUCTS",
+      "category": "A1",
+      "sequence": 9,
+      "permitType": "Cheese",
+      "keywords": [
+        "assorted",
+        "assorted cheese",
+        "assorted cheese products",
+        "cheese",
+        "products",
+        "provolone",
+        "provolone sliced cheese",
+        "sliced"
+      ]
+    },
+    {
+      "invoiceName": "PARMESAN OREGANO BREAD TOPPING",
+      "searchTerm": "CHEESE PARMESAN",
+      "ttbizlinkName": "CHEESE PARMESAN",
+      "category": "A1",
+      "sequence": 74,
+      "permitType": "Cheese",
+      "keywords": [
+        "bread",
+        "cheese",
+        "cheese parmesan",
+        "oregano",
+        "parmesan",
+        "parmesan oregano bread topping",
+        "topping"
+      ]
+    },
+    {
+      "invoiceName": "MOZZ BREADED",
+      "searchTerm": "BREADED MOZ",
+      "ttbizlinkName": "BREADED MOZZARELLA ASIAGO CHEESE PLANK",
+      "category": "A1",
+      "sequence": 31,
+      "permitType": "Cheese",
+      "keywords": [
+        "asiago",
+        "breaded",
+        "breaded moz",
+        "breaded mozzarella asiago cheese plank",
+        "cheese",
+        "mozz",
+        "mozz breaded",
+        "mozzarella",
+        "plank"
+      ]
+    },
+    {
+      "invoiceName": "KFC DAIRY & EGG MIX",
+      "searchTerm": "DAIRY & EGG MIX",
+      "ttbizlinkName": "DAIRY & EGG MIX",
+      "category": "A3",
+      "sequence": 11,
+      "permitType": "Egg Based Products",
+      "keywords": [
+        "dairy",
+        "dairy & egg mix",
+        "kfc dairy & egg mix"
+      ]
+    },
+    {
+      "invoiceName": "WHITE AMERICAN SLICED CHEESE",
+      "searchTerm": "AM WHITE",
+      "ttbizlinkName": "AM WHITE SLICED CHEESE",
+      "category": "A1",
+      "sequence": 4,
+      "permitType": "Cheese",
+      "keywords": [
+        "am white",
+        "am white sliced cheese",
+        "american",
+        "cheese",
+        "sliced",
+        "white",
+        "white american sliced cheese"
+      ]
+    },
+    {
+      "invoiceName": "MONTEREY/CHEDDAR CHEESE",
+      "searchTerm": "MONTEREY",
+      "ttbizlinkName": "CHEESE MONTEREY JACK",
+      "category": "A1",
+      "sequence": 67,
+      "permitType": "Cheese",
+      "keywords": [
+        "cheddar",
+        "cheese",
+        "cheese monterey jack",
+        "jack",
+        "monterey",
+        "monterey/cheddar cheese"
+      ]
+    },
+    {
+      "invoiceName": "PARMESAN CHEESE RIBBON CUT",
+      "searchTerm": "CHEESE PARMESAN",
+      "ttbizlinkName": "CHEESE PARMESAN",
+      "category": "A1",
+      "sequence": 74,
+      "permitType": "Cheese",
+      "keywords": [
+        "cheese",
+        "cheese parmesan",
+        "parmesan",
+        "parmesan cheese ribbon cut",
+        "ribbon"
+      ]
+    },
+    {
+      "invoiceName": "COLBY STRING CHEESE",
+      "searchTerm": "CHEESE COLBY",
+      "ttbizlinkName": "CHEESE COLBY",
+      "category": "A1",
+      "sequence": 53,
+      "permitType": "Cheese",
+      "keywords": [
+        "cheese",
+        "cheese colby",
+        "colby",
+        "colby string cheese",
+        "string"
+      ]
+    },
+    {
+      "invoiceName": "MONTERAY JACK FEATHER SHREADED CHEESE",
+      "searchTerm": "CHEESE MONTEREY JACK",
+      "ttbizlinkName": "CHEESE MONTEREY JACK",
+      "category": "A1",
+      "sequence": 67,
+      "permitType": "Cheese",
+      "keywords": [
+        "cheese",
+        "cheese monterey jack",
+        "feather",
+        "jack",
+        "monteray",
+        "monteray jack feather shreaded cheese",
+        "monterey",
+        "shreaded"
+      ]
+    },
+    {
+      "invoiceName": "BLUE CHEESE CRMBLES",
+      "searchTerm": "BLUE CHEESE",
+      "ttbizlinkName": "BLUE CHEESE",
+      "category": "A1",
+      "sequence": 27,
+      "permitType": "Cheese",
+      "keywords": [
+        "blue",
+        "blue cheese",
+        "blue cheese crmbles",
+        "cheese",
+        "crmbles"
+      ]
+    },
+    {
+      "invoiceName": "WHIPPED CREAM REAL",
+      "searchTerm": "WHIPPED CREAM",
+      "ttbizlinkName": "WHIPPED CREAM",
+      "category": "A7",
+      "sequence": 185,
+      "permitType": "Milk And Milk Products",
+      "keywords": [
+        "cream",
+        "real",
+        "whipped",
+        "whipped cream",
+        "whipped cream real"
+      ]
+    },
+    {
+      "invoiceName": "MACARONI AND CHEESE",
+      "searchTerm": "MAC",
+      "ttbizlinkName": "ASSORTED MAC & CHEESE",
+      "category": "A1",
+      "sequence": 15,
+      "permitType": "Cheese",
+      "keywords": [
+        "assorted",
+        "assorted mac & cheese",
+        "cheese",
+        "mac",
+        "macaroni",
+        "macaroni and cheese"
+      ]
+    },
+    {
+      "invoiceName": "PIZZA CHEESE",
+      "searchTerm": "MOZZARELLA CHEESE",
+      "ttbizlinkName": "MOZARELLA CHEESE",
+      "category": "A1",
+      "sequence": 140,
+      "permitType": "Cheese",
+      "keywords": [
+        "cheese",
+        "mozarella",
+        "mozarella cheese",
+        "mozzarella",
+        "mozzarella cheese",
+        "pizza",
+        "pizza cheese"
+      ]
+    },
+    {
+      "invoiceName": "FULLY COOKED GRILLED CHICKEN BRST PATTY W RIB MEAT",
+      "searchTerm": "GRILLED CHICKEN",
+      "ttbizlinkName": "GRILLED CHICKEN BREAST PATTIE",
+      "category": "A10",
+      "sequence": 593,
+      "permitType": "Poultry Carcasses",
+      "keywords": [
+        "breast",
+        "brst",
+        "chicken",
+        "cooked",
+        "fully",
+        "fully cooked grilled chicken brst patty w rib meat",
+        "grilled",
+        "grilled chicken",
+        "grilled chicken breast pattie",
+        "meat",
+        "pattie",
+        "patty"
+      ]
+    },
+    {
+      "invoiceName": "TURKEY BREAST CKED SLI",
+      "searchTerm": "TURKEY BREAST BONELESS",
+      "ttbizlinkName": "TURKEY BREAST BONELESS",
+      "category": "A10",
+      "sequence": 665,
+      "permitType": "Poultry Carcasses",
+      "keywords": [
+        "boneless",
+        "breast",
+        "cked",
+        "turkey",
+        "turkey breast boneless",
+        "turkey breast cked sli"
+      ]
+    },
+    {
+      "invoiceName": "BACON SLI SMOKED CKD HCK SMK",
+      "searchTerm": "BACON",
+      "ttbizlinkName": "BACON",
+      "category": "A6",
+      "sequence": 79,
+      "permitType": "Meat,Meat By-Products, Carcasses Etc.",
+      "keywords": [
+        "bacon",
+        "bacon sli smoked ckd hck smk",
+        "smoked"
+      ]
+    },
+    {
+      "invoiceName": "CHICKEN ROTISSERIE",
+      "searchTerm": "BONELESS SKINLESS BREAST",
+      "ttbizlinkName": "BONELESS SKINLESS BREAST WITH RIB MEAT",
+      "category": "A10",
+      "sequence": 85,
+      "permitType": "Poultry Carcasses",
+      "keywords": [
+        "boneless",
+        "boneless skinless breast",
+        "boneless skinless breast with rib meat",
+        "breast",
+        "chicken",
+        "chicken rotisserie",
+        "meat",
+        "rotisserie",
+        "skinless",
+        "with"
+      ]
+    },
+    {
+      "invoiceName": "MEATBALL BEEF/PORK SUBWAY",
+      "searchTerm": "MEATBALL",
+      "ttbizlinkName": "MEATBALLS",
+      "category": "A6",
+      "sequence": 476,
+      "permitType": "Meat,Meat By-Products, Carcasses Etc.",
+      "keywords": [
+        "beef",
+        "meatball",
+        "meatball beef/pork subway",
+        "meatballs",
+        "pork",
+        "subway"
+      ]
+    },
+    {
+      "invoiceName": "FULLY COOKED SAUSAGE (MADE WITH PORK)",
+      "searchTerm": "PORK SAUSAGE",
+      "ttbizlinkName": "PORK SAUSAGE",
+      "category": "A6",
+      "sequence": 707,
+      "permitType": "Meat,Meat By-Products, Carcasses Etc.",
+      "keywords": [
+        "cooked",
+        "fully",
+        "fully cooked sausage (made with pork)",
+        "made",
+        "pork",
+        "pork sausage",
+        "sausage",
+        "with"
+      ]
+    },
+    {
+      "invoiceName": "PORK COOKED SEASONED",
+      "searchTerm": "ASSORTED BONELESS PORK",
+      "ttbizlinkName": "ASSORTED BONELESS PORK PRODUCTS",
+      "category": "A6",
+      "sequence": 29,
+      "permitType": "Meat,Meat By-Products, Carcasses Etc.",
+      "keywords": [
+        "assorted",
+        "assorted boneless pork",
+        "assorted boneless pork products",
+        "boneless",
+        "cooked",
+        "pork",
+        "pork cooked seasoned",
+        "products",
+        "seasoned"
+      ]
+    },
+    {
+      "invoiceName": "SLICED PORK GENOA SALAMI",
+      "searchTerm": "ASSORTED BONELESS PORK",
+      "ttbizlinkName": "ASSORTED BONELESS PORK PRODUCTS",
+      "category": "A6",
+      "sequence": 29,
+      "permitType": "Meat,Meat By-Products, Carcasses Etc.",
+      "keywords": [
+        "assorted",
+        "assorted boneless pork",
+        "assorted boneless pork products",
+        "boneless",
+        "genoa",
+        "pork",
+        "products",
+        "salami",
+        "sliced",
+        "sliced pork genoa salami"
+      ]
+    },
+    {
+      "invoiceName": "SUBWAY SLICED PORK PEPPERONI",
+      "searchTerm": "ASSORTED BONELESS PORK",
+      "ttbizlinkName": "ASSORTED BONELESS PORK PRODUCTS",
+      "category": "A6",
+      "sequence": 29,
+      "permitType": "Meat,Meat By-Products, Carcasses Etc.",
+      "keywords": [
+        "assorted",
+        "assorted boneless pork",
+        "assorted boneless pork products",
+        "boneless",
+        "pepperoni",
+        "pork",
+        "products",
+        "sliced",
+        "subway",
+        "subway sliced pork pepperoni"
+      ]
+    },
+    {
+      "invoiceName": "BEEF STEAK SHAVED",
+      "searchTerm": "SHAVED STEAK",
+      "ttbizlinkName": "SHAVED STEAK",
+      "category": "A6",
+      "sequence": 499,
+      "permitType": "Meat,Meat By-Products, Carcasses Etc.",
+      "keywords": [
+        "beef",
+        "beef steak shaved",
+        "shaved",
+        "shaved steak",
+        "steak"
+      ]
+    },
+    {
+      "invoiceName": "HAM BLACK FOREST [SLCD FC]",
+      "searchTerm": "PREPARED HAM",
+      "ttbizlinkName": "PREPARED HAM",
+      "category": "A6",
+      "sequence": 496,
+      "permitType": "Meat,Meat By-Products, Carcasses Etc.",
+      "keywords": [
+        "black",
+        "forest",
+        "ham black forest [slcd fc]",
+        "prepared",
+        "prepared ham",
+        "slcd"
+      ]
+    },
+    {
+      "invoiceName": "PRECOOKED ITALIAN STYLE MEATBALLS",
+      "searchTerm": "MEATBALLS",
+      "ttbizlinkName": "BEEF MEATBALLS",
+      "category": "A6",
+      "sequence": 159,
+      "permitType": "Meat,Meat By-Products, Carcasses Etc.",
+      "keywords": [
+        "beef",
+        "beef meatballs",
+        "italian",
+        "meatballs",
+        "precooked",
+        "precooked italian style meatballs",
+        "style"
+      ]
+    },
+    {
+      "invoiceName": "CHAR BROILED BONELESS RIB SHAPED PORK PATTIE",
+      "searchTerm": "BONELESS RIB",
+      "ttbizlinkName": "BONELESS RIB SHAPED PORK PATTIES",
+      "category": "A6",
+      "sequence": 245,
+      "permitType": "Meat,Meat By-Products, Carcasses Etc.",
+      "keywords": [
+        "boneless",
+        "boneless rib",
+        "boneless rib shaped pork patties",
+        "broiled",
+        "char",
+        "char broiled boneless rib shaped pork pattie",
+        "pattie",
+        "patties",
+        "pork",
+        "shaped"
+      ]
+    },
+    {
+      "invoiceName": "PEPPERONI SLICED",
+      "searchTerm": "ASSORTED BONELESS PORK",
+      "ttbizlinkName": "ASSORTED BONELESS PORK PRODUCTS",
+      "category": "A6",
+      "sequence": 29,
+      "permitType": "Meat,Meat By-Products, Carcasses Etc.",
+      "keywords": [
+        "assorted",
+        "assorted boneless pork",
+        "assorted boneless pork products",
+        "boneless",
+        "pepperoni",
+        "pepperoni sliced",
+        "pork",
+        "products",
+        "sliced"
+      ]
+    },
+    {
+      "invoiceName": "BEEF GROUND PTY ANGS CHK",
+      "searchTerm": "BEEF PATTY",
+      "ttbizlinkName": "FROZEN BEEF PATTY GROUND",
+      "category": "A6",
+      "sequence": 288,
+      "permitType": "Meat,Meat By-Products, Carcasses Etc.",
+      "keywords": [
+        "angs",
+        "beef",
+        "beef ground pty angs chk",
+        "beef patty",
+        "frozen",
+        "frozen beef patty ground",
+        "ground",
+        "patty"
+      ]
+    },
+    {
+      "invoiceName": "BACON LAYFLAT",
+      "searchTerm": "BACON",
+      "ttbizlinkName": "BACON",
+      "category": "A6",
+      "sequence": 79,
+      "permitType": "Meat,Meat By-Products, Carcasses Etc.",
+      "keywords": [
+        "bacon",
+        "bacon layflat",
+        "layflat"
+      ]
+    },
+    {
+      "invoiceName": "BEEF SEASONED TOPPING",
+      "searchTerm": "COOKED BEEF PIZZA TOPPING",
+      "ttbizlinkName": "COOKED BEEF PIZZA TOPPING",
+      "category": "A6",
+      "sequence": 253,
+      "permitType": "Meat,Meat By-Products, Carcasses Etc.",
+      "keywords": [
+        "beef",
+        "beef seasoned topping",
+        "cooked",
+        "cooked beef pizza topping",
+        "pizza",
+        "seasoned",
+        "topping"
+      ]
+    },
+    {
+      "invoiceName": "APPLEWOOD SMOKED FZN BACON PCS",
+      "searchTerm": "BACON",
+      "ttbizlinkName": "BACON",
+      "category": "A6",
+      "sequence": 79,
+      "permitType": "Meat,Meat By-Products, Carcasses Etc.",
+      "keywords": [
+        "applewood",
+        "applewood smoked fzn bacon pcs",
+        "bacon",
+        "smoked"
+      ]
+    },
+    {
+      "invoiceName": "HAM PZZ TOPPING JULN",
+      "searchTerm": "PREAPRED HAM",
+      "ttbizlinkName": "PREPARED HAM",
+      "category": "A6",
+      "sequence": 496,
+      "permitType": "Meat,Meat By-Products, Carcasses Etc.",
+      "keywords": [
+        "ham pzz topping juln",
+        "juln",
+        "preapred",
+        "preapred ham",
+        "prepared",
+        "prepared ham",
+        "topping"
+      ]
+    },
+    {
+      "invoiceName": "SAUSAGE ITALIAN NAT",
+      "searchTerm": "PORK SAUSAGE",
+      "ttbizlinkName": "PORK SAUSAGE",
+      "category": "A6",
+      "sequence": 707,
+      "permitType": "Meat,Meat By-Products, Carcasses Etc.",
+      "keywords": [
+        "italian",
+        "pork",
+        "pork sausage",
+        "sausage",
+        "sausage italian nat"
+      ]
+    },
+    {
+      "invoiceName": "DOUBLE SMOKED BACON SANDWICH",
+      "searchTerm": "BACON",
+      "ttbizlinkName": "BACON",
+      "category": "A6",
+      "sequence": 79,
+      "permitType": "Meat,Meat By-Products, Carcasses Etc.",
+      "keywords": [
+        "bacon",
+        "double",
+        "double smoked bacon sandwich",
+        "sandwich",
+        "smoked"
+      ]
+    },
+    {
+      "invoiceName": "SPINACH FETA WRAP",
+      "searchTerm": "FETA CHEESE",
+      "ttbizlinkName": "FETA CHEESE",
+      "category": "A1",
+      "sequence": 110,
+      "permitType": "Cheese",
+      "keywords": [
+        "cheese",
+        "feta",
+        "feta cheese",
+        "spinach",
+        "spinach feta wrap",
+        "wrap"
+      ]
+    },
+    {
+      "invoiceName": "KALE & MUSHROOM EDD BITES",
+      "searchTerm": "ASSORTED EGG PRODUCTS",
+      "ttbizlinkName": "ASSROTED EGG PRODUCTS",
+      "category": "A3",
+      "sequence": 5,
+      "permitType": "Egg Based Products",
+      "keywords": [
+        "assorted",
+        "assorted egg products",
+        "assroted",
+        "assroted egg products",
+        "bites",
+        "kale",
+        "kale & mushroom edd bites",
+        "mushroom",
+        "products"
+      ]
+    },
+    {
+      "invoiceName": "SAUSAGE EGG CHEDDAR BREAKFAST SANDWICH",
+      "searchTerm": "ASSORTED BONELESS PORK",
+      "ttbizlinkName": "ASSORTED BONELESS PORK PRODUCTS",
+      "category": "A6",
+      "sequence": 29,
+      "permitType": "Meat,Meat By-Products, Carcasses Etc.",
+      "keywords": [
+        "assorted",
+        "assorted boneless pork",
+        "assorted boneless pork products",
+        "boneless",
+        "breakfast",
+        "cheddar",
+        "pork",
+        "products",
+        "sandwich",
+        "sausage",
+        "sausage egg cheddar breakfast sandwich"
+      ]
+    },
+    {
+      "invoiceName": "CHEESE DANISH",
+      "searchTerm": "ASSORTED CHEESE PRODUCTS",
+      "ttbizlinkName": "ASSORTED CHEESE PRODUCTS",
+      "category": "A1",
+      "sequence": 11,
+      "permitType": "Cheese",
+      "keywords": [
+        "assorted",
+        "assorted cheese products",
+        "cheese",
+        "cheese danish",
+        "danish",
+        "products"
+      ]
+    }
+  ]
+}
