@@ -891,5 +891,291 @@
     "extraction_notes": [
       "Low confidence \u2014 broker review required"
     ]
+  },
+  {
+    "id": "EXT-87E899BB",
+    "status": "pending_review",
+    "updated_at": "2026-03-13T12:26:08.848291Z",
+    "source": {
+      "type": "EXTRACT",
+      "mode": "batch",
+      "files": [
+        "UPS AWB.pdf"
+      ]
+    },
+    "confidence": 0.63,
+    "header": {
+      "declarationRef": "EXT-87E899BB",
+      "port": "TTPTS",
+      "term": "CIF",
+      "modeOfTransport": "AIR",
+      "customsRegime": "IM4",
+      "consignorName": "",
+      "consigneeCode": "",
+      "consigneeName": "",
+      "vesselName": "",
+      "blAwbNumber": "HEIGHT 2550",
+      "invoiceNumber": "",
+      "invoiceDate": "",
+      "currency": "USD"
+    },
+    "worksheet": {
+      "invoice_value_foreign": 0.0,
+      "exchange_rate": 6.77,
+      "freight_foreign": 0,
+      "insurance_foreign": 0,
+      "other_foreign": 0,
+      "deduction_foreign": 0,
+      "duty_rate_pct": 0,
+      "surcharge_rate_pct": 0,
+      "vat_rate_pct": 0,
+      "extra_fees_local": 40,
+      "global_fee": 40
+    },
+    "items": [
+      {
+        "id": "ITEM-AF1FBD",
+        "description": "Extracted from source document",
+        "hsCode": "1192458",
+        "qty": 1,
+        "packageType": "BOX",
+        "grossKg": 0,
+        "netKg": 0,
+        "itemValue": 0.0,
+        "unitCode": "NMB",
+        "dutyTaxCode": "",
+        "dutyTaxBase": "",
+        "cpc": "4000"
+      }
+    ],
+    "containers": [],
+    "extraction_notes": [
+      "Low confidence \u2014 broker review required"
+    ]
+  },
+  {
+    "id": "EXT-ACDF92FB",
+    "reference_number": "EXT-ACDF92FB",
+    "status": "pending_review",
+    "updated_at": "2026-03-13T12:49:12.543255Z",
+    "created_at": "2026-03-13T12:49:12.543255Z",
+    "source": {
+      "type": "EXTRACT",
+      "mode": "batch",
+      "files": [
+        "test.txt"
+      ]
+    },
+    "confidence": 0.35,
+    "extraction_notes": [
+      "Extracted via text fallback \u2014 Claude API unavailable"
+    ],
+    "header": {
+      "declarationRef": "EXT-ACDF92FB",
+      "port": "TTPTS",
+      "term": "CIF",
+      "modeOfTransport": "AIR",
+      "customsRegime": "IM4",
+      "consignorName": "",
+      "consignorAddress": "",
+      "consigneeCode": "",
+      "consigneeName": "",
+      "consigneeAddress": "",
+      "vesselName": "",
+      "blAwbNumber": "",
+      "blAwbDate": "",
+      "invoiceNumber": "",
+      "invoiceDate": "",
+      "currency": "USD",
+      "portOfLoading": "",
+      "countryOfOrigin": ""
+    },
+    "worksheet": {
+      "invoice_value_foreign": 0.0,
+      "fob_foreign": 0.0,
+      "exchange_rate": 6.77,
+      "freight_foreign": 0,
+      "insurance_foreign": 0,
+      "other_foreign": 0,
+      "deduction_foreign": 0,
+      "duty_rate_pct": 0,
+      "surcharge_rate_pct": 0,
+      "vat_rate_pct": 0,
+      "extra_fees_local": 40,
+      "global_fee": 40
+    },
+    "items": [
+      {
+        "id": "ITEM-D58AA3",
+        "description": "Extracted item",
+        "hsCode": "",
+        "qty": 1,
+        "packageType": "BOX",
+        "grossKg": 0,
+        "netKg": 0,
+        "itemValue": 0.0,
+        "unitCode": "NMB",
+        "dutyTaxCode": "",
+        "dutyTaxBase": "",
+        "cpc": "4000",
+        "countryOfOrigin": ""
+      }
+    ],
+    "containers": []
+  },
+  {
+    "id": "EXT-7D350A93",
+    "reference_number": "EXT-7D350A93",
+    "status": "pending_review",
+    "updated_at": "2026-03-13T12:55:15.684105Z",
+    "created_at": "2026-03-13T12:55:15.684105Z",
+    "source": {
+      "type": "EXTRACT",
+      "mode": "batch",
+      "files": [
+        "invoice.txt"
+      ]
+    },
+    "confidence": 0.72,
+    "extraction_notes": [
+      "Consignee address is partial \u2014 only 'Port of Spain, Trinidad' provided; full street address required for customs entry.",
+      "Consignor full address not provided; may be required for Form C82/C84.",
+      "Country of origin inferred as CH (Switzerland) based on consignor name 'Align Technology Switzerland GmbH' \u2014 not explicitly stated on document; broker should verify.",
+      "Port of loading not stated \u2014 broker should confirm from carrier or full AWB master.",
+      "Package count, package type, gross weight, and net weight are absent \u2014 required for ASYCUDA World manifest matching.",
+      "Invoice total of USD 13,319.00 appears to be the only value shown; it is unclear whether this is EXW, FOB, or CIF. Broker should confirm Incoterms with shipper before filing.",
+      "HS Code 9021.29.00.00 is present and consistent with the goods description; however, broker should verify applicable TT tariff rate and any import licensing requirements for medical/orthodontic devices.",
+      "Flight AA 201 noted \u2014 broker should confirm origin airport and routing to determine applicable freight charges for CIF calculation."
+    ],
+    "header": {
+      "declarationRef": "EXT-7D350A93",
+      "port": "TTPTS",
+      "term": "CIF",
+      "modeOfTransport": "SEA",
+      "customsRegime": "IM4",
+      "consignorName": "Align Technology Switzerland GmbH",
+      "consignorAddress": "",
+      "consigneeCode": "",
+      "consigneeName": "HECA Medical Technologies Ltd",
+      "consigneeAddress": "Port of Spain, Trinidad",
+      "vesselName": "AA 201",
+      "blAwbNumber": "Z8E391A0451113227",
+      "blAwbDate": "2026-01-05",
+      "invoiceNumber": "TT979-25",
+      "invoiceDate": "2026-01-05",
+      "currency": "USD",
+      "portOfLoading": "",
+      "countryOfOrigin": "CH"
+    },
+    "worksheet": {
+      "invoice_value_foreign": 13319.0,
+      "fob_foreign": 13319.0,
+      "exchange_rate": 6.77,
+      "freight_foreign": 0,
+      "insurance_foreign": 0,
+      "other_foreign": 0,
+      "deduction_foreign": 0,
+      "duty_rate_pct": 0,
+      "surcharge_rate_pct": 0,
+      "vat_rate_pct": 0,
+      "extra_fees_local": 40,
+      "global_fee": 40
+    },
+    "items": [
+      {
+        "id": "ITEM-E3E699",
+        "description": "Orthodontic appliances - Invisalign dental aligners",
+        "hsCode": "9021.29.00.00",
+        "qty": 1,
+        "packageType": "BOX",
+        "grossKg": 0,
+        "netKg": 0,
+        "itemValue": 13319.0,
+        "unitCode": "NMB",
+        "dutyTaxCode": "",
+        "dutyTaxBase": "",
+        "cpc": "4000",
+        "countryOfOrigin": "CH"
+      }
+    ],
+    "containers": []
+  },
+  {
+    "id": "EXT-5CE3EA9B",
+    "reference_number": "EXT-5CE3EA9B",
+    "status": "pending_review",
+    "updated_at": "2026-03-13T12:58:29.815638Z",
+    "created_at": "2026-03-13T12:58:29.815638Z",
+    "source": {
+      "type": "EXTRACT",
+      "mode": "batch",
+      "files": [
+        "ASSESSMENT_NOTICE---432718b6-04c4-4560-8e7f-77e5b0f2f9fe.pdf"
+      ]
+    },
+    "confidence": 0.25,
+    "extraction_notes": [
+      "This document is a Customs Assessment Notice (duty bill), NOT a commercial invoice or transport document \u2014 it contains very limited shipment data.",
+      "Customs reference: 02/08/2023 A 46631; Declarant reference: 2023 LB01/23; Model: IM 4.",
+      "Declarant (broker): ANTHONY CHOW (BR0286), 1 ZEV BEN ELIAZER ST., D/MARTIN.",
+      "Consignee code N108974 noted; address is partial (#31 HENRY STREET only, no city/country).",
+      "Total assessed duties/taxes: TTD 224,998.52 (ICD: 163,224.38 | SUR: 61,209.14 | VAT: 0.00 | CF2: 525.00 | UFC: 40.00).",
+      "invoiceValueForeign cannot be determined from this document \u2014 no commercial invoice or CIF value shown.",
+      "No consignor, HS code, description of goods, country of origin, AWB/BL, vessel/flight, or port of loading found.",
+      "Currency assumed TTD based on context (TT Customs assessment); original invoice currency unknown.",
+      "Broker should supply the underlying commercial invoice, airway bill/bill of lading, and packing list for a complete extraction."
+    ],
+    "header": {
+      "declarationRef": "EXT-5CE3EA9B",
+      "port": "TTPTS",
+      "term": "CIF",
+      "modeOfTransport": "AIR",
+      "customsRegime": "IM4",
+      "consignorName": "",
+      "consignorAddress": "",
+      "consigneeCode": "",
+      "consigneeName": "BASCO FOOD DISTRIBUTORS LTD",
+      "consigneeAddress": "#31 HENRY STREET",
+      "vesselName": "",
+      "blAwbNumber": "",
+      "blAwbDate": "",
+      "invoiceNumber": "",
+      "invoiceDate": "",
+      "currency": "TTD",
+      "portOfLoading": "",
+      "countryOfOrigin": ""
+    },
+    "worksheet": {
+      "invoice_value_foreign": 0.0,
+      "fob_foreign": 0.0,
+      "exchange_rate": 6.77,
+      "freight_foreign": 0,
+      "insurance_foreign": 0,
+      "other_foreign": 0,
+      "deduction_foreign": 0,
+      "duty_rate_pct": 0,
+      "surcharge_rate_pct": 0,
+      "vat_rate_pct": 0,
+      "extra_fees_local": 40,
+      "global_fee": 40
+    },
+    "items": [
+      {
+        "id": "ITEM-F01D16",
+        "description": "Extracted item",
+        "hsCode": "",
+        "qty": 1394,
+        "packageType": "BOX",
+        "grossKg": 0,
+        "netKg": 0,
+        "itemValue": 0.0,
+        "unitCode": "NMB",
+        "dutyTaxCode": "",
+        "dutyTaxBase": "",
+        "cpc": "4000",
+        "countryOfOrigin": ""
+      }
+    ],
+    "containers": []
   }
 ]

@@ -1,14 +1,20 @@
 from __future__ import annotations
 
+import base64
 import csv
 import io
+import json
+import os
 import re
 import uuid
 from datetime import date, datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import httpx
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Query, UploadFile, File, Form
+
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 
@@ -249,68 +255,257 @@ def declarations_delete(declaration_id: str):
     return {"ok": True, "id": declaration_id}
 
 
-# ─── Document extraction (lightweight MVP) ───────────────────────────────────
-def _read_pdf_text(upload: UploadFile) -> str:
-    raw = upload.file.read() or b""
+# ─── Document extraction — Claude API ────────────────────────────────────────
 
-    # Try pypdf if available.
+EXTRACTION_SYSTEM_PROMPT = """You are a customs declaration data extraction specialist for Trinidad and Tobago (ASYCUDA World).
+Extract all available fields from the uploaded documents (commercial invoices, airway bills, packing lists).
+
+Return ONLY a valid JSON object with these fields (use null for fields not found):
+{
+  "consigneeName": "string — the importer / ship-to party in Trinidad",
+  "consigneeAddress": "string — consignee full address",
+  "consignorName": "string — the exporter / shipper",
+  "consignorAddress": "string — consignor full address",
+  "hsCode": "string — HS tariff code in format XXXX.XX.XX.XX if available, else null",
+  "description": "string — description of goods (be specific)",
+  "countryOfOrigin": "string — 2-letter ISO country code of origin",
+  "invoiceNumber": "string",
+  "invoiceDate": "string — ISO date YYYY-MM-DD",
+  "invoiceValueForeign": number — the EXW/FOB value (not CIF), numeric only,
+  "currency": "string — 3-letter ISO currency code, default USD",
+  "blAwbNumber": "string — air waybill or bill of lading number",
+  "shippedOnBoardDate": "string — ISO date YYYY-MM-DD, look for 'Laden on Board', 'Shipped on Board', 'Flight Date'",
+  "shippedOnBoardLabel": "string — exact label used in document for this date",
+  "vesselOrFlight": "string — vessel name or flight number",
+  "portOfLoading": "string",
+  "portOfDischarge": "string — typically Port of Spain (TTPTS) or Piarco (TTPIA)",
+  "packageCount": number or null,
+  "packageType": "string — e.g. CTN, BOX, PKG",
+  "grossWeightKg": number or null,
+  "netWeightKg": number or null,
+  "confidence": number — between 0.0 and 1.0 reflecting how complete and certain the extraction is,
+  "notes": ["array of strings — flag any fields that are missing, ambiguous, or need broker attention"]
+}
+
+Rules:
+- For invoiceValueForeign: use the EXW or FOB subtotal, NOT the grand total if freight/insurance are included.
+  If only one total is shown, use that.
+- For hsCode: only return if clearly printed on the document. Do not guess.
+- For confidence: 0.90+ means all critical fields found clearly. 0.70-0.89 means some fields missing.
+  Below 0.70 means significant gaps.
+- Critical fields (required for TT customs): consigneeName, invoiceValueForeign, currency, invoiceNumber.
+- Return ONLY the JSON object, no markdown, no explanation."""
+
+
+def _read_file_bytes(upload: UploadFile) -> bytes:
+    """Read uploaded file bytes, resetting the file pointer."""
+    upload.file.seek(0)
+    return upload.file.read() or b""
+
+
+def _is_pdf(upload: UploadFile) -> bool:
+    name = (upload.filename or "").lower()
+    return name.endswith(".pdf")
+
+
+async def _extract_with_claude(files: List[UploadFile]) -> Dict[str, Any]:
+    """
+    Send one or more documents to Claude API for extraction.
+    Supports PDF (as base64 document) and plain text fallback.
+    Returns a single merged extraction dict.
+    """
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        raise ValueError("ANTHROPIC_API_KEY not configured")
+
+    import anthropic
+
+    client = anthropic.Anthropic(api_key=api_key)
+
+    # Build message content — one content block per file
+    content: List[Dict[str, Any]] = []
+
+    for f in files:
+        raw = _read_file_bytes(f)
+        fname = f.filename or "document"
+
+        if _is_pdf(f) and raw:
+            # Send as base64-encoded PDF document
+            b64 = base64.standard_b64encode(raw).decode("utf-8")
+            content.append({
+                "type": "document",
+                "source": {
+                    "type": "base64",
+                    "media_type": "application/pdf",
+                    "data": b64,
+                },
+                "title": fname,
+            })
+        else:
+            # Non-PDF: extract text and send as text block
+            try:
+                text = raw.decode("utf-8", errors="ignore")
+            except Exception:
+                text = ""
+            if text.strip():
+                content.append({
+                    "type": "text",
+                    "text": f"[Document: {fname}]\n{text}",
+                })
+
+    if not content:
+        raise ValueError("No readable content in uploaded files")
+
+    content.append({
+        "type": "text",
+        "text": "Extract all customs declaration fields from the document(s) above. Return the JSON object as instructed.",
+    })
+
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=2048,
+        system=EXTRACTION_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": content}],
+    )
+
+    raw_text = response.content[0].text.strip()
+
+    # Strip markdown code fences if present
+    if raw_text.startswith("```"):
+        raw_text = re.sub(r"^```[a-z]*\n?", "", raw_text)
+        raw_text = re.sub(r"\n?```$", "", raw_text)
+
+    return json.loads(raw_text)
+
+
+def _fallback_extract(upload: UploadFile) -> Dict[str, Any]:
+    """Regex-based fallback for when Claude API is unavailable."""
+    raw = _read_file_bytes(upload)
+    text = ""
     try:
         from pypdf import PdfReader  # type: ignore
-        import io as _io
-
-        reader = PdfReader(_io.BytesIO(raw))
-        return "\n".join((p.extract_text() or "") for p in reader.pages)
+        reader = PdfReader(io.BytesIO(raw))
+        text = "\n".join((p.extract_text() or "") for p in reader.pages)
     except Exception:
-        pass
+        try:
+            text = raw.decode("utf-8", errors="ignore")
+        except Exception:
+            text = ""
 
-    # Fallback: best-effort text decode from bytes.
-    try:
-        return raw.decode("utf-8", errors="ignore")
-    except Exception:
-        return ""
-
-
-def _first(pattern: str, text: str, flags: int = re.IGNORECASE) -> str:
-    m = re.search(pattern, text, flags)
-    return (m.group(1).strip() if m and m.groups() else "")
-
-
-def _extract_fields_from_text(text: str, filename: str) -> Dict[str, Any]:
     upper = text.upper()
 
-    hs = _first(r"\b(\d{4}\.\d{2}\.\d{2}\.\d{2}|\d{6,12})\b", text)
-    awb = _first(r"\b([A-Z0-9]{3,4}[\s-]?[A-Z0-9]{3,}[\s-]?[A-Z0-9]{3,})\b", upper)
+    def _first(pattern: str, src: str = text) -> str:
+        m = re.search(pattern, src, re.IGNORECASE)
+        return (m.group(1).strip() if m and m.groups() else "")
 
-    amount_raw = _first(r"(?:TOTAL|AMOUNT|INVOICE\s+TOTAL)\D{0,20}(\d[\d,]*\.?\d{0,2})", text)
+    hs = _first(r"\b(\d{4}\.\d{2}\.\d{2}\.\d{2})\b")
+    awb = _first(r"\b([A-Z0-9]{3,4}[\s-]?\d{4}[\s-]?\d{4,})\b", upper)
+    amount_raw = _first(r"(?:TOTAL|AMOUNT|INVOICE\s+TOTAL)\D{0,20}(\d[\d,]*\.?\d{0,2})")
     amount = 0.0
     try:
         amount = float((amount_raw or "0").replace(",", ""))
     except Exception:
-        amount = 0.0
+        pass
+    consignee = _first(r"CONSIGNEE\s*[:\-]\s*(.+)")
+    consignor = _first(r"(?:CONSIGNOR|SHIPPER)\s*[:\-]\s*(.+)")
+    invoice_no = _first(r"INVOICE\s*(?:NO\.?|NUMBER)?\s*[:#\-]?\s*([A-Z0-9\-/]+)", upper)
+    invoice_date = _first(r"(?:INVOICE\s+DATE|DATE)\s*[:\-]?\s*(\d{4}-\d{2}-\d{2}|\d{2}/\d{2}/\d{2,4})")
 
-    consignee = "HECA Medical Technologies Ltd" if "HECA" in upper else _first(r"CONSIGNEE\s*[:\-]\s*(.+)", text)
-    consignor = "Align Technology Switzerland GmbH" if "ALIGN" in upper else _first(r"CONSIGNOR\s*[:\-]\s*(.+)", text)
-
-    invoice_no = _first(r"INVOICE\s*(?:NO|NUMBER)?\s*[:#\-]?\s*([A-Z0-9\-/]+)", upper)
-    invoice_date = _first(r"(?:INVOICE\s+DATE|DATE)\s*[:\-]?\s*(\d{4}-\d{2}-\d{2}|\d{2}/\d{2}/\d{2,4})", text)
-
-    # Confidence is heuristic for MVP extraction.
-    confidence_hits = sum(bool(x) for x in [hs, amount > 0, consignee, consignor, invoice_no])
-    confidence = round(min(0.95, 0.55 + confidence_hits * 0.08), 2)
+    hits = sum(bool(x) for x in [hs, amount > 0, consignee, invoice_no])
+    confidence = round(min(0.65, 0.35 + hits * 0.08), 2)
 
     return {
-        "filename": filename,
-        "consigneeName": consignee or "",
-        "consignorName": consignor or "",
-        "hsCode": hs or "",
-        "blAwbNumber": awb or "",
-        "invoiceNumber": invoice_no or "",
-        "invoiceDate": invoice_date or "",
+        "consigneeName": consignee,
+        "consignorName": consignor,
+        "hsCode": hs,
+        "blAwbNumber": awb,
+        "invoiceNumber": invoice_no,
+        "invoiceDate": invoice_date,
         "invoiceValueForeign": amount,
         "currency": "USD",
-        "description": "Extracted from source document",
+        "description": "",
         "confidence": confidence,
-        "notes": [] if confidence >= 0.75 else ["Low confidence — broker review required"],
+        "notes": ["Extracted via text fallback — Claude API unavailable"],
+    }
+
+
+def _build_declaration_record(ex: Dict[str, Any], mode: str, filenames: List[str], now: str) -> Dict[str, Any]:
+    """Convert a Claude extraction dict into a full declaration record for storage."""
+    dec_id = f"EXT-{uuid.uuid4().hex[:8].upper()}"
+    val = ex.get("invoiceValueForeign") or 0
+    try:
+        val = float(val)
+    except Exception:
+        val = 0.0
+
+    # Infer transport mode from document content
+    transport = "AIR"
+    awb = ex.get("blAwbNumber") or ""
+    if any(c.isalpha() for c in awb[:2]):  # typical AWB prefix → air
+        transport = "AIR"
+    vessel = ex.get("vesselOrFlight") or ""
+    if vessel and not any(ch.isdigit() for ch in vessel[:3]):
+        transport = "SEA"
+
+    return {
+        "id": dec_id,
+        "reference_number": dec_id,
+        "status": "pending_review",
+        "updated_at": now,
+        "created_at": now,
+        "source": {"type": "EXTRACT", "mode": mode, "files": filenames},
+        "confidence": ex.get("confidence", 0.7),
+        "extraction_notes": ex.get("notes") or [],
+        "header": {
+            "declarationRef": dec_id,
+            "port": "TTPTS",
+            "term": "CIF",
+            "modeOfTransport": transport,
+            "customsRegime": "IM4",
+            "consignorName": ex.get("consignorName") or "",
+            "consignorAddress": ex.get("consignorAddress") or "",
+            "consigneeCode": "",
+            "consigneeName": ex.get("consigneeName") or "",
+            "consigneeAddress": ex.get("consigneeAddress") or "",
+            "vesselName": vessel,
+            "blAwbNumber": awb,
+            "blAwbDate": ex.get("shippedOnBoardDate") or "",
+            "invoiceNumber": ex.get("invoiceNumber") or "",
+            "invoiceDate": ex.get("invoiceDate") or "",
+            "currency": ex.get("currency") or "USD",
+            "portOfLoading": ex.get("portOfLoading") or "",
+            "countryOfOrigin": ex.get("countryOfOrigin") or "",
+        },
+        "worksheet": {
+            "invoice_value_foreign": val,
+            "fob_foreign": val,
+            "exchange_rate": 6.77,
+            "freight_foreign": 0,
+            "insurance_foreign": 0,
+            "other_foreign": 0,
+            "deduction_foreign": 0,
+            "duty_rate_pct": 0,
+            "surcharge_rate_pct": 0,
+            "vat_rate_pct": 0,
+            "extra_fees_local": 40,
+            "global_fee": 40,
+        },
+        "items": [{
+            "id": f"ITEM-{uuid.uuid4().hex[:6].upper()}",
+            "description": ex.get("description") or "Extracted item",
+            "hsCode": ex.get("hsCode") or "",
+            "qty": ex.get("packageCount") or 1,
+            "packageType": ex.get("packageType") or "BOX",
+            "grossKg": ex.get("grossWeightKg") or 0,
+            "netKg": ex.get("netWeightKg") or 0,
+            "itemValue": val,
+            "unitCode": "NMB",
+            "dutyTaxCode": "",
+            "dutyTaxBase": "",
+            "cpc": "4000",
+            "countryOfOrigin": ex.get("countryOfOrigin") or "",
+        }],
+        "containers": [],
     }
 
 
@@ -319,132 +514,37 @@ async def extract_documents(files: list[UploadFile] = File(...), mode: str = For
     if not files:
         raise HTTPException(status_code=400, detail="No files uploaded")
 
-    extractions: list[Dict[str, Any]] = []
-    for f in files:
-        text = _read_pdf_text(f)
-        fields = _extract_fields_from_text(text, f.filename or "uploaded-file")
-        extractions.append(fields)
-
-    # For MVP: in batch mode merge into one declaration, otherwise one per file.
-    declarations_payload: list[Dict[str, Any]] = []
     now = datetime.utcnow().isoformat() + "Z"
+    filenames = [f.filename or "document" for f in files]
+    declarations_payload: List[Dict[str, Any]] = []
 
     if mode == "batch":
-        merged = extractions[0].copy()
-        for ex in extractions[1:]:
-            for k, v in ex.items():
-                if k in {"filename", "notes"}:
-                    continue
-                if (not merged.get(k)) and v:
-                    merged[k] = v
-            merged["confidence"] = round(min(0.99, (merged.get("confidence", 0.6) + ex.get("confidence", 0.6)) / 2), 2)
+        # Send all files together — Claude merges them into one coherent declaration
+        try:
+            ex = await _extract_with_claude(files)
+        except Exception as e:
+            # Fallback: try each file with regex, merge manually
+            extractions = [_fallback_extract(f) for f in files]
+            ex = extractions[0].copy()
+            for other in extractions[1:]:
+                for k, v in other.items():
+                    if k == "notes":
+                        continue
+                    if not ex.get(k) and v:
+                        ex[k] = v
 
-        dec_id = f"EXT-{uuid.uuid4().hex[:8].upper()}"
-        declarations_payload.append({
-            "id": dec_id,
-            "status": "pending_review",
-            "updated_at": now,
-            "source": {"type": "EXTRACT", "mode": mode, "files": [x.get("filename") for x in extractions]},
-            "confidence": merged.get("confidence", 0.7),
-            "header": {
-                "declarationRef": dec_id,
-                "port": "TTPTS",
-                "term": "CIF",
-                "modeOfTransport": "AIR",
-                "customsRegime": "IM4",
-                "consignorName": merged.get("consignorName", ""),
-                "consigneeCode": "",
-                "consigneeName": merged.get("consigneeName", ""),
-                "vesselName": "",
-                "blAwbNumber": merged.get("blAwbNumber", ""),
-                "invoiceNumber": merged.get("invoiceNumber", ""),
-                "invoiceDate": merged.get("invoiceDate", ""),
-                "currency": merged.get("currency", "USD"),
-            },
-            "worksheet": {
-                "invoice_value_foreign": merged.get("invoiceValueForeign", 0),
-                "exchange_rate": 6.77,
-                "freight_foreign": 0,
-                "insurance_foreign": 0,
-                "other_foreign": 0,
-                "deduction_foreign": 0,
-                "duty_rate_pct": 0,
-                "surcharge_rate_pct": 0,
-                "vat_rate_pct": 0,
-                "extra_fees_local": 40,
-                "global_fee": 40,
-            },
-            "items": [{
-                "id": f"ITEM-{uuid.uuid4().hex[:6].upper()}",
-                "description": merged.get("description", "Extracted item"),
-                "hsCode": merged.get("hsCode", ""),
-                "qty": 1,
-                "packageType": "BOX",
-                "grossKg": 0,
-                "netKg": 0,
-                "itemValue": merged.get("invoiceValueForeign", 0),
-                "unitCode": "NMB",
-                "dutyTaxCode": "",
-                "dutyTaxBase": "",
-                "cpc": "4000",
-            }],
-            "containers": [],
-            "extraction_notes": merged.get("notes", []),
-        })
+        declarations_payload.append(_build_declaration_record(ex, mode, filenames, now))
+
     else:
-        for ex in extractions:
-            dec_id = f"EXT-{uuid.uuid4().hex[:8].upper()}"
-            declarations_payload.append({
-                "id": dec_id,
-                "status": "pending_review",
-                "updated_at": now,
-                "source": {"type": "EXTRACT", "mode": mode, "files": [ex.get("filename")]},
-                "confidence": ex.get("confidence", 0.7),
-                "header": {
-                    "declarationRef": dec_id,
-                    "port": "TTPTS",
-                    "term": "CIF",
-                    "modeOfTransport": "AIR",
-                    "customsRegime": "IM4",
-                    "consignorName": ex.get("consignorName", ""),
-                    "consigneeCode": "",
-                    "consigneeName": ex.get("consigneeName", ""),
-                    "vesselName": "",
-                    "blAwbNumber": ex.get("blAwbNumber", ""),
-                    "invoiceNumber": ex.get("invoiceNumber", ""),
-                    "invoiceDate": ex.get("invoiceDate", ""),
-                    "currency": ex.get("currency", "USD"),
-                },
-                "worksheet": {
-                    "invoice_value_foreign": ex.get("invoiceValueForeign", 0),
-                    "exchange_rate": 6.77,
-                    "freight_foreign": 0,
-                    "insurance_foreign": 0,
-                    "other_foreign": 0,
-                    "deduction_foreign": 0,
-                    "duty_rate_pct": 0,
-                    "surcharge_rate_pct": 0,
-                    "vat_rate_pct": 0,
-                    "extra_fees_local": 40,
-                    "global_fee": 40,
-                },
-                "items": [{
-                    "id": f"ITEM-{uuid.uuid4().hex[:6].upper()}",
-                    "description": ex.get("description", "Extracted item"),
-                    "hsCode": ex.get("hsCode", ""),
-                    "qty": 1,
-                    "packageType": "BOX",
-                    "grossKg": 0,
-                    "netKg": 0,
-                    "itemValue": ex.get("invoiceValueForeign", 0),
-                    "unitCode": "NMB",
-                    "dutyTaxCode": "",
-                    "dutyTaxBase": "",
-                    "cpc": "4000",
-                }],
-                "containers": [],
-                "extraction_notes": ex.get("notes", []),
-            })
+        # Separate mode: one declaration per file
+        for f in files:
+            try:
+                ex = await _extract_with_claude([f])
+            except Exception:
+                ex = _fallback_extract(f)
+            declarations_payload.append(
+                _build_declaration_record(ex, mode, [f.filename or "document"], now)
+            )
 
     existing = load_declarations()
     existing.extend(declarations_payload)
@@ -455,11 +555,11 @@ async def extract_documents(files: list[UploadFile] = File(...), mode: str = For
         "mode": mode,
         "items": [{
             "id": d["id"],
-            "consigneeName": d.get("header", {}).get("consigneeName"),
-            "consignorName": d.get("header", {}).get("consignorName"),
+            "consigneeName": d["header"].get("consigneeName"),
+            "consignorName": d["header"].get("consignorName"),
             "hsCode": (d.get("items") or [{}])[0].get("hsCode", ""),
-            "invoiceValueForeign": d.get("worksheet", {}).get("invoice_value_foreign", 0),
-            "currency": d.get("header", {}).get("currency", "USD"),
+            "invoiceValueForeign": d["worksheet"].get("invoice_value_foreign", 0),
+            "currency": d["header"].get("currency", "USD"),
             "confidence": d.get("confidence", 0),
             "notes": d.get("extraction_notes", []),
             "status": d.get("status", "pending_review"),
