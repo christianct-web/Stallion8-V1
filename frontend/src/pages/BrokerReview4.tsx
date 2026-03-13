@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   listDeclarations,
   reviewDeclaration,
@@ -7,6 +7,7 @@ import {
   submitDeclaration,
   STALLION_BASE_URL,
 } from "@/services/stallionApi";
+import { TopNav } from "@/components/TopNav";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const C = {
@@ -94,7 +95,6 @@ function BatchList({
 }: {
   batch: ReviewDecl[]; onSelect: (id: string) => void; loading: boolean;
 }) {
-  const navigate = useNavigate();
   const pending  = batch.filter(d => d.status === "pending_review" || d.status === "pending");
   const others   = batch.filter(d => d.status !== "pending_review" && d.status !== "pending");
 
@@ -102,9 +102,6 @@ function BatchList({
     <div style={{ flex: 1, overflow: "auto", background: C.voidMid }}>
       {/* Sub-header */}
       <div style={{ padding: "12px 18px", borderBottom: `1px solid ${C.voidBorder}`, display: "flex", alignItems: "center", gap: 10 }}>
-        <button onClick={() => navigate("/")} style={{ background: "transparent", border: `1px solid ${C.voidBorder}`, borderRadius: 3, color: C.ghost, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, padding: "4px 10px", cursor: "pointer" }}>
-          ← HOME
-        </button>
         <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.ghostDim, letterSpacing: "0.1em" }}>
           {batch.length} DECLARATION{batch.length !== 1 ? "S" : ""}
         </div>
@@ -656,6 +653,11 @@ export default function BrokerReview4() {
   const [loading,  setLoading]  = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
 
+  const [searchParams] = useSearchParams();
+  const urlId = searchParams.get("id");
+
+  useEffect(() => { if (urlId && batch.length > 0 && !activeId) { setActiveId(urlId); } }, [batch, urlId]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -743,31 +745,16 @@ export default function BrokerReview4() {
 
       <div style={{ height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: "'Fraunces', serif" }}>
 
-        {/* Top bar */}
-        <div style={{
-          height: 44, background: C.void, borderBottom: `1px solid ${C.voidBorder}`,
-          display: "flex", alignItems: "center", padding: "0 14px", gap: 14, flexShrink: 0,
-        }}>
-          <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 15, color: "#fff" }}>
-            Stallion
-          </div>
-          <div style={{ width: 1, height: 12, background: C.voidBorder }} />
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: C.ghostDim, letterSpacing: "0.1em" }}>
-            BROKER REVIEW
-          </div>
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 100, height: 2, background: C.voidBorder, borderRadius: 1 }}>
-              <div style={{
-                height: "100%", borderRadius: 1,
-                width: `${progress}%`, background: C.approved,
-                transition: "width 0.4s",
-              }} />
+        <TopNav rightSlot={
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 100, height: 2, background: "#2E3748", borderRadius: 1 }}>
+              <div style={{ height: "100%", borderRadius: 1, width: `${progress}%`, background: "#1A5E3A", transition: "width 0.4s" }} />
             </div>
-            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: C.ghost }}>
+            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "#A0AABB" }}>
               {reviewed}/{batch.length}
             </span>
           </div>
-        </div>
+        } />
 
         {/* Body — split layout */}
         <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>

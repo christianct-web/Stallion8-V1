@@ -1,10 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import { useDeclarationStore } from "@/store/declarationStore";
-import { listDeclarations, downloadRegisterCsv } from "@/services/stallionApi";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem,
-  DropdownMenuSeparator, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { listDeclarations, downloadRegisterCsv, deleteDeclaration } from "@/services/stallionApi";
+import { TopNav } from "@/components/TopNav";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -63,31 +59,10 @@ function formatActivityDate(dateString: string) {
   return format(d, "dd MMM · HH:mm");
 }
 
-// Merge backend declarations + localStorage declarations, dedup by id
-function mergeDeclarations(backend: any[], local: any[]): any[] {
-  const map = new Map<string, any>();
-  // Backend takes priority — add first
-  backend.forEach(d => map.set(d.id, { ...d, _source: "backend" }));
-  // Local only added if not already in backend
-  local.forEach(d => {
-    if (!map.has(d.id)) {
-      map.set(d.id, {
-        id:          d.id,
-        status:      d.status,
-        updated_at:  d.updated_at,
-        _source:     "local",
-        header: {
-          consigneeName:  d.payload_json?.traders?.consignee_consignee_name || "",
-          consigneeCode:  d.payload_json?.traders?.consignee_consignee_code || "",
-          invoiceNumber:  d.payload_json?.identification?.general_segment_registration_number_of_the_customs_declaration || "",
-        },
-        items:       d.payload_json?.items || [],
-        worksheet:   d.payload_json?.valuation || {},
-        reference_number: d.reference_number,
-      });
-    }
-  });
-  return Array.from(map.values())
+// Backend is the single source of truth for declarations.
+function mergeDeclarations(backend: any[]): any[] {
+  return [...backend]
+    .map(d => ({ ...d, _source: "backend" }))
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 }
 
@@ -168,8 +143,6 @@ function WorkflowCard({
 // ─── Main ────────────────────────────────────────────────────────────────────
 export default function DeclarationsList() {
   const navigate = useNavigate();
-  const { declarations: localDeclarations, createDeclaration, duplicateDeclaration, deleteDeclaration } =
-    useDeclarationStore();
 
   const [backendDeclarations, setBackendDeclarations] = useState<any[]>([]);
   const [loadingBackend, setLoadingBackend] = useState(true);
@@ -193,8 +166,8 @@ export default function DeclarationsList() {
 
   // ── Merged + filtered ──────────────────────────────────────────────────────
   const allDeclarations = useMemo(
-    () => mergeDeclarations(backendDeclarations, localDeclarations),
-    [backendDeclarations, localDeclarations]
+    () => mergeDeclarations(backendDeclarations),
+    [backendDeclarations]
   );
 
   const sorted = useMemo(() => {
@@ -237,11 +210,15 @@ export default function DeclarationsList() {
     navigate("/stallion/workbench");
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteId) return;
-    deleteDeclaration(deleteId);
+    try {
+      await deleteDeclaration(deleteId);
+      setBackendDeclarations(prev => prev.filter((d: any) => d.id !== deleteId));
+    } catch {
+      // silent
+    }
     setDeleteId(null);
-    fetchBackend();
   };
 
   const handleCsvExport = async () => {
@@ -256,11 +233,7 @@ export default function DeclarationsList() {
   };
 
   const handleRowClick = (d: any) => {
-    if (d._source === "backend") {
-      navigate(`/stallion/brokerreview4`);
-    } else {
-      navigate(`/declaration/${d.id}`);
-    }
+    navigate(`/stallion/brokerreview4?id=${d.id}`);
   };
 
   return (
@@ -280,50 +253,7 @@ export default function DeclarationsList() {
 
       <div style={{ minHeight: "100vh", background: C.paper, fontFamily: "'Fraunces', serif", color: C.ink }}>
 
-        {/* ── Top bar ── */}
-        <div style={{
-          height: 52, background: C.void, borderBottom: `1px solid ${C.voidBorder}`,
-          display: "flex", alignItems: "center", padding: "0 28px", gap: 16,
-          position: "sticky", top: 0, zIndex: 20,
-        }}>
-          <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 700, fontSize: 17, color: "#fff" }}>
-            Stallion
-          </div>
-          <div style={{ width: 1, height: 14, background: C.voidBorder }} />
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: C.ghostDim, letterSpacing: "0.1em" }}>
-            CUSTOMS MANAGEMENT · TT · ASYCUDA
-          </div>
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: C.ghostDim, letterSpacing: "0.08em" }}>
-              {format(new Date(), "MMMM yyyy").toUpperCase()}
-            </div>
-            <div style={{ width: 1, height: 14, background: C.voidBorder }} />
-            {[
-              { label: "Workbench",     sub: "NEW DECLARATION", path: "/stallion/workbench",     accent: false },
-              { label: "Broker Review", sub: "REVIEW QUEUE",    path: "/stallion/brokerreview4", accent: true  },
-            ].map(({ label, sub, path, accent }) => {
-              const [hov, setHov] = useState(false);
-              return (
-                <button key={path} onClick={() => navigate(path)}
-                  onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}
-                  style={{
-                    padding: "8px 14px",
-                    background: hov ? (accent ? C.approved : C.voidSurface) : (accent ? C.approved + "18" : "transparent"),
-                    border: `1px solid ${accent ? C.approved + "55" : C.voidBorder}`,
-                    borderRadius: 3, cursor: "pointer", textAlign: "left" as const, transition: "background 0.15s",
-                  }}
-                >
-                  <div style={{ fontFamily: "'Fraunces', serif", fontSize: 13, fontWeight: 600, color: accent ? (hov ? "#fff" : C.approved) : (hov ? "#fff" : C.ghost), marginBottom: 1 }}>
-                    {label}
-                  </div>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.1em", color: accent ? (hov ? "#fff" : C.approved + "99") : C.ghostDim }}>
-                    {sub}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        <TopNav />
 
         {/* ── Hero ── */}
         <div style={{ background: C.void, borderBottom: `1px solid ${C.voidBorder}`, padding: "28px 32px 24px" }}>
@@ -514,30 +444,20 @@ export default function DeclarationsList() {
                         <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 11, color: C.inkLight }}>
                           {updatedAt ? formatDistanceToNow(new Date(updatedAt), { addSuffix: true }) : "—"}
                         </div>
-                        {/* Row menu — only for local declarations */}
-                        <div style={{ display: "flex", justifyContent: "flex-end" }} onClick={e => e.stopPropagation()}>
-                          {decl._source !== "backend" && (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <button style={{ background: "transparent", border: "1px solid transparent", borderRadius: 3, padding: "3px 7px", cursor: "pointer", color: C.inkLight, fontSize: 14, lineHeight: 1, transition: "all 0.12s" }}
-                                  onMouseEnter={e => { (e.currentTarget).style.background = C.paperAlt; (e.currentTarget).style.borderColor = C.paperBorder; }}
-                                  onMouseLeave={e => { (e.currentTarget).style.background = "transparent"; (e.currentTarget).style.borderColor = "transparent"; }}
-                                >···</button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" style={{ fontFamily: "'Fraunces', serif", background: C.paper, border: `1px solid ${C.paperBorder}`, borderRadius: 3, boxShadow: "0 8px 24px rgba(0,0,0,0.12)", minWidth: 160 }}>
-                                <DropdownMenuItem onClick={() => navigate(`/declaration/${decl.id}`)} style={{ fontSize: 13, cursor: "pointer" }}>
-                                  <span style={{ marginRight: 8 }}>▤</span> Open
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => { const dup = duplicateDeclaration(decl.id); if (dup) navigate(`/declaration/${dup.id}`); }} style={{ fontSize: 13, cursor: "pointer" }}>
-                                  <span style={{ marginRight: 8 }}>⎘</span> Duplicate
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={() => setDeleteId(decl.id)} style={{ fontSize: 13, cursor: "pointer", color: C.critBorder }}>
-                                  <span style={{ marginRight: 8 }}>✕</span> Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          )}
+                        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                          <button
+                            onClick={e => { e.stopPropagation(); setDeleteId(decl.id); }}
+                            style={{
+                              background: "transparent", border: "none", cursor: "pointer",
+                              color: C.inkLight, fontSize: 14, padding: "4px 6px", borderRadius: 3,
+                              lineHeight: 1,
+                            }}
+                            onMouseEnter={e => (e.currentTarget.style.color = "#963A10")}
+                            onMouseLeave={e => (e.currentTarget.style.color = C.inkLight)}
+                            title="Delete"
+                          >
+                            ✕
+                          </button>
                         </div>
                       </div>
                     );
@@ -548,7 +468,7 @@ export default function DeclarationsList() {
                 <div style={{ marginTop: 10, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.inkLight, letterSpacing: "0.06em" }}>
                   {sorted.length} of {allDeclarations.length} declaration{allDeclarations.length !== 1 ? "s" : ""}
                   {searchQuery && ` matching "${searchQuery}"`}
-                  {" · "}<span style={{ color: C.ghostDim }}>{backendDeclarations.length} from backend · {localDeclarations.length} local</span>
+                  {" · "}<span style={{ color: C.ghostDim }}>{backendDeclarations.length} from backend</span>
                 </div>
               )}
             </div>
@@ -562,9 +482,10 @@ export default function DeclarationsList() {
                 </div>
                 {[
                   { label: "New Declaration",    sub: "Open workbench",      fn: handleNew,                                        icon: "+" },
-                  { label: "Review Queue",        sub: "Open broker review",  fn: () => navigate("/stallion/brokerreview4"),         icon: "✓" },
-                  { label: "New from Workbench",  sub: "Full entry form",     fn: () => navigate("/stallion/workbench"),             icon: "▤" },
-                  { label: "Export Register CSV", sub: "Monthly register log", fn: handleCsvExport,                                 icon: "↓" },
+                  { label: "Review Queue",       sub: "Open broker review",  fn: () => navigate("/stallion/brokerreview4"),         icon: "✓" },
+                  { label: "Extract Documents",  sub: "Upload PDF invoices", fn: () => navigate("/stallion/extract"),              icon: "⇪" },
+                  { label: "New from Workbench", sub: "Full entry form",     fn: () => navigate("/stallion/workbench"),             icon: "▤" },
+                  { label: "Export Register CSV", sub: "Monthly register log", fn: handleCsvExport,                                icon: "↓" },
                 ].map(({ label, sub, fn, icon }) => (
                   <button key={label} onClick={fn} style={{ width: "100%", padding: "10px 14px", background: "transparent", border: "none", borderBottom: `1px solid ${C.paperBorder}`, cursor: "pointer", textAlign: "left" as const, display: "flex", alignItems: "center", gap: 12, transition: "background 0.1s" }}
                     onMouseEnter={e => (e.currentTarget.style.background = C.paperAlt)}

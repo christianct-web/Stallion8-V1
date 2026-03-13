@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { TopNav } from "@/components/TopNav";
 import {
   calculateWorksheet,
   createTemplate,
@@ -349,34 +349,23 @@ export default function StallionWorkbench() {
   return (
     <TooltipProvider>
       <div className="wb-page" style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
-        <div className="wb-topbar">
-          <Link to="/" style={{ textDecoration: "none" }}>
-            <span className="wb-topbar-logo">Stallion</span>
-          </Link>
-          <div className="wb-topbar-divider" />
-          <span className="wb-topbar-label">WORKBENCH · DECLARATION ENTRY</span>
-          <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center" }}>
+        <TopNav rightSlot={
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
             {preflight && (
               <span style={{
-                fontFamily: "var(--wb-font-mono)", fontSize: 11,
-                letterSpacing: "0.06em",
-                color: preflight.status === "pass"
-                  ? "var(--wb-approved)"
-                  : "var(--wb-crit-border)",
+                fontFamily: "var(--wb-font-mono)", fontSize: 11, letterSpacing: "0.06em",
+                color: preflight.status === "pass" ? "var(--wb-approved)" : "var(--wb-crit-border)",
               }}>
                 {preflight.status === "pass"
                   ? `✓ ${preflight.counts.warnings}W`
                   : `✗ ${preflight.counts.errors}E · ${preflight.counts.warnings}W`}
               </span>
             )}
-            <span style={{
-              fontFamily: "var(--wb-font-mono)", fontSize: 11,
-              color: "var(--wb-ghost-dim)", letterSpacing: "0.06em",
-            }}>
+            <span style={{ fontFamily: "var(--wb-font-mono)", fontSize: 11, color: "var(--wb-ghost-dim)", letterSpacing: "0.06em" }}>
               {declarationId.slice(0, 8).toUpperCase()}
             </span>
           </div>
-        </div>
+        } />
 
         <div style={{ flex: 1, maxWidth: 860, margin: "0 auto", width: "100%", padding: "24px 16px 120px" }}>
           <WorkbenchHeader

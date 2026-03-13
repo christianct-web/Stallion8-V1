@@ -2,12 +2,13 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 import uuid
 from datetime import date, datetime
 from typing import Any, Dict, Optional
 
 import httpx
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 
@@ -238,6 +239,234 @@ def declarations_upsert(req: Dict[str, Any]):
     return {"ok": True, "id": row_id}
 
 
+@app.delete("/declarations/{declaration_id}")
+def declarations_delete(declaration_id: str):
+    items = load_declarations()
+    new_items = [r for r in items if str(r.get("id")) != declaration_id]
+    if len(new_items) == len(items):
+        raise HTTPException(status_code=404, detail="Declaration not found")
+    save_declarations(new_items)
+    return {"ok": True, "id": declaration_id}
+
+
+# ─── Document extraction (lightweight MVP) ───────────────────────────────────
+def _read_pdf_text(upload: UploadFile) -> str:
+    raw = upload.file.read() or b""
+
+    # Try pypdf if available.
+    try:
+        from pypdf import PdfReader  # type: ignore
+        import io as _io
+
+        reader = PdfReader(_io.BytesIO(raw))
+        return "\n".join((p.extract_text() or "") for p in reader.pages)
+    except Exception:
+        pass
+
+    # Fallback: best-effort text decode from bytes.
+    try:
+        return raw.decode("utf-8", errors="ignore")
+    except Exception:
+        return ""
+
+
+def _first(pattern: str, text: str, flags: int = re.IGNORECASE) -> str:
+    m = re.search(pattern, text, flags)
+    return (m.group(1).strip() if m and m.groups() else "")
+
+
+def _extract_fields_from_text(text: str, filename: str) -> Dict[str, Any]:
+    upper = text.upper()
+
+    hs = _first(r"\b(\d{4}\.\d{2}\.\d{2}\.\d{2}|\d{6,12})\b", text)
+    awb = _first(r"\b([A-Z0-9]{3,4}[\s-]?[A-Z0-9]{3,}[\s-]?[A-Z0-9]{3,})\b", upper)
+
+    amount_raw = _first(r"(?:TOTAL|AMOUNT|INVOICE\s+TOTAL)\D{0,20}(\d[\d,]*\.?\d{0,2})", text)
+    amount = 0.0
+    try:
+        amount = float((amount_raw or "0").replace(",", ""))
+    except Exception:
+        amount = 0.0
+
+    consignee = "HECA Medical Technologies Ltd" if "HECA" in upper else _first(r"CONSIGNEE\s*[:\-]\s*(.+)", text)
+    consignor = "Align Technology Switzerland GmbH" if "ALIGN" in upper else _first(r"CONSIGNOR\s*[:\-]\s*(.+)", text)
+
+    invoice_no = _first(r"INVOICE\s*(?:NO|NUMBER)?\s*[:#\-]?\s*([A-Z0-9\-/]+)", upper)
+    invoice_date = _first(r"(?:INVOICE\s+DATE|DATE)\s*[:\-]?\s*(\d{4}-\d{2}-\d{2}|\d{2}/\d{2}/\d{2,4})", text)
+
+    # Confidence is heuristic for MVP extraction.
+    confidence_hits = sum(bool(x) for x in [hs, amount > 0, consignee, consignor, invoice_no])
+    confidence = round(min(0.95, 0.55 + confidence_hits * 0.08), 2)
+
+    return {
+        "filename": filename,
+        "consigneeName": consignee or "",
+        "consignorName": consignor or "",
+        "hsCode": hs or "",
+        "blAwbNumber": awb or "",
+        "invoiceNumber": invoice_no or "",
+        "invoiceDate": invoice_date or "",
+        "invoiceValueForeign": amount,
+        "currency": "USD",
+        "description": "Extracted from source document",
+        "confidence": confidence,
+        "notes": [] if confidence >= 0.75 else ["Low confidence — broker review required"],
+    }
+
+
+@app.post("/extract/documents")
+async def extract_documents(files: list[UploadFile] = File(...), mode: str = Form("batch")):
+    if not files:
+        raise HTTPException(status_code=400, detail="No files uploaded")
+
+    extractions: list[Dict[str, Any]] = []
+    for f in files:
+        text = _read_pdf_text(f)
+        fields = _extract_fields_from_text(text, f.filename or "uploaded-file")
+        extractions.append(fields)
+
+    # For MVP: in batch mode merge into one declaration, otherwise one per file.
+    declarations_payload: list[Dict[str, Any]] = []
+    now = datetime.utcnow().isoformat() + "Z"
+
+    if mode == "batch":
+        merged = extractions[0].copy()
+        for ex in extractions[1:]:
+            for k, v in ex.items():
+                if k in {"filename", "notes"}:
+                    continue
+                if (not merged.get(k)) and v:
+                    merged[k] = v
+            merged["confidence"] = round(min(0.99, (merged.get("confidence", 0.6) + ex.get("confidence", 0.6)) / 2), 2)
+
+        dec_id = f"EXT-{uuid.uuid4().hex[:8].upper()}"
+        declarations_payload.append({
+            "id": dec_id,
+            "status": "pending_review",
+            "updated_at": now,
+            "source": {"type": "EXTRACT", "mode": mode, "files": [x.get("filename") for x in extractions]},
+            "confidence": merged.get("confidence", 0.7),
+            "header": {
+                "declarationRef": dec_id,
+                "port": "TTPTS",
+                "term": "CIF",
+                "modeOfTransport": "AIR",
+                "customsRegime": "IM4",
+                "consignorName": merged.get("consignorName", ""),
+                "consigneeCode": "",
+                "consigneeName": merged.get("consigneeName", ""),
+                "vesselName": "",
+                "blAwbNumber": merged.get("blAwbNumber", ""),
+                "invoiceNumber": merged.get("invoiceNumber", ""),
+                "invoiceDate": merged.get("invoiceDate", ""),
+                "currency": merged.get("currency", "USD"),
+            },
+            "worksheet": {
+                "invoice_value_foreign": merged.get("invoiceValueForeign", 0),
+                "exchange_rate": 6.77,
+                "freight_foreign": 0,
+                "insurance_foreign": 0,
+                "other_foreign": 0,
+                "deduction_foreign": 0,
+                "duty_rate_pct": 0,
+                "surcharge_rate_pct": 0,
+                "vat_rate_pct": 0,
+                "extra_fees_local": 40,
+                "global_fee": 40,
+            },
+            "items": [{
+                "id": f"ITEM-{uuid.uuid4().hex[:6].upper()}",
+                "description": merged.get("description", "Extracted item"),
+                "hsCode": merged.get("hsCode", ""),
+                "qty": 1,
+                "packageType": "BOX",
+                "grossKg": 0,
+                "netKg": 0,
+                "itemValue": merged.get("invoiceValueForeign", 0),
+                "unitCode": "NMB",
+                "dutyTaxCode": "",
+                "dutyTaxBase": "",
+                "cpc": "4000",
+            }],
+            "containers": [],
+            "extraction_notes": merged.get("notes", []),
+        })
+    else:
+        for ex in extractions:
+            dec_id = f"EXT-{uuid.uuid4().hex[:8].upper()}"
+            declarations_payload.append({
+                "id": dec_id,
+                "status": "pending_review",
+                "updated_at": now,
+                "source": {"type": "EXTRACT", "mode": mode, "files": [ex.get("filename")]},
+                "confidence": ex.get("confidence", 0.7),
+                "header": {
+                    "declarationRef": dec_id,
+                    "port": "TTPTS",
+                    "term": "CIF",
+                    "modeOfTransport": "AIR",
+                    "customsRegime": "IM4",
+                    "consignorName": ex.get("consignorName", ""),
+                    "consigneeCode": "",
+                    "consigneeName": ex.get("consigneeName", ""),
+                    "vesselName": "",
+                    "blAwbNumber": ex.get("blAwbNumber", ""),
+                    "invoiceNumber": ex.get("invoiceNumber", ""),
+                    "invoiceDate": ex.get("invoiceDate", ""),
+                    "currency": ex.get("currency", "USD"),
+                },
+                "worksheet": {
+                    "invoice_value_foreign": ex.get("invoiceValueForeign", 0),
+                    "exchange_rate": 6.77,
+                    "freight_foreign": 0,
+                    "insurance_foreign": 0,
+                    "other_foreign": 0,
+                    "deduction_foreign": 0,
+                    "duty_rate_pct": 0,
+                    "surcharge_rate_pct": 0,
+                    "vat_rate_pct": 0,
+                    "extra_fees_local": 40,
+                    "global_fee": 40,
+                },
+                "items": [{
+                    "id": f"ITEM-{uuid.uuid4().hex[:6].upper()}",
+                    "description": ex.get("description", "Extracted item"),
+                    "hsCode": ex.get("hsCode", ""),
+                    "qty": 1,
+                    "packageType": "BOX",
+                    "grossKg": 0,
+                    "netKg": 0,
+                    "itemValue": ex.get("invoiceValueForeign", 0),
+                    "unitCode": "NMB",
+                    "dutyTaxCode": "",
+                    "dutyTaxBase": "",
+                    "cpc": "4000",
+                }],
+                "containers": [],
+                "extraction_notes": ex.get("notes", []),
+            })
+
+    existing = load_declarations()
+    existing.extend(declarations_payload)
+    save_declarations(existing)
+
+    return {
+        "status": "ok",
+        "mode": mode,
+        "items": [{
+            "id": d["id"],
+            "consigneeName": d.get("header", {}).get("consigneeName"),
+            "consignorName": d.get("header", {}).get("consignorName"),
+            "hsCode": (d.get("items") or [{}])[0].get("hsCode", ""),
+            "invoiceValueForeign": d.get("worksheet", {}).get("invoice_value_foreign", 0),
+            "currency": d.get("header", {}).get("currency", "USD"),
+            "confidence": d.get("confidence", 0),
+            "notes": d.get("extraction_notes", []),
+            "status": d.get("status", "pending_review"),
+        } for d in declarations_payload],
+    }
+
+
 # ─── Review / status transition ───────────────────────────────────────────────
 @app.patch("/declarations/{declaration_id}/review")
 def declarations_review(declaration_id: str, req: Dict[str, Any]):
@@ -300,6 +529,18 @@ def pack_generate(req: Dict[str, Any]):
                 status_code=409,
                 detail=f"Declaration must be approved or pending_review before export (current: {row_status})",
             )
+
+    # If declaration_id is provided, use persisted declaration payload as defaults.
+    # Allows broker/workbench to generate from saved records without resending full body.
+    if declaration_id and all_items is not None and row_idx is not None:
+        row = all_items[row_idx]
+        req = {
+            **req,
+            "header": req.get("header") or row.get("header") or {},
+            "worksheet": req.get("worksheet") or row.get("worksheet") or {},
+            "items": req.get("items") or row.get("items") or [],
+            "containers": req.get("containers") or row.get("containers") or [],
+        }
 
     result = generate_pack(req)
 

@@ -6,9 +6,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 const DeclarationsList = lazy(() => import("./pages/DeclarationsList"));
-const DeclarationEditor = lazy(() => import("./pages/DeclarationEditor"));
 const StallionWorkbench = lazy(() => import("./pages/StallionWorkbench"));
 const BrokerReview4 = lazy(() => import("./pages/BrokerReview4"));
+const DocumentUpload = lazy(() => import("./pages/DocumentUpload"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
@@ -26,9 +26,9 @@ const App = () => (
         <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<DeclarationsList />} />
-            <Route path="/declaration/:id" element={<DeclarationEditor />} />
             <Route path="/stallion/workbench" element={<StallionWorkbench />} />
             <Route path="/stallion/brokerreview4" element={<BrokerReview4 />} />
+            <Route path="/stallion/extract" element={<DocumentUpload />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

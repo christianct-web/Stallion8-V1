@@ -160,6 +160,34 @@ export async function upsertDeclaration(payload: Record<string, unknown>) {
   });
 }
 
+export async function extractDocuments(files: File[], mode: "batch" | "separate" = "batch") {
+  const form = new FormData();
+  files.forEach((f) => form.append("files", f));
+  form.append("mode", mode);
+
+  const res = await fetch(`${BASE_URL}/extract/documents`, {
+    method: "POST",
+    body: form,
+  });
+
+  if (!res.ok) throw new Error(`/extract/documents failed (${res.status})`);
+  return (await res.json()) as {
+    status: string;
+    mode: string;
+    items: Array<{
+      id: string;
+      consigneeName: string;
+      consignorName: string;
+      hsCode: string;
+      invoiceValueForeign: number;
+      currency: string;
+      confidence: number;
+      notes: string[];
+      status: string;
+    }>;
+  };
+}
+
 // TODO(customs-receipt): add idempotency key header/payload once receipt workflow is implemented.
 export async function reviewDeclaration(
   declarationId: string,
@@ -173,6 +201,10 @@ export async function reviewDeclaration(
 
 export async function submitDeclaration(declarationId: string, payload: Record<string, unknown> = {}) {
   return reviewDeclaration(declarationId, { action: "submitted", ...payload });
+}
+
+export async function deleteDeclaration(id: string): Promise<void> {
+  await api(`/declarations/${id}`, { method: "DELETE" });
 }
 
 export async function receiptDeclaration(declarationId: string, receiptNumber: string, payload: Record<string, unknown> = {}) {
