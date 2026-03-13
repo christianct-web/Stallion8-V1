@@ -9,6 +9,7 @@ import {
 } from "@/services/stallionApi";
 import { TopNav } from "@/components/TopNav";
 import { HelpBox, HelpTip, HelpHeading } from "@/components/HelpBox";
+import { HsLookup } from "@/components/HsLookup";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const C = {
@@ -344,6 +345,14 @@ function ReviewPanel({
   const hdr = (key: string) => editHeader[key] ?? (decl.header?.[key] ?? "");
   const setHdr = (key: string, val: string) => setEditHeader(p => ({ ...p, [key]: val }));
 
+  // Editable item fields (keyed by item index)
+  const [editItems,  setEditItems]  = useState<Record<number, Partial<any>>>({});
+  const setItemField = (i: number, key: string, val: any) =>
+    setEditItems(p => ({ ...p, [i]: { ...(p[i] ?? {}), [key]: val } }));
+
+  // HS lookup open state — stores item index (or -1 for none)
+  const [hsSearchIdx, setHsSearchIdx] = useState<number | null>(null);
+
   const ws  = decl.worksheet ?? {};
   const itms = decl.items ?? [];
 
@@ -360,7 +369,13 @@ function ReviewPanel({
       const updatedHeader = Object.keys(editHeader).length > 0
         ? { ...decl.header, ...editHeader }
         : undefined;
-      await onStatusChange(decl.id, status, notes, updatedHeader ? { header: updatedHeader } : null);
+      const updatedItems = Object.keys(editItems).length > 0
+        ? itms.map((item: any, i: number) => ({ ...item, ...(editItems[i] ?? {}) }))
+        : undefined;
+      await onStatusChange(decl.id, status, notes, {
+        ...(updatedHeader ? { header: updatedHeader } : {}),
+        ...(updatedItems  ? { items:  updatedItems  } : {}),
+      });
     } finally {
       setSubmitting(null);
     }
@@ -427,18 +442,42 @@ function ReviewPanel({
 
             {/* HS code hero */}
             {itms.length > 0 && (
-              <div style={{ padding: "10px 14px", background: C.void, borderRadius: 3, marginBottom: 14, display: "flex", alignItems: "center", gap: 14 }}>
-                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 700, color: "#fff", letterSpacing: "0.04em" }}>
-                  {itms[0].hsCode ?? itms[0].tarification_hscode_commodity_code ?? "——"}
-                </span>
-                <div>
-                  <div style={{ fontFamily: "'Fraunces', serif", fontSize: 12, color: C.ghost }}>
-                    {itms[0].description ?? ""}
+              <div style={{ marginBottom: 14 }}>
+                <div style={{ padding: "10px 14px", background: C.void, borderRadius: 3, display: "flex", alignItems: "center", gap: 14 }}>
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 700, color: "#fff", letterSpacing: "0.04em" }}>
+                    {(editItems[0]?.hsCode ?? itms[0].hsCode ?? itms[0].tarification_hscode_commodity_code) || "——"}
+                  </span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontFamily: "'Fraunces', serif", fontSize: 12, color: C.ghost }}>
+                      {itms[0].description ?? ""}
+                    </div>
+                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.ghostDim }}>
+                      {itms.length} line item{itms.length !== 1 ? "s" : ""}
+                    </div>
                   </div>
-                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.ghostDim }}>
-                    {itms.length} line item{itms.length !== 1 ? "s" : ""}
-                  </div>
+                  <button
+                    onClick={() => setHsSearchIdx(hsSearchIdx === 0 ? null : 0)}
+                    style={{
+                      fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+                      padding: "4px 10px", background: "transparent",
+                      border: `1px solid ${C.voidBorder}`, borderRadius: 3,
+                      color: C.ghost, cursor: "pointer", flexShrink: 0,
+                    }}
+                  >
+                    {hsSearchIdx === 0 ? "Close ✕" : "Lookup HS ↓"}
+                  </button>
                 </div>
+                {hsSearchIdx === 0 && (
+                  <HsLookup
+                    defaultQuery={itms[0].description ?? ""}
+                    onSelect={(code) => {
+                      setItemField(0, "hsCode", code);
+                      setHsSearchIdx(null);
+                    }}
+                    onClose={() => setHsSearchIdx(null)}
+                    theme="paper"
+                  />
+                )}
               </div>
             )}
 
@@ -485,30 +524,60 @@ function ReviewPanel({
             </div>
             {itms.length === 0 ? (
               <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", color: C.inkLight, padding: "20px 0" }}>No items</div>
-            ) : itms.map((item: any, i: number) => (
-              <div key={item.id ?? i} style={{ border: `1px solid ${C.paperBorder}`, borderRadius: 3, padding: "12px 14px", marginBottom: 10 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8 }}>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700, color: C.ink, letterSpacing: "0.04em" }}>
-                    {item.hsCode ?? item.tarification_hscode_commodity_code ?? "——"}
-                  </span>
-                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.inkLight }}>
-                    LINE {item.line_number ?? i + 1}
-                  </span>
+            ) : itms.map((item: any, i: number) => {
+              const displayHs = editItems[i]?.hsCode ?? item.hsCode ?? item.tarification_hscode_commodity_code ?? "——";
+              const isHsOpen = hsSearchIdx === (100 + i);
+              return (
+                <div key={item.id ?? i} style={{ border: `1px solid ${C.paperBorder}`, borderRadius: 3, padding: "12px 14px", marginBottom: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700, color: editItems[i]?.hsCode ? C.approved : C.ink, letterSpacing: "0.04em" }}>
+                      {displayHs}
+                    </span>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.inkLight }}>
+                        LINE {item.line_number ?? i + 1}
+                      </span>
+                      <button
+                        onClick={() => setHsSearchIdx(isHsOpen ? null : 100 + i)}
+                        style={{
+                          fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+                          padding: "3px 8px", background: "transparent",
+                          border: `1px solid ${C.paperBorder}`, borderRadius: 3,
+                          color: C.inkLight, cursor: "pointer",
+                        }}
+                      >
+                        {isHsOpen ? "Close ✕" : "Lookup HS"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {isHsOpen && (
+                    <HsLookup
+                      defaultQuery={item.description ?? ""}
+                      onSelect={(code) => {
+                        setItemField(i, "hsCode", code);
+                        setHsSearchIdx(null);
+                      }}
+                      onClose={() => setHsSearchIdx(null)}
+                      theme="paper"
+                    />
+                  )}
+
+                  {[
+                    ["DESCRIPTION", item.description ?? ""],
+                    ["QTY",         `${item.qty ?? item.quantity ?? ""} ${item.unitCode ?? item.unit_of_measure ?? ""}`.trim()],
+                    ["GROSS KG",    item.grossKg ?? item.gross_weight ?? ""],
+                    ["NET KG",      item.netKg   ?? item.net_weight   ?? ""],
+                    ["ITEM VALUE",  item.itemValue ?? item.customs_value ?? ""],
+                    ["DUTY CODE",   item.dutyTaxCode ?? ""],
+                    ["CPC",         item.cpc ?? ""],
+                    ["PKG TYPE",    item.packageType ?? item.packages_kind ?? ""],
+                  ].map(([l, v]) => (
+                    <FieldRow key={l as string} label={l as string} value={v as any} mono={typeof v === "number"} />
+                  ))}
                 </div>
-                {[
-                  ["DESCRIPTION", item.description ?? ""],
-                  ["QTY",         `${item.qty ?? item.quantity ?? ""} ${item.unitCode ?? item.unit_of_measure ?? ""}`.trim()],
-                  ["GROSS KG",    item.grossKg ?? item.gross_weight ?? ""],
-                  ["NET KG",      item.netKg   ?? item.net_weight   ?? ""],
-                  ["ITEM VALUE",  item.itemValue ?? item.customs_value ?? ""],
-                  ["DUTY CODE",   item.dutyTaxCode ?? ""],
-                  ["CPC",         item.cpc ?? ""],
-                  ["PKG TYPE",    item.packageType ?? item.packages_kind ?? ""],
-                ].map(([l, v]) => (
-                  <FieldRow key={l as string} label={l as string} value={v as any} mono={typeof v === "number"} />
-                ))}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 

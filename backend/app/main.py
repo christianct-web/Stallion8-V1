@@ -663,6 +663,55 @@ def activity_log(limit: int = 200):
     return {"events": events[:limit], "total": len(events)}
 
 
+# ─── HS code search (Claude-powered) ─────────────────────────────────────────
+
+HS_SEARCH_PROMPT = """You are a Trinidad and Tobago customs tariff specialist with deep knowledge of the CARICOM Common External Tariff (CET) as applied in T&T under ASYCUDA World.
+
+Given goods described as: "{query}"
+
+Return EXACTLY 5 HS code suggestions as a JSON array. Each object must have:
+- "code": HS tariff code in T&T format XXXX.XX.XX.XX (11-digit with dots)
+- "description": concise official tariff description (under 80 chars)
+- "dutyRate": the applicable T&T rate (e.g. "20%", "0%", "Free", "30% + 12.5% VAT")
+- "notes": one short sentence about classification rules, exclusions, or conditions
+
+Order results from most likely to least likely match. Return ONLY the JSON array — no prose, no markdown fences, no other text."""
+
+
+@app.post("/hs/search")
+async def hs_search(req: Dict[str, Any]):
+    query = (req.get("query") or "").strip()
+    if not query:
+        raise HTTPException(status_code=400, detail="query is required")
+
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key:
+        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY not configured")
+
+    import anthropic as _anthropic
+    client = _anthropic.Anthropic(api_key=api_key)
+
+    prompt = HS_SEARCH_PROMPT.replace("{query}", query.replace('"', "'"))
+
+    try:
+        msg = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=1024,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        raw = msg.content[0].text.strip()
+        # Strip markdown fences if present
+        raw = re.sub(r"^```[^\n]*\n?", "", raw)
+        raw = re.sub(r"```\s*$", "", raw).strip()
+        results = json.loads(raw)
+        if not isinstance(results, list):
+            results = []
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"HS search failed: {exc}")
+
+    return {"query": query, "results": results}
+
+
 # ─── Pack generation ──────────────────────────────────────────────────────────
 @app.post("/pack/generate")
 def pack_generate(req: Dict[str, Any]):

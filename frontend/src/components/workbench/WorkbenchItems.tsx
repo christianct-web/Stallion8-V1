@@ -1,7 +1,9 @@
+import { useState } from "react";
 import {
   Select, SelectContent, SelectItem,
   SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { HsLookup } from "@/components/HsLookup";
 
 // ─── Types ────────────────────────────────────────────────────────────────
 interface Item {
@@ -115,6 +117,7 @@ function ItemEditor({
   packages: any[]; unitCodes: any[]; dutyTaxCodes: any[];
   dutyTaxBases: any[]; cpcCodes: any[];
 }) {
+  const [showHsSearch, setShowHsSearch] = useState(false);
   const S = (k: keyof Item) => (v: string) => onChange(item.id, k, v);
   const N = (k: keyof Item) => (v: string) => onChange(item.id, k, Number(v || 0));
 
@@ -138,7 +141,7 @@ function ItemEditor({
 
       {/* HS Code — most critical field, prominent display */}
       <div className="wb-hs-hero">
-        <div>
+        <div style={{ flex: 1 }}>
           <div className="wb-hs-label">HS CODE · VERIFY AGAINST TT TARIFF</div>
           <input
             className="wb-hs-input"
@@ -147,16 +150,38 @@ function ItemEditor({
             placeholder="00000000"
           />
         </div>
-        <a
-          href="https://trtc.gov.tt/customs-tariff/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="wb-btn wb-btn-ghost"
-          style={{ textDecoration: "none" }}
-        >
-          TT TARIFF ↗
-        </a>
+        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          <button
+            type="button"
+            className="wb-btn wb-btn-ghost"
+            onClick={() => setShowHsSearch(v => !v)}
+            style={{ fontWeight: showHsSearch ? 700 : 400 }}
+          >
+            {showHsSearch ? "Hide search" : "Search HS ↓"}
+          </button>
+          <a
+            href="https://trtc.gov.tt/customs-tariff/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="wb-btn wb-btn-ghost"
+            style={{ textDecoration: "none" }}
+          >
+            TT TARIFF ↗
+          </a>
+        </div>
       </div>
+
+      {showHsSearch && (
+        <HsLookup
+          defaultQuery={item.description}
+          onSelect={(code, _desc, _rate) => {
+            onChange(item.id, "hsCode", code);
+            setShowHsSearch(false);
+          }}
+          onClose={() => setShowHsSearch(false)}
+          theme="paper"
+        />
+      )}
 
       {/* Core description fields */}
       <SubHead label="Goods" />

@@ -207,6 +207,25 @@ export async function deleteDeclaration(id: string): Promise<void> {
   await api(`/declarations/${id}`, { method: "DELETE" });
 }
 
+export interface HsResult {
+  code: string;
+  description: string;
+  dutyRate: string;
+  notes: string;
+}
+
+export async function hsSearch(query: string): Promise<HsResult[]> {
+  const res = await fetch(`${BASE_URL}/hs/search`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ query }),
+    signal: AbortSignal.timeout(30000),
+  });
+  if (!res.ok) throw new Error(`/hs/search failed (${res.status})`);
+  const data = await res.json();
+  return data.results as HsResult[];
+}
+
 export async function receiptDeclaration(declarationId: string, receiptNumber: string, payload: Record<string, unknown> = {}) {
   return reviewDeclaration(declarationId, {
     action: "receipted",
