@@ -15,6 +15,7 @@ interface WorkbenchActionsProps {
   generating: boolean;
   savingDraft?: boolean;
   calc: any;
+  cooldownSeconds?: number;
 }
 
 export function bucketFromPath(
@@ -193,10 +194,11 @@ function PackResult({ packResult }: { packResult: any }) {
 
 export function WorkbenchActions({
   preflight, packResult, onGenerate, onSaveDraft,
-  generating, savingDraft, calc,
+  generating, savingDraft, calc, cooldownSeconds = 0,
 }: WorkbenchActionsProps) {
 
   const hasErrors = (preflight?.counts.errors ?? 0) > 0;
+  const cooldownActive = cooldownSeconds > 0;
 
   return (
     <div className="wb-card" style={{ position: "sticky", bottom: 0, zIndex: 10 }}
@@ -234,21 +236,23 @@ export function WorkbenchActions({
           <button
             className="wb-btn wb-btn-primary"
             onClick={onGenerate}
-            disabled={generating || hasErrors || !calc}
+            disabled={generating || hasErrors || !calc || cooldownActive}
             title={
               hasErrors
                 ? `Fix ${preflight?.counts.errors} error${preflight?.counts.errors !== 1 ? "s" : ""} first`
                 : !calc
                   ? "Run worksheet calculation first"
-                  : ""
+                  : cooldownActive
+                    ? `Please wait ${cooldownSeconds}s before generating again`
+                    : ""
             }
             style={{
-              background: hasErrors || !calc ? "var(--wb-paper-mid)" : "var(--wb-ink)",
-              color: hasErrors || !calc ? "var(--wb-ink-light)" : "var(--wb-paper)",
-              cursor: hasErrors || !calc ? "not-allowed" : "pointer",
+              background: hasErrors || !calc || cooldownActive ? "var(--wb-paper-mid)" : "var(--wb-ink)",
+              color: hasErrors || !calc || cooldownActive ? "var(--wb-ink-light)" : "var(--wb-paper)",
+              cursor: hasErrors || !calc || cooldownActive ? "not-allowed" : "pointer",
             }}
           >
-            {generating ? "Generating…" : "⚡ Generate Pack"}
+            {generating ? "Generating…" : cooldownActive ? `Wait ${cooldownSeconds}s` : "⚡ Generate Pack"}
           </button>
 
           {packResult && (

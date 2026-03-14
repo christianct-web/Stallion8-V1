@@ -38,12 +38,81 @@ function statusCfg(s: string) {
   return STATUS_CFG[s?.toLowerCase?.()] ?? STATUS_CFG.draft;
 }
 
+type NoteEntry = { id: string; author: string; at: string; text: string };
+
+function parseReviewNotes(raw?: string): NoteEntry[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .filter((n) => n && typeof n.text === "string")
+        .map((n, i) => ({
+          id: String(n.id ?? `${i}`),
+          author: String(n.author ?? "Broker"),
+          at: String(n.at ?? new Date().toISOString()),
+          text: String(n.text ?? ""),
+        }));
+    }
+  } catch {
+    // legacy plain text notes fallback
+  }
+  return [{ id: "legacy", author: "Broker", at: new Date().toISOString(), text: raw }];
+}
+
+function serializeReviewNotes(notes: NoteEntry[]): string {
+  return JSON.stringify(notes);
+}
+
+function toNum(v: any): number | null {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function deriveWorksheet(ws: Record<string, any> = {}) {
+  const out: Record<string, any> = { ...ws };
+
+  const invoice = toNum(ws.invoice_value_foreign) ?? 0;
+  const freight = toNum(ws.freight_foreign) ?? 0;
+  const insurance = toNum(ws.insurance_foreign) ?? 0;
+  const other = toNum(ws.other_foreign) ?? 0;
+  const deduction = toNum(ws.deduction_foreign) ?? 0;
+  const ex = toNum(ws.exchange_rate) ?? 0;
+
+  const cifForeign = (toNum(ws.cif_foreign) ?? (invoice + freight + insurance + other - deduction));
+  const cifLocal = (toNum(ws.cif_local) ?? (cifForeign * ex));
+
+  const dutyRate = (toNum(ws.duty_rate_pct) ?? 0) / 100;
+  const surchargeRate = (toNum(ws.surcharge_rate_pct) ?? 0) / 100;
+  const vatRate = (toNum(ws.vat_rate_pct) ?? 0) / 100;
+  const extra = toNum(ws.extra_fees_local) ?? 0;
+
+  const duty = toNum(ws.duty) ?? (cifLocal * dutyRate);
+  const surcharge = toNum(ws.surcharge) ?? (cifLocal * surchargeRate);
+  const vatBase = cifLocal + duty + surcharge;
+  const vat = toNum(ws.vat) ?? (vatBase * vatRate);
+  const total = toNum(ws.total_assessed) ?? (duty + surcharge + vat + extra);
+
+  out.cif_foreign = Number.isFinite(cifForeign) ? cifForeign : null;
+  out.cif_local = Number.isFinite(cifLocal) ? cifLocal : null;
+  out.duty = Number.isFinite(duty) ? duty : null;
+  out.surcharge = Number.isFinite(surcharge) ? surcharge : null;
+  out.vat = Number.isFinite(vat) ? vat : null;
+  out.total_assessed = Number.isFinite(total) ? total : null;
+
+  const hasInputs = [invoice, ex].every((v) => Number.isFinite(v) && v > 0);
+  const complete = Number.isFinite(out.total_assessed);
+
+  return { values: out, hasInputs, complete };
+}
+
 // ─── Normalise API shape to ReviewDecl ───────────────────────────────────────
 interface ReviewDecl {
   id:           string;
   status:       string;
   reference?:   string;
   brokerNotes?: string;
+  notesThread?: NoteEntry[];
   reviewedBy?:  string;
   reviewedAt?:  string;
   receiptNumber?: string;
@@ -63,6 +132,7 @@ function normaliseDecl(raw: any): ReviewDecl {
     status:        raw.status      ?? "draft",
     reference:     raw.reference_number ?? raw.header?.declarationRef ?? raw.id?.slice(0, 12) ?? "",
     brokerNotes:   raw.review_notes ?? raw.brokerNotes ?? "",
+    notesThread:   parseReviewNotes(raw.review_notes ?? raw.brokerNotes ?? ""),
     reviewedBy:    raw.reviewed_by  ?? raw.reviewedBy  ?? "",
     reviewedAt:    raw.reviewed_at  ?? raw.reviewedAt  ?? "",
     receiptNumber: raw.receipt_number ?? raw.receiptNumber ?? "",
@@ -332,12 +402,19 @@ function ReviewPanel({
   decl, onStatusChange, onBack, idx, total,
 }: {
   decl: ReviewDecl;
-  onStatusChange: (id: string, status: string, notes: string, updated: any) => Promise<void>;
+  onStatusChange: (
+    id: string,
+    status: string,
+    notes: string,
+    updated: any,
+    options?: { stayOnCurrent?: boolean }
+  ) => Promise<void>;
   onBack: () => void;
   idx: number; total: number;
 }) {
   const [tab,      setTab]      = useState<ReviewTab>("FIELDS");
-  const [notes,    setNotes]    = useState(decl.brokerNotes ?? "");
+  const [notesThread, setNotesThread] = useState<NoteEntry[]>(decl.notesThread ?? []);
+  const [noteDraft, setNoteDraft] = useState("");
   const [submitting, setSubmitting] = useState<string | null>(null);
 
   // Editable header fields
@@ -354,13 +431,16 @@ function ReviewPanel({
   const [hsSearchIdx, setHsSearchIdx] = useState<number | null>(null);
 
   const ws  = decl.worksheet ?? {};
+  const wsDerived = deriveWorksheet(ws);
   const itms = decl.items ?? [];
+  const notesSerialized = serializeReviewNotes(notesThread);
 
   const isPending   = decl.status === "pending_review" || decl.status === "pending";
   const isApproved  = decl.status === "approved";
   const isSubmitted = decl.status === "submitted";
   const isReceipted = decl.status === "receipted";
   const isDone      = isReceipted;
+  const canApprove = wsDerived.complete;
 
   // Action button helper
   const action = async (status: string) => {
@@ -372,7 +452,7 @@ function ReviewPanel({
       const updatedItems = Object.keys(editItems).length > 0
         ? itms.map((item: any, i: number) => ({ ...item, ...(editItems[i] ?? {}) }))
         : undefined;
-      await onStatusChange(decl.id, status, notes, {
+      await onStatusChange(decl.id, status, notesSerialized, {
         ...(updatedHeader ? { header: updatedHeader } : {}),
         ...(updatedItems  ? { items:  updatedItems  } : {}),
       });
@@ -384,7 +464,31 @@ function ReviewPanel({
   const handleReceipt = async (receiptNo: string) => {
     setSubmitting("receipted");
     try {
-      await onStatusChange(decl.id, "receipted", notes, { receipt_number: receiptNo });
+      await onStatusChange(decl.id, "receipted", notesSerialized, { receipt_number: receiptNo });
+    } finally {
+      setSubmitting(null);
+    }
+  };
+
+  const saveNote = async () => {
+    const text = noteDraft.trim();
+    if (!text) return;
+    const updatedThread = [
+      ...notesThread,
+      { id: `${Date.now()}-${Math.random().toString(16).slice(2)}`, author: "Broker", at: new Date().toISOString(), text },
+    ];
+    setNotesThread(updatedThread);
+    setNoteDraft("");
+
+    setSubmitting("note");
+    try {
+      await onStatusChange(
+        decl.id,
+        decl.status,
+        serializeReviewNotes(updatedThread),
+        {},
+        { stayOnCurrent: true }
+      );
     } finally {
       setSubmitting(null);
     }
@@ -586,6 +690,21 @@ function ReviewPanel({
             <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.14em", color: C.inkLight, marginBottom: 10 }}>
               VALUATION
             </div>
+            {wsDerived.hasInputs && !wsDerived.complete && (
+              <div style={{
+                marginBottom: 12,
+                padding: "8px 12px",
+                borderRadius: 3,
+                border: `1px solid ${C.warnBorder}`,
+                background: C.warn,
+                fontFamily: "'Fraunces', serif",
+                fontStyle: "italic",
+                fontSize: 12,
+                color: C.warnText,
+              }}>
+                Worksheet is calculating — computed totals are being derived from inputs.
+              </div>
+            )}
             {[
               ["INVOICE VALUE (FOREIGN)", ws.invoice_value_foreign ?? ""],
               ["EXCHANGE RATE",           ws.exchange_rate          ?? ""],
@@ -593,15 +712,15 @@ function ReviewPanel({
               ["INSURANCE (FOREIGN)",     ws.insurance_foreign      ?? ""],
               ["OTHER (FOREIGN)",         ws.other_foreign          ?? ""],
               ["DEDUCTION (FOREIGN)",     ws.deduction_foreign      ?? ""],
-              ["CIF (FOREIGN)",           ws.cif_foreign            ?? ""],
-              ["CIF (TTD)",               ws.cif_local              ?? ""],
+              ["CIF (FOREIGN)",           wsDerived.values.cif_foreign],
+              ["CIF (TTD)",               wsDerived.values.cif_local],
               ["DUTY RATE %",             ws.duty_rate_pct          ?? ""],
-              ["DUTY",                    ws.duty                   ?? ""],
+              ["DUTY",                    wsDerived.values.duty],
               ["SURCHARGE RATE %",        ws.surcharge_rate_pct     ?? ""],
-              ["SURCHARGE",               ws.surcharge              ?? ""],
+              ["SURCHARGE",               wsDerived.values.surcharge],
               ["VAT RATE %",              ws.vat_rate_pct           ?? ""],
-              ["VAT",                     ws.vat                    ?? ""],
-              ["TOTAL ASSESSED (TTD)",    ws.total_assessed         ?? ""],
+              ["VAT",                     wsDerived.values.vat],
+              ["TOTAL ASSESSED (TTD)",    wsDerived.values.total_assessed],
             ].map(([l, v]) => (
               <FieldRow key={l as string} label={l as string} value={v as any} mono />
             ))}
@@ -652,18 +771,72 @@ function ReviewPanel({
             <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.14em", color: C.inkLight, marginBottom: 8 }}>
               BROKER NOTES
             </div>
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder={isDone ? "No notes" : "Enter correction notes or remarks…"}
-              disabled={isDone}
-              style={{
-                width: "100%", minHeight: 180, padding: "10px 12px",
-                fontFamily: "'Fraunces', serif", fontSize: 13, color: C.ink,
-                background: isDone ? C.paperAlt : C.paper,
-                border: `1px solid ${C.paperBorder}`, borderRadius: 3, resize: "vertical",
-              }}
-            />
+
+            <div style={{ display: "grid", gap: 8, marginBottom: 12 }}>
+              {notesThread.length === 0 ? (
+                <div style={{
+                  padding: "12px",
+                  borderRadius: 3,
+                  border: `1px solid ${C.paperBorder}`,
+                  background: C.paperAlt,
+                  fontFamily: "'Fraunces', serif",
+                  fontStyle: "italic",
+                  fontSize: 12,
+                  color: C.inkLight,
+                }}>
+                  No notes yet.
+                </div>
+              ) : notesThread.map((n) => (
+                <div key={n.id} style={{
+                  padding: "10px 12px",
+                  borderRadius: 3,
+                  border: `1px solid ${C.paperBorder}`,
+                  background: C.paper,
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginBottom: 4 }}>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.inkMid }}>{n.author}</span>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.inkLight }}>
+                      {new Date(n.at).toLocaleString()}
+                    </span>
+                  </div>
+                  <div style={{ fontFamily: "'Fraunces', serif", fontSize: 13, color: C.ink }}>{n.text}</div>
+                </div>
+              ))}
+            </div>
+
+            {!isDone && (
+              <>
+                <textarea
+                  value={noteDraft}
+                  onChange={e => setNoteDraft(e.target.value)}
+                  placeholder="Add a note for review handoff…"
+                  style={{
+                    width: "100%", minHeight: 110, padding: "10px 12px",
+                    fontFamily: "'Fraunces', serif", fontSize: 13, color: C.ink,
+                    background: C.paper,
+                    border: `1px solid ${C.paperBorder}`, borderRadius: 3, resize: "vertical",
+                    marginBottom: 8,
+                  }}
+                />
+                <button
+                  onClick={saveNote}
+                  disabled={!noteDraft.trim() || !!submitting}
+                  style={{
+                    padding: "8px 14px",
+                    background: noteDraft.trim() ? C.ink : C.paperMid,
+                    border: "none",
+                    borderRadius: 3,
+                    color: "#fff",
+                    fontFamily: "'Fraunces', serif",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: noteDraft.trim() ? "pointer" : "not-allowed",
+                  }}
+                >
+                  {submitting === "note" ? "Saving…" : "Save Note"}
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -682,8 +855,24 @@ function ReviewPanel({
                 style={{ padding: "9px 18px", background: "transparent", border: `1px solid ${C.correction}`, borderRadius: 3, color: C.correction, fontFamily: "'Fraunces', serif", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
                 {submitting === "needs_correction" ? "Saving…" : "Needs Correction"}
               </button>
-              <button onClick={() => action("approved")} disabled={!!submitting}
-                style={{ padding: "9px 24px", background: C.approved, border: "none", borderRadius: 3, color: "#fff", fontFamily: "'Fraunces', serif", fontSize: 13, fontWeight: 700, cursor: "pointer", marginLeft: "auto" }}>
+              {!canApprove && (
+                <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 12, color: C.warnText }}>
+                  Complete worksheet totals before approval.
+                </div>
+              )}
+              <button onClick={() => action("approved")} disabled={!!submitting || !canApprove}
+                style={{
+                  padding: "9px 24px",
+                  background: canApprove ? C.approved : C.paperMid,
+                  border: "none",
+                  borderRadius: 3,
+                  color: "#fff",
+                  fontFamily: "'Fraunces', serif",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: canApprove ? "pointer" : "not-allowed",
+                  marginLeft: "auto",
+                }}>
                 {submitting === "approved" ? "Approving…" : "Approve →"}
               </button>
             </>
@@ -722,6 +911,13 @@ export default function BrokerReview4() {
   const [batch,    setBatch]    = useState<ReviewDecl[]>([]);
   const [loading,  setLoading]  = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("stallion.review.sidebarCollapsed") === "1";
+    } catch {
+      return false;
+    }
+  });
 
   const [searchParams] = useSearchParams();
   const urlId = searchParams.get("id");
@@ -741,6 +937,14 @@ export default function BrokerReview4() {
     })();
   }, []);
 
+  useEffect(() => {
+    try {
+      localStorage.setItem("stallion.review.sidebarCollapsed", sidebarCollapsed ? "1" : "0");
+    } catch {
+      // ignore
+    }
+  }, [sidebarCollapsed]);
+
   const activeIdx = batch.findIndex(d => d.id === activeId);
   const active    = batch[activeIdx] ?? null;
 
@@ -750,7 +954,11 @@ export default function BrokerReview4() {
   const progress  = batch.length ? Math.round(reviewed / batch.length * 100) : 0;
 
   const handleStatusChange = async (
-    id: string, status: string, notes: string, updated: any
+    id: string,
+    status: string,
+    notes: string,
+    updated: any,
+    options?: { stayOnCurrent?: boolean }
   ) => {
     try {
       await reviewDeclaration(id, {
@@ -771,6 +979,7 @@ export default function BrokerReview4() {
       ...d,
       status,
       brokerNotes:   notes,
+      notesThread:   parseReviewNotes(notes),
       reviewedBy:    "Broker",
       reviewedAt:    new Date().toISOString(),
       receiptNumber: updated?.receipt_number ?? d.receiptNumber,
@@ -779,11 +988,11 @@ export default function BrokerReview4() {
       items:         updated?.items     ?? d.items,
     } : d));
 
-    // Auto-advance to next pending
+    // Auto-advance to next pending only on real workflow transitions
     const next = batch.find((d, i) =>
       i > activeIdx && ["pending", "pending_review"].includes(d.status)
     );
-    if (status !== "submitted" && status !== "receipted") {
+    if (!options?.stayOnCurrent && status !== "submitted" && status !== "receipted") {
       setActiveId(next ? next.id : null);
     }
   };
@@ -817,6 +1026,22 @@ export default function BrokerReview4() {
 
         <TopNav rightSlot={
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <button
+              onClick={() => setSidebarCollapsed((v) => !v)}
+              style={{
+                padding: "4px 10px",
+                borderRadius: 3,
+                border: "1px solid #2E3748",
+                background: "transparent",
+                color: "#A0AABB",
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 10,
+                cursor: "pointer",
+                letterSpacing: "0.08em",
+              }}
+            >
+              {sidebarCollapsed ? "SHOW QUEUE" : "HIDE QUEUE"}
+            </button>
             <div style={{ width: 100, height: 2, background: "#2E3748", borderRadius: 1 }}>
               <div style={{ height: "100%", borderRadius: 1, width: `${progress}%`, background: "#1A5E3A", transition: "width 0.4s" }} />
             </div>
@@ -828,13 +1053,36 @@ export default function BrokerReview4() {
 
         {/* Body — split layout */}
         <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
-          {/* Left: batch list (always visible on wider screens) */}
-          <div style={{ width: 280, borderRight: `1px solid ${C.voidBorder}`, display: "flex", flexDirection: "column", overflow: "hidden", flexShrink: 0 }}>
-            <BatchList batch={batch} onSelect={setActiveId} loading={loading} />
-          </div>
+          {/* Left: batch list (collapsible) */}
+          {!sidebarCollapsed && (
+            <div style={{ width: 280, borderRight: `1px solid ${C.voidBorder}`, display: "flex", flexDirection: "column", overflow: "hidden", flexShrink: 0 }}>
+              <BatchList batch={batch} onSelect={setActiveId} loading={loading} />
+            </div>
+          )}
 
           {/* Right: review panel or empty state */}
-          <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column", position: "relative" }}>
+            {sidebarCollapsed && (
+              <button
+                onClick={() => setSidebarCollapsed(false)}
+                style={{
+                  position: "absolute",
+                  top: 10,
+                  left: 10,
+                  zIndex: 5,
+                  padding: "4px 10px",
+                  borderRadius: 3,
+                  border: `1px solid ${C.paperBorder}`,
+                  background: C.paper,
+                  color: C.inkLight,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 10,
+                  cursor: "pointer",
+                }}
+              >
+                ← Queue
+              </button>
+            )}
             {active ? (
               <ReviewPanel
                 key={active.id}

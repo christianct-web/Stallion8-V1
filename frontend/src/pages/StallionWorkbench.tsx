@@ -172,6 +172,8 @@ export default function StallionWorkbench() {
   const [preflight,     setPreflight]     = useState<any>(null);
   const [generating,    setGenerating]    = useState(false);
   const [savingDraft,   setSavingDraft]   = useState(false);
+  const [lastGeneratedAt, setLastGeneratedAt] = useState<number | null>(null);
+  const [cooldownSeconds, setCooldownSeconds] = useState(0);
 
   // ── bootstrap ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -211,6 +213,20 @@ export default function StallionWorkbench() {
     const dutyCodes = items.map(i => i.dutyTaxCode).filter(Boolean);
     setForm(f => ({ ...f, extra_fees_local: dutyCodes.length * 40 }));
   }, [items]);
+
+  useEffect(() => {
+    if (!lastGeneratedAt) {
+      setCooldownSeconds(0);
+      return;
+    }
+    const tick = () => {
+      const remaining = Math.max(0, 8 - Math.floor((Date.now() - lastGeneratedAt) / 1000));
+      setCooldownSeconds(remaining);
+    };
+    tick();
+    const timer = window.setInterval(tick, 250);
+    return () => window.clearInterval(timer);
+  }, [lastGeneratedAt]);
 
   // ── template load ──────────────────────────────────────────────────────────
   const handleLoadTemplate = (id: string) => {
@@ -280,6 +296,15 @@ export default function StallionWorkbench() {
       toast.error("Run worksheet calculation first.");
       return;
     }
+    if (cooldownSeconds > 0) {
+      toast.error(`Please wait ${cooldownSeconds}s before generating again.`);
+      return;
+    }
+    if (lastGeneratedAt && Date.now() - lastGeneratedAt < 15000) {
+      const ok = window.confirm("You generated a pack recently. Generate again now?");
+      if (!ok) return;
+    }
+
     setGenerating(true);
     try {
       const header    = buildHeader(form);
@@ -312,6 +337,7 @@ export default function StallionWorkbench() {
 
       setPackResult(result);
       if (result.preflight) setPreflight(result.preflight);
+      setLastGeneratedAt(Date.now());
 
       if (result.status === "blocked") {
         toast.error("Pack blocked — fix required fields");
@@ -452,6 +478,7 @@ export default function StallionWorkbench() {
             onGenerate={handleGenerate} onSaveDraft={handleSaveDraft}
             generating={generating} savingDraft={savingDraft}
             calc={calc}
+            cooldownSeconds={cooldownSeconds}
           />
         </div>
       </div>
