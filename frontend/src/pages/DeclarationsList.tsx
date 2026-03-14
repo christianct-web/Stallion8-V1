@@ -67,6 +67,35 @@ function mergeDeclarations(backend: any[]): any[] {
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
 }
 
+function normalizeStatus(status?: string) {
+  const s = String(status || "draft").toLowerCase();
+  if (s === "pending_review") return "pending";
+  if (s === "needs_correction") return "correction";
+  return s;
+}
+
+function getConfidence(decl: any): number | null {
+  const raw =
+    decl?.confidence ??
+    decl?.confidence_score ??
+    decl?.extraction_confidence ??
+    decl?.payload_json?.confidence ??
+    decl?.payload_json?.confidence_score ??
+    decl?.review?.confidence;
+
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return null;
+
+  return n > 1 ? Math.max(0, Math.min(100, n)) : Math.max(0, Math.min(100, n * 100));
+}
+
+function confidenceTone(conf: number | null) {
+  if (conf == null) return { color: C.ghostDim, bg: "transparent", border: C.paperBorder, label: "—" };
+  if (conf < 60) return { color: C.rejected, bg: C.critical, border: C.critBorder, label: `${Math.round(conf)}%` };
+  if (conf < 80) return { color: C.pending, bg: C.warn, border: C.warnBorder, label: `${Math.round(conf)}%` };
+  return { color: C.approved, bg: "#EBF7F1", border: C.approved + "44", label: `${Math.round(conf)}%` };
+}
+
 // ─── Action card (urgent) ────────────────────────────────────────────────────
 function ActionCard({
   count, label, sub, color, bg, border, onClick,
@@ -82,23 +111,27 @@ function ActionCard({
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        padding: "14px 18px",
-        background: hov ? bg : bg + "88",
-        border: `1px solid ${border}`,
+        padding: "16px 18px",
+        background: bg,
+        border: `2px solid ${border}`,
+        boxShadow: hov ? `0 0 0 2px ${border}33` : "none",
         borderRadius: 3, cursor: "pointer",
         textAlign: "left" as const,
-        transition: "all 0.15s", flex: 1, minWidth: 180,
+        transition: "all 0.15s", flex: 1, minWidth: 220,
       }}
     >
+      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.12em", color: color + "bb", marginBottom: 6 }}>
+        URGENT WORK
+      </div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 28, fontWeight: 700, color, lineHeight: 1 }}>
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 34, fontWeight: 700, color, lineHeight: 1 }}>
           {count}
         </span>
-        <span style={{ fontFamily: "'Fraunces', serif", fontSize: 14, fontWeight: 600, color }}>
+        <span style={{ fontFamily: "'Fraunces', serif", fontSize: 16, fontWeight: 700, color }}>
           {label}
         </span>
       </div>
-      <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 12, color: color + "bb" }}>
+      <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 12, color: color + "cc" }}>
         {sub} →
       </div>
     </button>
@@ -173,12 +206,37 @@ export default function DeclarationsList() {
 
   const sorted = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
-    return allDeclarations.filter(d => {
+    const filtered = allDeclarations.filter(d => {
       if (!q) return true;
       const ref    = (d.reference_number || d.id || "").toLowerCase();
       const name   = (d.header?.consigneeName || "").toLowerCase();
       const status = (d.status || "").toLowerCase();
       return ref.includes(q) || name.includes(q) || status.includes(q);
+    });
+
+    const priority = (status: string) => {
+      const s = normalizeStatus(status);
+      if (s === "pending") return 0;
+      if (s === "correction") return 1;
+      if (s === "approved") return 2;
+      if (s === "receipted") return 3;
+      return 4;
+    };
+
+    return filtered.sort((a, b) => {
+      const pa = priority(a.status);
+      const pb = priority(b.status);
+      if (pa !== pb) return pa - pb;
+
+      const ca = getConfidence(a);
+      const cb = getConfidence(b);
+      if (ca != null || cb != null) {
+        if (ca == null) return 1;
+        if (cb == null) return -1;
+        if (ca !== cb) return ca - cb;
+      }
+
+      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
     });
   }, [allDeclarations, searchQuery]);
 
@@ -266,20 +324,20 @@ export default function DeclarationsList() {
               <h1 style={{ fontFamily: "'Fraunces', serif", fontSize: 32, fontWeight: 700, color: "#fff", margin: 0, lineHeight: 1 }}>
                 All Declarations
               </h1>
-              <div style={{ display: "flex", gap: 28 }}>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
                 {[
-                  ["TOTAL",      counts.total,     C.ghost],
-                  ["THIS MONTH", counts.thisMonth,  C.ghost],
-                  ["PENDING",    counts.pending,    counts.pending > 0 ? C.pending : C.ghostDim],
-                  ["APPROVED",   counts.approved,   C.approved],
-                  ["RECEIPTED",  counts.receipted,  "#5580C8"],
-                ].map(([label, val, color]) => (
-                  <div key={label as string} style={{ textAlign: "right" }}>
-                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 700, color: color as string, lineHeight: 1 }}>
-                      {val}
+                  { label: "TOTAL", value: counts.total, tone: { color: C.ghost, bg: C.voidSurface, border: C.voidBorder } },
+                  { label: "THIS MONTH", value: counts.thisMonth, tone: { color: C.ghost, bg: C.voidSurface, border: C.voidBorder } },
+                  { label: "PENDING", value: counts.pending, tone: STATUS_STYLE.pending_review },
+                  { label: "APPROVED", value: counts.approved, tone: STATUS_STYLE.approved },
+                  { label: "RECEIPTED", value: counts.receipted, tone: STATUS_STYLE.receipted },
+                ].map(({ label, value, tone }) => (
+                  <div key={label} style={{ textAlign: "right", minWidth: 104, padding: "8px 10px", border: `1px solid ${tone.border}`, borderRadius: 3, background: tone.bg }}>
+                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 21, fontWeight: 700, color: tone.color, lineHeight: 1 }}>
+                      {value}
                     </div>
-                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: C.ghostDim, letterSpacing: "0.12em", marginTop: 4 }}>
-                      {label as string}
+                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: tone.color, letterSpacing: "0.12em", marginTop: 5 }}>
+                      {label}
                     </div>
                   </div>
                 ))}
@@ -293,16 +351,16 @@ export default function DeclarationsList() {
 
           {/* Urgent actions */}
           {hasUrgent && (
-            <div style={{ marginBottom: 28 }}>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.14em", color: C.inkLight, marginBottom: 10 }}>
-                NEEDS ATTENTION
+            <div style={{ marginBottom: 28, border: `1px solid ${C.paperBorder}`, borderRadius: 3, padding: 14, background: C.paperAlt }}>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.14em", color: C.inkMid, marginBottom: 10, fontWeight: 700 }}>
+                NEEDS ATTENTION TODAY
               </div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 <ActionCard count={counts.pending} label="Pending Review" sub="Open broker review queue"
-                  color={C.pending} bg={C.warn} border={C.warnBorder + "55"}
+                  color={C.pending} bg={C.warn} border={C.warnBorder}
                   onClick={() => navigate("/stallion/brokerreview4")} />
                 <ActionCard count={counts.correction} label="Need Correction" sub="Declarations flagged by broker"
-                  color={C.correction} bg="#FEF0E8" border={C.correction + "44"}
+                  color={C.correction} bg="#FEF0E8" border={C.correction}
                   onClick={() => navigate("/stallion/brokerreview4")} />
               </div>
             </div>
@@ -399,8 +457,8 @@ export default function DeclarationsList() {
               ) : (
                 <div style={{ border: `1px solid ${C.paperBorder}`, borderRadius: 3, overflow: "hidden" }}>
                   {/* Head */}
-                  <div style={{ display: "grid", gridTemplateColumns: "2fr 120px 70px 150px 52px", padding: "7px 14px", background: C.paperAlt, borderBottom: `1px solid ${C.paperBorder}` }}>
-                    {["Reference", "Status", "Items", "Updated", ""].map((h, i) => (
+                  <div style={{ display: "grid", gridTemplateColumns: "2fr 120px 92px 70px 150px 52px", padding: "7px 14px", background: C.paperAlt, borderBottom: `1px solid ${C.paperBorder}` }}>
+                    {["Reference", "Status", "Confidence", "Items", "Updated", ""].map((h, i) => (
                       <div key={i} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", color: C.inkLight, textAlign: i === 4 ? "right" as const : "left" as const }}>
                         {h}
                       </div>
@@ -416,7 +474,7 @@ export default function DeclarationsList() {
                       <div key={decl.id} className="decl-row"
                         onClick={() => handleRowClick(decl)}
                         style={{
-                          display: "grid", gridTemplateColumns: "2fr 120px 70px 150px 52px",
+                          display: "grid", gridTemplateColumns: "2fr 120px 92px 70px 150px 52px",
                           padding: "10px 14px",
                           borderBottom: idx < sorted.length - 1 ? `1px solid ${C.paperBorder}` : "none",
                           cursor: "pointer", alignItems: "center", background: C.paper,
@@ -439,6 +497,29 @@ export default function DeclarationsList() {
                           </div>
                         </div>
                         <div><StatusPill status={decl.status} /></div>
+                        <div>
+                          {(() => {
+                            const tone = confidenceTone(getConfidence(decl));
+                            return (
+                              <span style={{
+                                display: "inline-block",
+                                minWidth: 56,
+                                textAlign: "center",
+                                padding: "3px 8px",
+                                borderRadius: 3,
+                                border: `1px solid ${tone.border}`,
+                                background: tone.bg,
+                                color: tone.color,
+                                fontFamily: "'JetBrains Mono', monospace",
+                                fontSize: 10,
+                                fontWeight: 700,
+                                letterSpacing: "0.06em",
+                              }}>
+                                {tone.label}
+                              </span>
+                            );
+                          })()}
+                        </div>
                         <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: C.inkLight }}>
                           {itemCount}<span style={{ fontSize: 10, marginLeft: 2 }}>item{itemCount !== 1 ? "s" : ""}</span>
                         </div>
@@ -470,6 +551,7 @@ export default function DeclarationsList() {
                   {sorted.length} of {allDeclarations.length} declaration{allDeclarations.length !== 1 ? "s" : ""}
                   {searchQuery && ` matching "${searchQuery}"`}
                   {" · "}<span style={{ color: C.ghostDim }}>{backendDeclarations.length} from backend</span>
+                  {" · "}<span style={{ color: C.ghostDim }}>sorted: pending then low confidence</span>
                 </div>
               )}
             </div>
@@ -481,25 +563,48 @@ export default function DeclarationsList() {
                 <div style={{ padding: "8px 14px", background: C.paperAlt, borderBottom: `1px solid ${C.paperBorder}`, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", color: C.inkLight }}>
                   QUICK ACTIONS
                 </div>
-                {[
-                  { label: "New Declaration",    sub: "Open workbench",      fn: handleNew,                                        icon: "+" },
-                  { label: "Review Queue",       sub: "Open broker review",  fn: () => navigate("/stallion/brokerreview4"),         icon: "✓" },
-                  { label: "Extract Documents",  sub: "Upload PDF invoices", fn: () => navigate("/stallion/extract"),              icon: "⇪" },
-                  { label: "New from Workbench", sub: "Full entry form",     fn: () => navigate("/stallion/workbench"),             icon: "▤" },
-                  { label: "Export Register CSV", sub: "Monthly register log", fn: handleCsvExport,                                icon: "↓" },
-                ].map(({ label, sub, fn, icon }) => (
-                  <button key={label} onClick={fn} style={{ width: "100%", padding: "10px 14px", background: "transparent", border: "none", borderBottom: `1px solid ${C.paperBorder}`, cursor: "pointer", textAlign: "left" as const, display: "flex", alignItems: "center", gap: 12, transition: "background 0.1s" }}
-                    onMouseEnter={e => (e.currentTarget.style.background = C.paperAlt)}
-                    onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-                  >
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: C.inkLight, width: 20, textAlign: "center" as const, flexShrink: 0 }}>{icon}</span>
-                    <div>
-                      <div style={{ fontFamily: "'Fraunces', serif", fontSize: 13, color: C.ink, fontWeight: 600 }}>{label}</div>
-                      <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 11, color: C.inkLight }}>{sub}</div>
-                    </div>
-                    <span style={{ marginLeft: "auto", color: C.inkLight, fontSize: 12 }}>›</span>
-                  </button>
-                ))}
+                <div style={{ padding: 10, display: "grid", gap: 8 }}>
+                  {[
+                    { label: "New Declaration", sub: "Open full workbench", fn: handleNew, icon: "+", primary: true },
+                    { label: "Review Queue", sub: "Pending + correction declarations", fn: () => navigate("/stallion/brokerreview4"), icon: "✓" },
+                    { label: "Extract Documents", sub: "Upload invoice/AWB for AI extraction", fn: () => navigate("/stallion/extract"), icon: "⇪" },
+                    { label: "Export Register CSV", sub: "Download monthly register", fn: handleCsvExport, icon: "↓" },
+                  ].map(({ label, sub, fn, icon, primary }) => (
+                    <button
+                      key={label}
+                      onClick={fn}
+                      style={{
+                        width: "100%",
+                        padding: "10px 12px",
+                        background: primary ? C.ink : C.paper,
+                        border: `1px solid ${primary ? C.ink : C.paperBorder}`,
+                        borderRadius: 3,
+                        cursor: "pointer",
+                        textAlign: "left",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                      }}
+                    >
+                      <span style={{
+                        fontFamily: "'JetBrains Mono', monospace",
+                        fontSize: 12,
+                        color: primary ? C.paper : C.inkLight,
+                        width: 18,
+                        textAlign: "center",
+                        flexShrink: 0,
+                      }}>{icon}</span>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontFamily: "'Fraunces', serif", fontSize: 13, color: primary ? C.paper : C.ink, fontWeight: 700 }}>
+                          {label}
+                        </div>
+                        <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 11, color: primary ? "#E5DED2" : C.inkLight }}>
+                          {sub}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* Getting started */}
@@ -562,7 +667,7 @@ export default function DeclarationsList() {
                   ["Declarations", counts.thisMonth, C.inkMid],
                   ["Pending",      counts.pending,   counts.pending > 0 ? C.pending : C.inkLight],
                   ["Approved",     counts.approved,  C.approved],
-                  ["Receipted",    counts.receipted, "#5580C8"],
+                  ["Receipted",    counts.receipted, STATUS_STYLE.receipted.color],
                 ].map(([label, val, color]) => (
                   <div key={label as string} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 14px", borderBottom: `1px solid ${C.paperBorder}` }}>
                     <span style={{ fontFamily: "'Fraunces', serif", fontSize: 12, color: C.inkLight }}>{label}</span>
