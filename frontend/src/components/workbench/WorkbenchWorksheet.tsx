@@ -175,10 +175,31 @@ export function WorkbenchWorksheet({
             <div style={{ fontFamily: "var(--wb-font-mono)", fontSize: 9, letterSpacing: "0.14em", color: "var(--wb-ghost-dim)", marginBottom: 10 }}>
               CALCULATED TOTALS
             </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0,1fr))", gap: 10, marginBottom: 12 }}>
+              {[
+                ["CIF (FOREIGN)", F(calc.cif_foreign), "var(--wb-ghost)"],
+                ["CIF (TTD)", F(calc.cif_local), "#fff"],
+                ["TOTAL ASSESSED", F(calc.total_assessed), "#fff"],
+              ].map(([label, val, color]) => (
+                <div key={label} style={{
+                  border: "1px solid var(--wb-void-border)",
+                  borderRadius: 4,
+                  padding: "10px 12px",
+                  background: "var(--wb-void-surface)",
+                }}>
+                  <div style={{ fontFamily: "var(--wb-font-mono)", fontSize: 9, letterSpacing: "0.08em", color: "var(--wb-ghost-dim)", marginBottom: 4 }}>
+                    {label}
+                  </div>
+                  <div style={{ fontFamily: "var(--wb-font-mono)", fontSize: 20, fontWeight: 700, color: color as string }}>
+                    {val}
+                  </div>
+                </div>
+              ))}
+            </div>
+
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 16px" }}>
               {[
-                ["CIF (Foreign)",      F(calc.cif_foreign)],
-                ["CIF (TTD)",          F(calc.cif_local)],
                 ["Duty",               F(calc.duty)],
                 ["Surcharge",          F(calc.surcharge)],
                 ["VAT",                F(calc.vat)],
@@ -189,10 +210,6 @@ export function WorkbenchWorksheet({
                   <span style={{ fontFamily: "var(--wb-font-mono)", fontSize: 12, fontWeight: 700, color: "var(--wb-ghost)" }}>{val}</span>
                 </div>
               ))}
-            </div>
-            <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--wb-void-border)", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <span style={{ fontFamily: "var(--wb-font-mono)", fontSize: 10, color: "var(--wb-ghost)" }}>TOTAL ASSESSED (TTD)</span>
-              <span style={{ fontFamily: "var(--wb-font-mono)", fontSize: 18, fontWeight: 700, color: "#fff" }}>{F(calc.total_assessed)}</span>
             </div>
           </div>
         )}

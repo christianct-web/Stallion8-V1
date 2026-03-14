@@ -33,6 +33,12 @@ function useStableId() {
   return ref.current;
 }
 
+function jumpToSection(sectionId: string) {
+  const el = document.getElementById(sectionId);
+  if (!el) return;
+  el.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 function buildHeader(form: any) {
   return {
     declarationRef:          form.declarationRef,
@@ -373,6 +379,21 @@ export default function StallionWorkbench() {
     return counts;
   }, [preflight]);
 
+  const requiredFirst = useMemo(() => {
+    const rows = [
+      { label: "Port of Entry", key: "port", sectionId: "section-header", value: form.port },
+      { label: "Incoterm", key: "term", sectionId: "section-header", value: form.term },
+      { label: "Transport Mode", key: "modeOfTransport", sectionId: "section-header", value: form.modeOfTransport },
+      { label: "Customs Regime", key: "customsRegime", sectionId: "section-header", value: form.customsRegime },
+      { label: "Exchange Rate", key: "exchange_rate", sectionId: "section-worksheet", value: form.exchange_rate },
+    ];
+    const completed = rows.filter((r) => {
+      if (r.key === "exchange_rate") return Number(r.value) > 0;
+      return String(r.value ?? "").trim().length > 0;
+    }).length;
+    return { rows, completed, total: rows.length };
+  }, [form]);
+
   return (
     <TooltipProvider>
       <div className="wb-page" style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -431,6 +452,49 @@ export default function StallionWorkbench() {
             </div>
             <HelpTip>Save Draft at any time — the declaration is stored in the backend and will appear in the broker review queue when you're ready.</HelpTip>
           </HelpBox>
+
+          <div style={{
+            marginTop: 10,
+            border: "1px solid var(--wb-warn-border)",
+            borderRadius: 4,
+            background: "var(--wb-warn)",
+            padding: "12px 14px",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 8 }}>
+              <div style={{ fontFamily: "var(--wb-font-mono)", fontSize: 11, letterSpacing: "0.12em", color: "var(--wb-warn-text)", fontWeight: 700 }}>
+                COMPLETE THESE FIRST
+              </div>
+              <div style={{ fontFamily: "var(--wb-font-mono)", fontSize: 11, color: "var(--wb-warn-text)" }}>
+                {requiredFirst.completed}/{requiredFirst.total} complete
+              </div>
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {requiredFirst.rows.map((r) => {
+                const done = r.key === "exchange_rate"
+                  ? Number(r.value) > 0
+                  : String(r.value ?? "").trim().length > 0;
+                return (
+                  <button
+                    key={r.key}
+                    onClick={() => jumpToSection(r.sectionId)}
+                    style={{
+                      border: `1px solid ${done ? "var(--wb-approved)" : "var(--wb-warn-border)"}`,
+                      background: done ? "#EBF7F1" : "#FFF7E8",
+                      color: done ? "var(--wb-approved)" : "var(--wb-warn-text)",
+                      borderRadius: 3,
+                      padding: "6px 10px",
+                      fontFamily: "var(--wb-font-mono)",
+                      fontSize: 10,
+                      letterSpacing: "0.06em",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {done ? "✓" : "○"} {r.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         <div style={{ flex: 1, maxWidth: 860, margin: "0 auto", width: "100%", padding: "24px 16px 120px" }}>

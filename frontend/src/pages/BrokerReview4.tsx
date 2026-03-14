@@ -918,11 +918,18 @@ export default function BrokerReview4() {
       return false;
     }
   });
+  const [showOnboarding, setShowOnboarding] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem("stallion.review.onboardingHidden") !== "1";
+    } catch {
+      return true;
+    }
+  });
 
   const [searchParams] = useSearchParams();
   const urlId = searchParams.get("id");
 
-  useEffect(() => { if (urlId && batch.length > 0 && !activeId) { setActiveId(urlId); } }, [batch, urlId]);
+  useEffect(() => { if (urlId && batch.length > 0 && !activeId) { setActiveId(urlId); } }, [batch, urlId, activeId]);
 
   useEffect(() => {
     (async () => {
@@ -945,13 +952,38 @@ export default function BrokerReview4() {
     }
   }, [sidebarCollapsed]);
 
-  const activeIdx = batch.findIndex(d => d.id === activeId);
-  const active    = batch[activeIdx] ?? null;
+  useEffect(() => {
+    try {
+      localStorage.setItem("stallion.review.onboardingHidden", showOnboarding ? "0" : "1");
+    } catch {
+      // ignore
+    }
+  }, [showOnboarding]);
 
-  const reviewed  = batch.filter(d =>
+  useEffect(() => {
+    if (activeId) setShowOnboarding(false);
+  }, [activeId]);
+
+  const sortedBatch = useMemo(() => {
+    const confidenceRank = (d: ReviewDecl) => (typeof d.confidence === "number" ? d.confidence : 101);
+    return [...batch].sort((a, b) => {
+      const aPending = ["pending", "pending_review"].includes(a.status) ? 0 : 1;
+      const bPending = ["pending", "pending_review"].includes(b.status) ? 0 : 1;
+      if (aPending !== bPending) return aPending - bPending;
+      const conf = confidenceRank(a) - confidenceRank(b);
+      if (conf !== 0) return conf;
+      const at = (x: any) => new Date(x?.updated_at || x?.reviewedAt || x?.reviewed_at || 0).getTime();
+      return at(a) - at(b);
+    });
+  }, [batch]);
+
+  const activeIdx = sortedBatch.findIndex(d => d.id === activeId);
+  const active    = sortedBatch[activeIdx] ?? null;
+
+  const reviewed  = sortedBatch.filter(d =>
     !["pending", "pending_review", "draft"].includes(d.status)
   ).length;
-  const progress  = batch.length ? Math.round(reviewed / batch.length * 100) : 0;
+  const progress  = sortedBatch.length ? Math.round(reviewed / sortedBatch.length * 100) : 0;
 
   const handleStatusChange = async (
     id: string,
@@ -989,7 +1021,7 @@ export default function BrokerReview4() {
     } : d));
 
     // Auto-advance to next pending only on real workflow transitions
-    const next = batch.find((d, i) =>
+    const next = sortedBatch.find((d, i) =>
       i > activeIdx && ["pending", "pending_review"].includes(d.status)
     );
     if (!options?.stayOnCurrent && status !== "submitted" && status !== "receipted") {
@@ -1003,14 +1035,14 @@ export default function BrokerReview4() {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA") return;
       if (!activeId) return;
-      if (e.key === "ArrowRight" && activeIdx < batch.length - 1)
-        setActiveId(batch[activeIdx + 1].id);
+      if (e.key === "ArrowRight" && activeIdx < sortedBatch.length - 1)
+        setActiveId(sortedBatch[activeIdx + 1].id);
       if (e.key === "ArrowLeft" && activeIdx > 0)
-        setActiveId(batch[activeIdx - 1].id);
+        setActiveId(sortedBatch[activeIdx - 1].id);
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [activeId, activeIdx, batch]);
+  }, [activeId, activeIdx, sortedBatch]);
 
   return (
     <>
@@ -1046,7 +1078,7 @@ export default function BrokerReview4() {
               <div style={{ height: "100%", borderRadius: 1, width: `${progress}%`, background: "#1A5E3A", transition: "width 0.4s" }} />
             </div>
             <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: "#A0AABB" }}>
-              {reviewed}/{batch.length}
+              {reviewed}/{sortedBatch.length}
             </span>
           </div>
         } />
@@ -1056,7 +1088,7 @@ export default function BrokerReview4() {
           {/* Left: batch list (collapsible) */}
           {!sidebarCollapsed && (
             <div style={{ width: 280, borderRight: `1px solid ${C.voidBorder}`, display: "flex", flexDirection: "column", overflow: "hidden", flexShrink: 0 }}>
-              <BatchList batch={batch} onSelect={setActiveId} loading={loading} />
+              <BatchList batch={sortedBatch} onSelect={setActiveId} loading={loading} />
             </div>
           )}
 
@@ -1090,11 +1122,11 @@ export default function BrokerReview4() {
                 onStatusChange={handleStatusChange}
                 onBack={() => setActiveId(null)}
                 idx={activeIdx}
-                total={batch.length}
+                total={sortedBatch.length}
               />
             ) : (
               <div style={{ flex: 1, overflow: "auto", background: C.paper, padding: 32 }}>
-                <div style={{ textAlign: "center", marginBottom: 32 }}>
+                <div style={{ textAlign: "center", marginBottom: 20 }}>
                   <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 36, color: C.paperMid, marginBottom: 16 }}>▤</div>
                   <div style={{ fontFamily: "'Fraunces', serif", fontSize: 16, color: C.inkMid, fontWeight: 600, marginBottom: 8 }}>
                     Select a declaration
@@ -1104,86 +1136,102 @@ export default function BrokerReview4() {
                   </div>
                 </div>
 
-                <div style={{ maxWidth: 560, margin: "0 auto" }}>
-                  <HelpBox title="How broker review works" defaultOpen={true}>
-                    <p style={{ margin: "0 0 10px" }}>
-                      Every declaration passes through broker review before a C82 XML is generated.
-                      Your job is to verify the AI-extracted fields, correct anything wrong, and either
-                      approve or flag for correction.
-                    </p>
-
-                    <HelpHeading>THE REVIEW WORKFLOW</HelpHeading>
-                    <div style={{ display: "grid", gap: 6 }}>
-                      {[
-                        ["1. Check the HS code", "This is the most critical field. Confirm the HS code matches the goods description. Use the TT Tariff link to verify the rate."],
-                        ["2. Verify the invoice value", "The EXW/FOB value should match what's on the invoice. Set the correct duty rate % for this HS code."],
-                        ["3. Confirm vessel / AWB and port", "Verify the transport details. Vessel name and port of entry are required for ASYCUDA."],
-                        ["4. Check the exchange rate", "The CBTT rate is auto-fetched by shipped-on-board date. Confirm it matches your records."],
-                        ["5. Approve or flag", "If all fields are correct, click Approve. If something needs fixing, click Flag Correction and add notes."],
-                      ].map(([step, desc]) => (
-                        <div key={step} style={{ paddingLeft: 12, borderLeft: "2px solid #E2DDD6" }}>
-                          <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 12, color: "#3D3830", marginBottom: 2 }}>{step}</div>
-                          <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 12, color: "#6B6560" }}>{desc}</div>
-                        </div>
-                      ))}
+                {!showOnboarding ? (
+                  <div style={{ maxWidth: 560, margin: "0 auto", textAlign: "center" }}>
+                    <button
+                      onClick={() => setShowOnboarding(true)}
+                      style={{
+                        padding: "8px 12px",
+                        border: `1px solid ${C.paperBorder}`,
+                        borderRadius: 3,
+                        background: C.paper,
+                        color: C.inkLight,
+                        fontFamily: "'JetBrains Mono', monospace",
+                        fontSize: 10,
+                        letterSpacing: "0.08em",
+                        cursor: "pointer",
+                      }}
+                    >
+                      SHOW REVIEW GUIDE
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ maxWidth: 560, margin: "0 auto" }}>
+                    <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+                      <button
+                        onClick={() => setShowOnboarding(false)}
+                        style={{
+                          padding: "6px 10px",
+                          border: `1px solid ${C.paperBorder}`,
+                          borderRadius: 3,
+                          background: C.paper,
+                          color: C.inkLight,
+                          fontFamily: "'JetBrains Mono', monospace",
+                          fontSize: 10,
+                          letterSpacing: "0.08em",
+                          cursor: "pointer",
+                        }}
+                      >
+                        HIDE GUIDE
+                      </button>
                     </div>
+                    <HelpBox title="How broker review works" defaultOpen={true}>
+                      <p style={{ margin: "0 0 10px" }}>
+                        Every declaration passes through broker review before a C82 XML is generated.
+                        Your job is to verify the AI-extracted fields, correct anything wrong, and either
+                        approve or flag for correction.
+                      </p>
 
-                    <HelpHeading>ACTIONS</HelpHeading>
-                    <div style={{ display: "grid", gap: 4 }}>
-                      {[
-                        ["Approve", "Declaration is correct and ready to generate C82 XML + LB01 worksheet."],
-                        ["Flag Correction", "Something needs fixing. Add a note explaining what the ops team should change before resubmitting."],
-                        ["Reject", "Declaration cannot be processed (duplicate, fraud, unrecoverable data issue)."],
-                        ["Generate Pack", "Available after approval. Produces the ASYCUDA C82 XML and LB01 PDF worksheet for download."],
-                        ["Receipt Number", "After ASYCUDA submission, enter the receipt number here to complete the lifecycle."],
-                      ].map(([action, desc]) => (
-                        <div key={action} style={{ display: "flex", gap: 8, fontSize: 12 }}>
-                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: "#1A5E3A", minWidth: 120 }}>{action}</span>
-                          <span style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", color: "#6B6560" }}>{desc}</span>
-                        </div>
-                      ))}
-                    </div>
+                      <HelpHeading>THE REVIEW WORKFLOW</HelpHeading>
+                      <div style={{ display: "grid", gap: 6 }}>
+                        {[
+                          ["1. Check the HS code", "This is the most critical field. Confirm the HS code matches the goods description. Use the TT Tariff link to verify the rate."],
+                          ["2. Verify the invoice value", "The EXW/FOB value should match what's on the invoice. Set the correct duty rate % for this HS code."],
+                          ["3. Confirm vessel / AWB and port", "Verify the transport details. Vessel name and port of entry are required for ASYCUDA."],
+                          ["4. Check the exchange rate", "The CBTT rate is auto-fetched by shipped-on-board date. Confirm it matches your records."],
+                          ["5. Approve or flag", "If all fields are correct, click Approve. If something needs fixing, click Flag Correction and add notes."],
+                        ].map(([step, desc]) => (
+                          <div key={step} style={{ paddingLeft: 12, borderLeft: "2px solid #E2DDD6" }}>
+                            <div style={{ fontFamily: "'Fraunces', serif", fontWeight: 600, fontSize: 12, color: "#3D3830", marginBottom: 2 }}>{step}</div>
+                            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 12, color: "#6B6560" }}>{desc}</div>
+                          </div>
+                        ))}
+                      </div>
 
-                    <HelpHeading>KEYBOARD SHORTCUTS</HelpHeading>
-                    <div style={{ display: "grid", gap: 4 }}>
-                      {[
-                        ["← →", "Navigate previous / next declaration in queue"],
-                        ["A", "Approve (when not in a text field)"],
-                        ["C", "Flag for correction (when not in a text field)"],
-                      ].map(([key, desc]) => (
-                        <div key={key} style={{ display: "flex", gap: 8, fontSize: 12 }}>
-                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: "#1E4A8C", minWidth: 60 }}>{key}</span>
-                          <span style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", color: "#6B6560" }}>{desc}</span>
-                        </div>
-                      ))}
-                    </div>
+                      <HelpHeading>ACTIONS</HelpHeading>
+                      <div style={{ display: "grid", gap: 4 }}>
+                        {[
+                          ["Approve", "Declaration is correct and ready to generate C82 XML + LB01 worksheet."],
+                          ["Flag Correction", "Something needs fixing. Add a note explaining what the ops team should change before resubmitting."],
+                          ["Reject", "Declaration cannot be processed (duplicate, fraud, unrecoverable data issue)."],
+                          ["Generate Pack", "Available after approval. Produces the ASYCUDA C82 XML and LB01 PDF worksheet for download."],
+                          ["Receipt Number", "After ASYCUDA submission, enter the receipt number here to complete the lifecycle."],
+                        ].map(([action, desc]) => (
+                          <div key={action} style={{ display: "flex", gap: 8, fontSize: 12 }}>
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: "#1A5E3A", minWidth: 120 }}>{action}</span>
+                            <span style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", color: "#6B6560" }}>{desc}</span>
+                          </div>
+                        ))}
+                      </div>
 
-                    <HelpTip>Declarations extracted by AI show a confidence score. Start with the lowest confidence items first — they're most likely to need correction.</HelpTip>
-                  </HelpBox>
+                      <HelpHeading>KEYBOARD SHORTCUTS</HelpHeading>
+                      <div style={{ display: "grid", gap: 4 }}>
+                        {[
+                          ["← →", "Navigate previous / next declaration in queue"],
+                          ["A", "Approve (when not in a text field)"],
+                          ["C", "Flag for correction (when not in a text field)"],
+                        ].map(([key, desc]) => (
+                          <div key={key} style={{ display: "flex", gap: 8, fontSize: 12 }}>
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, color: "#1E4A8C", minWidth: 60 }}>{key}</span>
+                            <span style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", color: "#6B6560" }}>{desc}</span>
+                          </div>
+                        ))}
+                      </div>
 
-                  <HelpBox title="What does ASYCUDA need?" variant="warn">
-                    <p style={{ margin: "0 0 10px" }}>
-                      ASYCUDA World will reject a declaration if any of these required fields are missing or incorrect:
-                    </p>
-                    <div style={{ display: "grid", gap: 4 }}>
-                      {[
-                        "HS code — must be numeric with dots (e.g. 9021.29.00.00), at least 6 digits",
-                        "Vessel name or flight number — cannot be blank",
-                        "Port of entry — must be a valid ASYCUDA port code (e.g. TTPTS, TTPIA)",
-                        "Invoice value — must be greater than zero",
-                        "Exchange rate — must be greater than zero",
-                        "Consignee code and name — required for C82 header",
-                        "At least one item with a valid HS code, description, quantity, and value",
-                      ].map(f => (
-                        <div key={f} style={{ display: "flex", gap: 8, fontSize: 12 }}>
-                          <span style={{ color: "#963A10", flexShrink: 0 }}>✕</span>
-                          <span style={{ fontFamily: "'Fraunces', serif", color: "#6B6560", fontStyle: "italic" }}>{f}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <HelpTip>The Generate Pack button is blocked until all required fields pass preflight validation. Fix the errors shown, then generate.</HelpTip>
-                  </HelpBox>
-                </div>
+                      <HelpTip>Declarations extracted by AI show a confidence score. Queue is sorted with lowest confidence first inside pending items.</HelpTip>
+                    </HelpBox>
+                  </div>
+                )}
               </div>
             )}
           </div>
