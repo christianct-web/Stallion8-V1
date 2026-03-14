@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -12,7 +13,19 @@ from jsonschema import Draft202012Validator, exceptions as js_exceptions
 from ..store import LOOKUPS
 
 APP_ROOT = Path(__file__).resolve().parent.parent
-ACE_BACKEND = Path("/home/keiraops/.openclaw/workspace/ace-backend/asycuda_service")
+
+# Deployment-safe ace-backend path resolution.
+# Accepts either:
+# - ACE_BACKEND_PATH=/path/to/ace-backend
+# - ACE_BACKEND_PATH=/path/to/ace-backend/asycuda_service
+DEFAULT_ACE_BACKEND_ROOT = Path("/home/keiraops/.openclaw/workspace/ace-backend")
+ace_backend_env = os.getenv("ACE_BACKEND_PATH", "").strip()
+if ace_backend_env:
+    candidate = Path(ace_backend_env).expanduser().resolve()
+    ACE_BACKEND = candidate / "asycuda_service" if candidate.name != "asycuda_service" else candidate
+else:
+    ACE_BACKEND = DEFAULT_ACE_BACKEND_ROOT / "asycuda_service"
+
 VENDOR = ACE_BACKEND / "vendor"
 CONTRACT = ACE_BACKEND / "contract/ACE_Replacement_Contract_v1/contract.v1.schema.json"
 
@@ -24,7 +37,11 @@ if VENDOR.exists():
             sys.path.insert(0, str(child))
             break
 else:
-    raise RuntimeError("Vendor mapping package missing. Expected ace-backend assets.")
+    raise RuntimeError(
+        "Vendor mapping package missing. Set ACE_BACKEND_PATH to your ace-backend root "
+        "(or asycuda_service path). Expected vendor assets under: "
+        f"{VENDOR}"
+    )
 
 try:
     from asycuda.load_mapping import load_mapping
@@ -33,7 +50,11 @@ except Exception as e:
     raise RuntimeError(f"Failed to import emitter modules: {e}")
 
 if not CONTRACT.exists():
-    raise RuntimeError("Contract schema missing in ace-backend.")
+    raise RuntimeError(
+        "Contract schema missing in ace-backend. "
+        "Set ACE_BACKEND_PATH correctly; expected file at: "
+        f"{CONTRACT}"
+    )
 
 SCHEMA = json.loads(CONTRACT.read_text(encoding="utf-8"))
 SCHEMA_VALIDATOR = Draft202012Validator(SCHEMA)
