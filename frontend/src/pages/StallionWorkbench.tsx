@@ -452,52 +452,20 @@ export default function StallionWorkbench() {
             </div>
             <HelpTip>Save Draft at any time — the declaration is stored in the backend and will appear in the broker review queue when you're ready.</HelpTip>
           </HelpBox>
-
-          <div style={{
-            marginTop: 10,
-            border: "1px solid var(--wb-warn-border)",
-            borderRadius: 4,
-            background: "var(--wb-warn)",
-            padding: "12px 14px",
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 8 }}>
-              <div style={{ fontFamily: "var(--wb-font-mono)", fontSize: 11, letterSpacing: "0.12em", color: "var(--wb-warn-text)", fontWeight: 700 }}>
-                COMPLETE THESE FIRST
-              </div>
-              <div style={{ fontFamily: "var(--wb-font-mono)", fontSize: 11, color: "var(--wb-warn-text)" }}>
-                {requiredFirst.completed}/{requiredFirst.total} complete
-              </div>
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {requiredFirst.rows.map((r) => {
-                const done = r.key === "exchange_rate"
-                  ? Number(r.value) > 0
-                  : String(r.value ?? "").trim().length > 0;
-                return (
-                  <button
-                    key={r.key}
-                    onClick={() => jumpToSection(r.sectionId)}
-                    style={{
-                      border: `1px solid ${done ? "var(--wb-approved)" : "var(--wb-warn-border)"}`,
-                      background: done ? "#EBF7F1" : "#FFF7E8",
-                      color: done ? "var(--wb-approved)" : "var(--wb-warn-text)",
-                      borderRadius: 3,
-                      padding: "6px 10px",
-                      fontFamily: "var(--wb-font-mono)",
-                      fontSize: 10,
-                      letterSpacing: "0.06em",
-                      cursor: "pointer",
-                    }}
-                  >
-                    {done ? "✓" : "○"} {r.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
         </div>
 
-        <div style={{ flex: 1, maxWidth: 860, margin: "0 auto", width: "100%", padding: "24px 16px 120px" }}>
+        <div style={{
+          flex: 1,
+          maxWidth: 1100,
+          margin: "0 auto",
+          width: "100%",
+          padding: "24px 16px 120px",
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 1fr) 280px",
+          gap: 16,
+          alignItems: "start",
+        }}>
+          <div>
           <WorkbenchHeader
             form={form} setForm={setForm}
             ports={ports} terms={terms}
@@ -544,6 +512,52 @@ export default function StallionWorkbench() {
             calc={calc}
             cooldownSeconds={cooldownSeconds}
           />
+          </div>
+
+          <aside style={{ position: "sticky", top: 76 }}>
+            <div style={{
+              border: "1px solid var(--wb-warn-border)",
+              borderRadius: 4,
+              background: "var(--wb-warn)",
+              padding: "12px 14px",
+            }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 8 }}>
+                <div style={{ fontFamily: "var(--wb-font-mono)", fontSize: 11, letterSpacing: "0.12em", color: "var(--wb-warn-text)", fontWeight: 700 }}>
+                  COMPLETE FIRST
+                </div>
+                <div style={{ fontFamily: "var(--wb-font-mono)", fontSize: 11, color: "var(--wb-warn-text)" }}>
+                  {requiredFirst.completed}/{requiredFirst.total}
+                </div>
+              </div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {requiredFirst.rows.map((r) => {
+                  const done = r.key === "exchange_rate"
+                    ? Number(r.value) > 0
+                    : String(r.value ?? "").trim().length > 0;
+                  return (
+                    <button
+                      key={r.key}
+                      onClick={() => jumpToSection(r.sectionId)}
+                      style={{
+                        border: `1px solid ${done ? "var(--wb-approved)" : "var(--wb-warn-border)"}`,
+                        background: done ? "#EBF7F1" : "#FFF7E8",
+                        color: done ? "var(--wb-approved)" : "var(--wb-warn-text)",
+                        borderRadius: 3,
+                        padding: "7px 10px",
+                        fontFamily: "var(--wb-font-mono)",
+                        fontSize: 10,
+                        letterSpacing: "0.06em",
+                        cursor: "pointer",
+                        textAlign: "left",
+                      }}
+                    >
+                      {done ? "✓" : "○"} {r.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </aside>
         </div>
       </div>
     </TooltipProvider>
