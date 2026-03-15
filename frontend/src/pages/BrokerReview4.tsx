@@ -5,6 +5,7 @@ import {
   reviewDeclaration,
   receiptDeclaration,
   submitDeclaration,
+  generatePack,
   STALLION_BASE_URL,
 } from "@/services/stallionApi";
 import { TopNav } from "@/components/TopNav";
@@ -399,7 +400,7 @@ function ExportHistory({ events }: { events: any[] }) {
 type ReviewTab = "FIELDS" | "ITEMS" | "WORKSHEET" | "HISTORY" | "NOTES";
 
 function ReviewPanel({
-  decl, onStatusChange, onBack, idx, total,
+  decl, onStatusChange, onBack, onPackEvent, idx, total,
 }: {
   decl: ReviewDecl;
   onStatusChange: (
@@ -410,12 +411,14 @@ function ReviewPanel({
     options?: { stayOnCurrent?: boolean }
   ) => Promise<void>;
   onBack: () => void;
+  onPackEvent: (id: string, event: { status: string; at: string; ref?: string }) => void;
   idx: number; total: number;
 }) {
   const [tab,      setTab]      = useState<ReviewTab>("FIELDS");
   const [notesThread, setNotesThread] = useState<NoteEntry[]>(decl.notesThread ?? []);
   const [noteDraft, setNoteDraft] = useState("");
   const [submitting, setSubmitting] = useState<string | null>(null);
+  const [generatingPack, setGeneratingPack] = useState(false);
 
   // Editable header fields
   const [editHeader, setEditHeader] = useState<Record<string, string>>({});
@@ -491,6 +494,43 @@ function ReviewPanel({
       );
     } finally {
       setSubmitting(null);
+    }
+  };
+
+  const handleGeneratePack = async () => {
+    setGeneratingPack(true);
+    try {
+      const header = Object.keys(editHeader).length > 0
+        ? { ...decl.header, ...editHeader }
+        : (decl.header ?? {});
+      const items = Object.keys(editItems).length > 0
+        ? itms.map((item: any, i: number) => ({ ...item, ...(editItems[i] ?? {}) }))
+        : (itms ?? []);
+
+      const res = await generatePack({
+        declaration_id: decl.id,
+        header,
+        worksheet: decl.worksheet ?? {},
+        items,
+        containers: decl.containers ?? [],
+      });
+
+      const firstRef = res.documents?.find((d) => d?.ref)?.ref;
+      onPackEvent(decl.id, {
+        status: res.status,
+        at: res.generatedAt || new Date().toISOString(),
+        ref: firstRef,
+      });
+
+      if (res.status === "blocked") {
+        alert(`Pack generation blocked by preflight (${res.preflight?.counts?.errors ?? 0} errors).`);
+      } else {
+        alert("Pack generated successfully.");
+      }
+    } catch {
+      alert("Generate pack failed. Please try again.");
+    } finally {
+      setGeneratingPack(false);
     }
   };
 
@@ -886,19 +926,57 @@ function ReviewPanel({
             </button>
           )}
 
-          {/* Approved → Submit */}
+          {/* Approved → Generate Pack + Submit */}
           {isApproved && (
-            <button onClick={() => action("submitted")} disabled={!!submitting}
-              style={{ padding: "9px 24px", background: C.submitted, border: "none", borderRadius: 3, color: "#fff", fontFamily: "'Fraunces', serif", fontSize: 13, fontWeight: 700, cursor: "pointer", marginLeft: "auto" }}>
-              {submitting === "submitted" ? "Submitting…" : "Mark Submitted →"}
-            </button>
+            <>
+              <button
+                onClick={handleGeneratePack}
+                disabled={generatingPack || !!submitting}
+                style={{
+                  padding: "9px 16px",
+                  background: "transparent",
+                  border: `1px solid ${C.approved}`,
+                  borderRadius: 3,
+                  color: C.approved,
+                  fontFamily: "'Fraunces', serif",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {generatingPack ? "Generating…" : "Generate Pack"}
+              </button>
+              <button onClick={() => action("submitted")} disabled={!!submitting || generatingPack}
+                style={{ padding: "9px 24px", background: C.submitted, border: "none", borderRadius: 3, color: "#fff", fontFamily: "'Fraunces', serif", fontSize: 13, fontWeight: 700, cursor: "pointer", marginLeft: "auto" }}>
+                {submitting === "submitted" ? "Submitting…" : "Mark Submitted →"}
+              </button>
+            </>
           )}
 
-          {/* Submitted → receipt number shown inline via ReceiptPanel */}
+          {/* Submitted → allow regenerate + receipt cue */}
           {isSubmitted && (
-            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 12, color: C.inkLight }}>
-              Switch to Fields tab to enter the Customs receipt number
-            </div>
+            <>
+              <button
+                onClick={handleGeneratePack}
+                disabled={generatingPack || !!submitting}
+                style={{
+                  padding: "9px 16px",
+                  background: "transparent",
+                  border: `1px solid ${C.submitted}`,
+                  borderRadius: 3,
+                  color: C.submitted,
+                  fontFamily: "'Fraunces', serif",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {generatingPack ? "Generating…" : "Regenerate Pack"}
+              </button>
+              <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 12, color: C.inkLight }}>
+                Switch to Fields tab to enter the Customs receipt number
+              </div>
+            </>
           )}
         </div>
       )}
@@ -1029,6 +1107,18 @@ export default function BrokerReview4() {
     }
   };
 
+  const handlePackEvent = (id: string, event: { status: string; at: string; ref?: string }) => {
+    setBatch((prev) => prev.map((d) => {
+      if (d.id !== id) return d;
+      const events = [...(d.export_events ?? []), event];
+      return {
+        ...d,
+        export_events: events,
+        last_export: event,
+      };
+    }));
+  };
+
   // Keyboard navigation
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -1120,6 +1210,7 @@ export default function BrokerReview4() {
                 key={active.id}
                 decl={active}
                 onStatusChange={handleStatusChange}
+                onPackEvent={handlePackEvent}
                 onBack={() => setActiveId(null)}
                 idx={activeIdx}
                 total={sortedBatch.length}
