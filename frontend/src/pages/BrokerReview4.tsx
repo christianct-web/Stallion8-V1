@@ -411,7 +411,7 @@ function ReviewPanel({
     options?: { stayOnCurrent?: boolean }
   ) => Promise<void>;
   onBack: () => void;
-  onPackEvent: (id: string, event: { status: string; at: string; ref?: string }) => void;
+  onPackEvent: (id: string, event: { status: string; at: string; ref?: string; reason?: string; errors?: string[]; warnings?: string[]; suggestedTab?: ReviewTab }) => void;
   idx: number; total: number;
 }) {
   const [tab,      setTab]      = useState<ReviewTab>("FIELDS");
@@ -497,6 +497,13 @@ function ReviewPanel({
     }
   };
 
+  const getSuggestedTabFromPaths = (paths: string[]): ReviewTab => {
+    const p = paths.join(" ").toLowerCase();
+    if (p.includes("worksheet")) return "WORKSHEET";
+    if (p.includes("item")) return "ITEMS";
+    return "FIELDS";
+  };
+
   const handleGeneratePack = async () => {
     setGeneratingPack(true);
     try {
@@ -516,14 +523,23 @@ function ReviewPanel({
       });
 
       const firstRef = res.documents?.find((d) => d?.ref)?.ref;
+      const preflightErrors = (res.preflight?.errors ?? []).map((e: any) => `${e.path}: ${e.message}`);
+      const preflightWarnings = (res.preflight?.warnings ?? []).map((w: any) => `${w.path}: ${w.message}`);
+      const suggestedTab = getSuggestedTabFromPaths((res.preflight?.errors ?? []).map((e: any) => String(e.path || "")));
+
       onPackEvent(decl.id, {
         status: res.status,
         at: res.generatedAt || new Date().toISOString(),
         ref: firstRef,
+        reason: res.status === "blocked" ? `Preflight blocked generation (${res.preflight?.counts?.errors ?? 0} errors).` : undefined,
+        errors: preflightErrors,
+        warnings: preflightWarnings,
+        suggestedTab,
       });
 
       if (res.status === "blocked") {
-        alert(`Pack generation blocked by preflight (${res.preflight?.counts?.errors ?? 0} errors).`);
+        setTab(suggestedTab);
+        alert(`Pack generation blocked by preflight (${res.preflight?.counts?.errors ?? 0} errors). See the blocker panel for exact fixes.`);
       } else {
         alert("Pack generated successfully.");
       }
@@ -533,6 +549,8 @@ function ReviewPanel({
       setGeneratingPack(false);
     }
   };
+
+  const lastBlockedEvent = [...(decl.export_events ?? [])].reverse().find((ev: any) => ev?.status === "blocked");
 
   const tabs: ReviewTab[] = ["FIELDS", "ITEMS", "WORKSHEET", "HISTORY", "NOTES"];
 
@@ -578,6 +596,55 @@ function ReviewPanel({
           <>
             <ReceiptPanel decl={decl} onReceipt={handleReceipt} />
             <ExportHistory events={decl.export_events ?? []} />
+            {lastBlockedEvent && (
+              <div style={{ marginBottom: 14, padding: "12px 14px", border: `1px solid ${C.critBorder}`, borderRadius: 3, background: C.critical }}>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", color: C.critBorder, fontWeight: 700, marginBottom: 6 }}>
+                  PACK BLOCKED — ACTION REQUIRED
+                </div>
+                <div style={{ fontFamily: "'Fraunces', serif", fontSize: 12, color: C.inkMid, marginBottom: 8 }}>
+                  {lastBlockedEvent.reason || "Preflight checks failed. Fix the items below, then regenerate pack."}
+                </div>
+                {(lastBlockedEvent.errors?.length ?? 0) > 0 && (
+                  <ul style={{ margin: "0 0 10px 18px", padding: 0, color: C.inkMid, fontSize: 12 }}>
+                    {lastBlockedEvent.errors.slice(0, 4).map((err: string, i: number) => (
+                      <li key={i} style={{ marginBottom: 3, fontFamily: "'Fraunces', serif" }}>{err}</li>
+                    ))}
+                  </ul>
+                )}
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button
+                    onClick={() => setTab(lastBlockedEvent.suggestedTab || "FIELDS")}
+                    style={{
+                      padding: "7px 10px",
+                      border: `1px solid ${C.critBorder}`,
+                      borderRadius: 3,
+                      background: "transparent",
+                      color: C.critBorder,
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: 10,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Go to {lastBlockedEvent.suggestedTab || "FIELDS"}
+                  </button>
+                  <button
+                    onClick={() => setTab("WORKSHEET")}
+                    style={{
+                      padding: "7px 10px",
+                      border: `1px solid ${C.paperBorder}`,
+                      borderRadius: 3,
+                      background: C.paper,
+                      color: C.inkMid,
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: 10,
+                      cursor: "pointer",
+                    }}
+                  >
+                    Review worksheet totals
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Header fields */}
             <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.14em", color: C.inkLight, marginBottom: 8 }}>
@@ -1107,7 +1174,7 @@ export default function BrokerReview4() {
     }
   };
 
-  const handlePackEvent = (id: string, event: { status: string; at: string; ref?: string }) => {
+  const handlePackEvent = (id: string, event: { status: string; at: string; ref?: string; reason?: string; errors?: string[]; warnings?: string[]; suggestedTab?: ReviewTab }) => {
     setBatch((prev) => prev.map((d) => {
       if (d.id !== id) return d;
       const events = [...(d.export_events ?? []), event];
