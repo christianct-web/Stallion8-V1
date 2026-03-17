@@ -231,6 +231,17 @@ export function WorkbenchHeader({
           mono critical={!form.etaDate}
           placeholder="YYYY-MM-DD"
         />
+        <WbField
+          label="Rotation No."
+          value={form.rotationNumber || ""}
+          onChange={F("rotationNumber")}
+          mono
+          placeholder="e.g. 2024-001234"
+          tooltip="Port Authority rotation number assigned on vessel arrival. Required for sea freight declarations. Found on the vessel manifest or port entry documents."
+          note={form.modeOfTransport && (form.modeOfTransport.startsWith("1") || form.modeOfTransport.startsWith("11") || form.modeOfTransport.startsWith("12") || form.modeOfTransport.startsWith("13")) && !form.rotationNumber
+            ? "Rotation number recommended for sea freight — obtain from Port Authority on vessel arrival"
+            : undefined}
+        />
 
         {/* ── Financial ── */}
         <SubHead label="Financial · Payment" />

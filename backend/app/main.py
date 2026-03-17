@@ -23,6 +23,8 @@ from .services.declaration_service import export_xml, validate_decl
 from .services.pack_service import generate_pack, resolve_generated_file
 from .services.worksheet_service import calculate_worksheet
 from .store import LOOKUPS, load_templates, save_templates, load_declarations, save_declarations
+from .store_clients import load_clients, save_clients
+from .services.invoice_service import generate_brokerage_invoice
 
 app = FastAPI(title="Stallion API", version="0.2.0")
 app.add_middleware(
@@ -777,6 +779,107 @@ async def hs_search(req: Dict[str, Any]):
 
     return {"query": query, "results": results}
 
+
+
+# ─── Client directory ─────────────────────────────────────────────────────────
+
+@app.get("/clients")
+def clients_list():
+    return {"items": load_clients()}
+
+
+@app.post("/clients")
+def clients_create(req: Dict[str, Any]):
+    name = (req.get("name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="name is required")
+    items = load_clients()
+    code = (req.get("consigneeCode") or "").strip().upper()
+    if code and any(c.get("consigneeCode", "").upper() == code for c in items):
+        raise HTTPException(status_code=409, detail=f"Client with consigneeCode '{code}' already exists")
+    client = {
+        "id": str(uuid.uuid4()),
+        "name": name,
+        "consigneeCode": code,
+        "tin": (req.get("tin") or "").strip(),
+        "address": (req.get("address") or "").strip(),
+        "contactName": (req.get("contactName") or "").strip(),
+        "contactEmail": (req.get("contactEmail") or "").strip(),
+        "contactPhone": (req.get("contactPhone") or "").strip(),
+        "defaultBrokerageFee": float(req.get("defaultBrokerageFee") or 0),
+        "notes": (req.get("notes") or "").strip(),
+        "createdAt": datetime.utcnow().isoformat() + "Z",
+    }
+    items.append(client)
+    save_clients(items)
+    return client
+
+
+@app.get("/clients/{client_id}")
+def clients_get(client_id: str):
+    items = load_clients()
+    row = next((c for c in items if c.get("id") == client_id), None)
+    if not row:
+        raise HTTPException(status_code=404, detail="Client not found")
+    return row
+
+
+@app.patch("/clients/{client_id}")
+def clients_update(client_id: str, req: Dict[str, Any]):
+    items = load_clients()
+    idx = next((i for i, c in enumerate(items) if c.get("id") == client_id), None)
+    if idx is None:
+        raise HTTPException(status_code=404, detail="Client not found")
+    allowed = {"name","consigneeCode","tin","address","contactName","contactEmail","contactPhone","defaultBrokerageFee","notes"}
+    patch = {k: v for k, v in req.items() if k in allowed}
+    if "consigneeCode" in patch:
+        patch["consigneeCode"] = patch["consigneeCode"].strip().upper()
+    items[idx] = {**items[idx], **patch}
+    save_clients(items)
+    return items[idx]
+
+
+@app.delete("/clients/{client_id}")
+def clients_delete(client_id: str):
+    items = load_clients()
+    new_items = [c for c in items if c.get("id") != client_id]
+    if len(new_items) == len(items):
+        raise HTTPException(status_code=404, detail="Client not found")
+    save_clients(new_items)
+    return {"ok": True, "id": client_id}
+
+
+# ─── Brokerage invoice generation ─────────────────────────────────────────────
+
+@app.post("/declarations/{declaration_id}/brokerage-invoice")
+def brokerage_invoice_generate(declaration_id: str, req: Dict[str, Any]):
+    all_decls = load_declarations()
+    decl = next((d for d in all_decls if str(d.get("id")) == declaration_id), None)
+    if not decl:
+        raise HTTPException(status_code=404, detail="Declaration not found")
+    client: Dict[str, Any] = {}
+    client_id = req.get("client_id", "")
+    if client_id:
+        client = next((c for c in load_clients() if c.get("id") == client_id), {})
+    else:
+        code = (decl.get("header") or {}).get("consigneeCode", "")
+        if code:
+            client = next((c for c in load_clients() if c.get("consigneeCode","").upper() == code.upper()), {})
+    brokerage_fee = float(req.get("brokerage_fee_ttd") or client.get("defaultBrokerageFee") or 0)
+    doc_id, _ = generate_brokerage_invoice(
+        declaration=decl,
+        client=client,
+        brokerage_fee_ttd=brokerage_fee,
+        invoice_number=str(req.get("invoice_number") or ""),
+        notes=str(req.get("notes") or ""),
+    )
+    inv_rec = {"docId": doc_id, "brokerageFee": brokerage_fee, "generatedAt": datetime.utcnow().isoformat() + "Z"}
+    idx = next(i for i, d in enumerate(all_decls) if str(d.get("id")) == declaration_id)
+    existing = all_decls[idx].get("brokerage_invoices") or []
+    existing.append(inv_rec)
+    all_decls[idx] = {**all_decls[idx], "brokerage_invoices": existing}
+    save_declarations(all_decls)
+    return {"ok": True, "doc_id": doc_id, "download_url": f"/pack/file/{doc_id}"}
 
 # ─── Pack generation ──────────────────────────────────────────────────────────
 @app.post("/pack/generate")

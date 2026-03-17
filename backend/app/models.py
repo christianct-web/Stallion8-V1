@@ -17,6 +17,8 @@ class TemplateOut(TemplateIn):
 
 class WorksheetInput(BaseModel):
     invoice_value_foreign: float = 0
+    inland_foreign: float = 0         # inland/trucking charges before FOB
+    uplift_pct: float = 0             # % uplift applied to ex-works
     exchange_rate: float = 1
     freight_foreign: float = 0
     insurance_foreign: float = 0
@@ -25,7 +27,9 @@ class WorksheetInput(BaseModel):
     duty_rate_pct: float = 0
     surcharge_rate_pct: float = 0
     vat_rate_pct: float = 0
-    extra_fees_local: float = 0
+    extra_fees_local: float = 0       # CFU — Customs User Fee
+    ces_fee_1: float = 0              # Container Examination Fee (standard)
+    ces_fee_2: float = 0              # Container Examination Fee (second line)
 
 class DeclarationReq(BaseModel):
     declaration: Dict[str, Any]

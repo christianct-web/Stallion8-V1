@@ -33,12 +33,6 @@ function useStableId() {
   return ref.current;
 }
 
-function jumpToSection(sectionId: string) {
-  const el = document.getElementById(sectionId);
-  if (!el) return;
-  el.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
 function buildHeader(form: any) {
   return {
     declarationRef:          form.declarationRef,
@@ -60,6 +54,7 @@ function buildHeader(form: any) {
     blAwbNumber:             form.blAwbNumber,
     blAwbDate:               form.blAwbDate,
     etaDate:                 form.etaDate,
+    rotationNumber:          form.rotationNumber || "",
     invoiceNumber:           form.invoiceNumber,
     invoiceDate:             form.invoiceDate,
     currency:                form.currency,
@@ -78,6 +73,8 @@ function buildHeader(form: any) {
 function buildWorksheet(form: any) {
   return {
     invoice_value_foreign: form.invoice_value_foreign,
+    inland_foreign:        form.inland_foreign   || 0,
+    uplift_pct:            form.uplift_pct        || 0,
     exchange_rate:         form.exchange_rate,
     freight_foreign:       form.freight_foreign,
     insurance_foreign:     form.insurance_foreign,
@@ -87,6 +84,8 @@ function buildWorksheet(form: any) {
     surcharge_rate_pct:    form.surcharge_rate_pct,
     vat_rate_pct:          form.vat_rate_pct,
     extra_fees_local:      form.extra_fees_local,
+    ces_fee_1:             form.ces_fee_1         || 0,
+    ces_fee_2:             form.ces_fee_2         || 0,
     global_fee:            form.global_fee,
   };
 }
@@ -178,8 +177,6 @@ export default function StallionWorkbench() {
   const [preflight,     setPreflight]     = useState<any>(null);
   const [generating,    setGenerating]    = useState(false);
   const [savingDraft,   setSavingDraft]   = useState(false);
-  const [lastGeneratedAt, setLastGeneratedAt] = useState<number | null>(null);
-  const [cooldownSeconds, setCooldownSeconds] = useState(0);
 
   // ── bootstrap ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -220,20 +217,6 @@ export default function StallionWorkbench() {
     setForm(f => ({ ...f, extra_fees_local: dutyCodes.length * 40 }));
   }, [items]);
 
-  useEffect(() => {
-    if (!lastGeneratedAt) {
-      setCooldownSeconds(0);
-      return;
-    }
-    const tick = () => {
-      const remaining = Math.max(0, 8 - Math.floor((Date.now() - lastGeneratedAt) / 1000));
-      setCooldownSeconds(remaining);
-    };
-    tick();
-    const timer = window.setInterval(tick, 250);
-    return () => window.clearInterval(timer);
-  }, [lastGeneratedAt]);
-
   // ── template load ──────────────────────────────────────────────────────────
   const handleLoadTemplate = (id: string) => {
     const tpl = templates.find(t => t.id === id);
@@ -247,6 +230,8 @@ export default function StallionWorkbench() {
     try {
       const r = await calculateWorksheet({
         invoice_value_foreign: Number(form.invoice_value_foreign),
+        inland_foreign:        Number(form.inland_foreign   || 0),
+        uplift_pct:            Number(form.uplift_pct        || 0),
         exchange_rate:         Number(form.exchange_rate),
         freight_foreign:       Number(form.freight_foreign),
         insurance_foreign:     Number(form.insurance_foreign),
@@ -256,6 +241,8 @@ export default function StallionWorkbench() {
         surcharge_rate_pct:    Number(form.surcharge_rate_pct),
         vat_rate_pct:          Number(form.vat_rate_pct),
         extra_fees_local:      Number(form.extra_fees_local),
+        ces_fee_1:             Number(form.ces_fee_1  || 0),
+        ces_fee_2:             Number(form.ces_fee_2  || 0),
       });
       setCalc(r);
       if ((r as any).preflight) setPreflight((r as any).preflight);
@@ -302,15 +289,6 @@ export default function StallionWorkbench() {
       toast.error("Run worksheet calculation first.");
       return;
     }
-    if (cooldownSeconds > 0) {
-      toast.error(`Please wait ${cooldownSeconds}s before generating again.`);
-      return;
-    }
-    if (lastGeneratedAt && Date.now() - lastGeneratedAt < 15000) {
-      const ok = window.confirm("You generated a pack recently. Generate again now?");
-      if (!ok) return;
-    }
-
     setGenerating(true);
     try {
       const header    = buildHeader(form);
@@ -343,7 +321,6 @@ export default function StallionWorkbench() {
 
       setPackResult(result);
       if (result.preflight) setPreflight(result.preflight);
-      setLastGeneratedAt(Date.now());
 
       if (result.status === "blocked") {
         toast.error("Pack blocked — fix required fields");
@@ -378,21 +355,6 @@ export default function StallionWorkbench() {
     });
     return counts;
   }, [preflight]);
-
-  const requiredFirst = useMemo(() => {
-    const rows = [
-      { label: "Port of Entry", key: "port", sectionId: "section-header", value: form.port },
-      { label: "Incoterm", key: "term", sectionId: "section-header", value: form.term },
-      { label: "Transport Mode", key: "modeOfTransport", sectionId: "section-header", value: form.modeOfTransport },
-      { label: "Customs Regime", key: "customsRegime", sectionId: "section-header", value: form.customsRegime },
-      { label: "Exchange Rate", key: "exchange_rate", sectionId: "section-worksheet", value: form.exchange_rate },
-    ];
-    const completed = rows.filter((r) => {
-      if (r.key === "exchange_rate") return Number(r.value) > 0;
-      return String(r.value ?? "").trim().length > 0;
-    }).length;
-    return { rows, completed, total: rows.length };
-  }, [form]);
 
   return (
     <TooltipProvider>
@@ -454,18 +416,7 @@ export default function StallionWorkbench() {
           </HelpBox>
         </div>
 
-        <div style={{
-          flex: 1,
-          maxWidth: 1100,
-          margin: "0 auto",
-          width: "100%",
-          padding: "24px 16px 120px",
-          display: "grid",
-          gridTemplateColumns: "minmax(0, 1fr) 280px",
-          gap: 16,
-          alignItems: "start",
-        }}>
-          <div>
+        <div style={{ flex: 1, maxWidth: 860, margin: "0 auto", width: "100%", padding: "24px 16px 120px" }}>
           <WorkbenchHeader
             form={form} setForm={setForm}
             ports={ports} terms={terms}
@@ -510,54 +461,7 @@ export default function StallionWorkbench() {
             onGenerate={handleGenerate} onSaveDraft={handleSaveDraft}
             generating={generating} savingDraft={savingDraft}
             calc={calc}
-            cooldownSeconds={cooldownSeconds}
           />
-          </div>
-
-          <aside style={{ position: "sticky", top: 76 }}>
-            <div style={{
-              border: "1px solid var(--wb-warn-border)",
-              borderRadius: 4,
-              background: "var(--wb-warn)",
-              padding: "12px 14px",
-            }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 8 }}>
-                <div style={{ fontFamily: "var(--wb-font-mono)", fontSize: 11, letterSpacing: "0.12em", color: "var(--wb-warn-text)", fontWeight: 700 }}>
-                  COMPLETE FIRST
-                </div>
-                <div style={{ fontFamily: "var(--wb-font-mono)", fontSize: 11, color: "var(--wb-warn-text)" }}>
-                  {requiredFirst.completed}/{requiredFirst.total}
-                </div>
-              </div>
-              <div style={{ display: "grid", gap: 8 }}>
-                {requiredFirst.rows.map((r) => {
-                  const done = r.key === "exchange_rate"
-                    ? Number(r.value) > 0
-                    : String(r.value ?? "").trim().length > 0;
-                  return (
-                    <button
-                      key={r.key}
-                      onClick={() => jumpToSection(r.sectionId)}
-                      style={{
-                        border: `1px solid ${done ? "var(--wb-approved)" : "var(--wb-warn-border)"}`,
-                        background: done ? "#EBF7F1" : "#FFF7E8",
-                        color: done ? "var(--wb-approved)" : "var(--wb-warn-text)",
-                        borderRadius: 3,
-                        padding: "7px 10px",
-                        fontFamily: "var(--wb-font-mono)",
-                        fontSize: 10,
-                        letterSpacing: "0.06em",
-                        cursor: "pointer",
-                        textAlign: "left",
-                      }}
-                    >
-                      {done ? "✓" : "○"} {r.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </aside>
         </div>
       </div>
     </TooltipProvider>

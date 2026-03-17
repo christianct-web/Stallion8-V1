@@ -106,6 +106,8 @@ export async function createTemplate(payload: { name: string; kind: string; scop
 
 export async function calculateWorksheet(payload: {
   invoice_value_foreign: number;
+  inland_foreign?: number;
+  uplift_pct?: number;
   exchange_rate: number;
   freight_foreign: number;
   insurance_foreign: number;
@@ -115,14 +117,24 @@ export async function calculateWorksheet(payload: {
   surcharge_rate_pct: number;
   vat_rate_pct: number;
   extra_fees_local: number;
+  ces_fee_1?: number;
+  ces_fee_2?: number;
 }) {
   return api<{
+    invoice_value_foreign: number;
+    inland_foreign: number;
+    uplift_pct: number;
+    fob_foreign: number;
+    fob_local: number;
     cif_foreign: number;
     cif_local: number;
     duty: number;
     surcharge: number;
     vat: number;
     extra_fees_local: number;
+    customs_user_fee: number;
+    ces_fee_1: number;
+    ces_fee_2: number;
     total_assessed: number;
   }>("/worksheet/calculate", { method: "POST", body: JSON.stringify(payload) });
 }
@@ -284,3 +296,57 @@ export async function downloadRegisterCsv(period?: string) {
 }
 
 export { BASE_URL as STALLION_BASE_URL };
+
+// ─── Client directory ──────────────────────────────────────────────────────
+
+export interface Client {
+  id: string;
+  name: string;
+  consigneeCode: string;
+  tin: string;
+  address: string;
+  contactName: string;
+  contactEmail: string;
+  contactPhone: string;
+  defaultBrokerageFee: number;
+  notes: string;
+  createdAt: string;
+}
+
+export async function listClients(): Promise<Client[]> {
+  const res = await api<{ items: Client[] }>("/clients");
+  return res.items || [];
+}
+
+export async function getClient(id: string): Promise<Client> {
+  return api<Client>(`/clients/${id}`);
+}
+
+export async function createClient(payload: Omit<Client, "id" | "createdAt">): Promise<Client> {
+  return api<Client>("/clients", { method: "POST", body: JSON.stringify(payload) });
+}
+
+export async function updateClient(id: string, payload: Partial<Client>): Promise<Client> {
+  return api<Client>(`/clients/${id}`, { method: "PATCH", body: JSON.stringify(payload) });
+}
+
+export async function deleteClient(id: string): Promise<void> {
+  await api(`/clients/${id}`, { method: "DELETE" });
+}
+
+// ─── Brokerage invoice ─────────────────────────────────────────────────────
+
+export async function generateBrokerageInvoice(
+  declarationId: string,
+  payload: {
+    brokerage_fee_ttd?: number;
+    invoice_number?: string;
+    notes?: string;
+    client_id?: string;
+  }
+): Promise<{ ok: boolean; doc_id: string; download_url: string }> {
+  return api(`/declarations/${declarationId}/brokerage-invoice`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}

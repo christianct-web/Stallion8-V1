@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 const DeclarationsList = lazy(() => import("./pages/DeclarationsList"));
 const StallionWorkbench = lazy(() => import("./pages/StallionWorkbench"));
@@ -11,6 +11,7 @@ const BrokerReview4 = lazy(() => import("./pages/BrokerReview4"));
 const DocumentUpload = lazy(() => import("./pages/DocumentUpload"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const ActivityLog = lazy(() => import("./pages/ActivityLog"));
+const ClientsPage = lazy(() => import("./pages/Clients"));
 
 const queryClient = new QueryClient();
 
@@ -31,11 +32,7 @@ const App = () => (
             <Route path="/stallion/brokerreview4" element={<BrokerReview4 />} />
             <Route path="/stallion/extract" element={<DocumentUpload />} />
             <Route path="/stallion/log" element={<ActivityLog />} />
-
-            {/* Legacy localStorage editor routes retired in favor of backend-backed workbench */}
-            <Route path="/stallion/editor" element={<Navigate to="/stallion/workbench" replace />} />
-            <Route path="/stallion/declaration" element={<Navigate to="/stallion/workbench" replace />} />
-            <Route path="/stallion/new" element={<Navigate to="/stallion/workbench" replace />} />
+            <Route path="/stallion/clients" element={<ClientsPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
