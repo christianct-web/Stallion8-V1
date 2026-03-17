@@ -9,6 +9,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 
 from .declaration_service import build_complete_declaration, validate_decl, export_xml
+from .worksheet_service import calculate_from_dict
 
 APP_ROOT = Path(__file__).resolve().parent.parent
 GENERATED_DIR = APP_ROOT.parent / "data" / "generated"
@@ -124,35 +125,36 @@ def _write_lb01_worksheet_pdf(header: Dict[str, Any], worksheet: Dict[str, Any],
     port         = header.get("port", "")
     currency     = header.get("currency", "USD")
 
-    # ── Pull worksheet figures ────────────────────────────────────────────────
-    ex_rate       = float(worksheet.get("exchange_rate")         or 6.77608)
-    exworks_f     = float(worksheet.get("invoice_value_foreign") or 0)
-    inland_f      = float(worksheet.get("inland_foreign")        or 0)
-    uplift_pct    = float(worksheet.get("uplift_pct")            or 0)
-    fob_f         = float(worksheet.get("fob_foreign") or (exworks_f + inland_f + exworks_f * uplift_pct / 100))
-    freight_f     = float(worksheet.get("freight_foreign")       or 0)
-    insurance_f   = float(worksheet.get("insurance_foreign")     or 0)
-    other_f       = float(worksheet.get("other_charges_foreign") or worksheet.get("other_foreign") or 0)
-    deduct_f      = float(worksheet.get("deduction_foreign")     or 0)
-    cif_f         = fob_f + freight_f + insurance_f + other_f - deduct_f
-    cif_l         = cif_f * ex_rate
+    # ── Pull worksheet figures (centralized calculation) ───────────────────
+    calc = calculate_from_dict(worksheet)
+    ex_rate       = calc["exch"]
+    exworks_f     = calc["exworks_f"]
+    inland_f      = calc["inland_f"]
+    uplift_pct    = calc["uplift_pct"]
+    fob_f         = calc["fob_f"]
+    freight_f     = calc["freight_f"]
+    insurance_f   = calc["insurance_f"]
+    other_f       = calc["other_f"]
+    deduct_f      = calc["deduct_f"]
+    cif_f         = calc["cif_f"]
+    cif_l         = calc["cif_l"]
     exworks_l     = exworks_f * ex_rate
     inland_l      = inland_f  * ex_rate
-    fob_l         = fob_f     * ex_rate
+    fob_l         = calc["fob_l"]
     freight_l     = freight_f * ex_rate
 
-    duty_pct      = float(worksheet.get("duty_rate_pct")      or 0)
-    surcharge_pct = float(worksheet.get("surcharge_rate_pct") or 0)
-    vat_pct       = float(worksheet.get("vat_rate_pct")       or 0)
-    duty          = float(worksheet.get("duty")      or cif_l * duty_pct / 100)
-    surcharge     = float(worksheet.get("surcharge") or 0)
-    vat           = float(worksheet.get("vat")       or 0)
-    total_taxes   = duty + surcharge + vat
+    duty_pct      = calc["duty_pct"]
+    surcharge_pct = calc["surcharge_pct"]
+    vat_pct       = calc["vat_pct"]
+    duty          = calc["duty"]
+    surcharge     = calc["surcharge"]
+    vat           = calc["vat"]
+    total_taxes   = calc["total_taxes"]
 
-    cfu           = float(worksheet.get("customs_user_fee") or worksheet.get("extra_fees_local") or 80)
-    ces1          = float(worksheet.get("ces_fee_1") or worksheet.get("ces_fees") or 0)
-    ces2          = float(worksheet.get("ces_fee_2") or 0)
-    grand_total   = total_taxes + cfu + ces1 + ces2
+    cfu           = calc["cfu"]
+    ces1          = calc["ces1"]
+    ces2          = calc["ces2"]
+    grand_total   = calc["grand_total"]
 
     factor        = cif_f / exworks_f if exworks_f else 0
     now_str       = datetime.utcnow().strftime("%Y/%m/%d")
@@ -627,10 +629,23 @@ def generate_pack(req: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def resolve_generated_file(doc_id: str) -> Path | None:
+    # Sanitize doc_id: reject path traversal attempts
+    if not doc_id or "/" in doc_id or "\\" in doc_id or ".." in doc_id:
+        return None
+    # Additional safety: only allow expected characters (alphanumeric, dash, underscore)
+    import re
+    if not re.match(r'^[a-zA-Z0-9_-]+$', doc_id):
+        return None
+
     pdf_path = GENERATED_DIR / f"{doc_id}.pdf"
     xml_path = GENERATED_DIR / f"{doc_id}.xml"
-    if pdf_path.exists():
-        return pdf_path
-    if xml_path.exists():
-        return xml_path
+
+    # Final check: resolved path must be inside GENERATED_DIR
+    for candidate in (pdf_path, xml_path):
+        if candidate.exists():
+            try:
+                candidate.resolve().relative_to(GENERATED_DIR.resolve())
+                return candidate
+            except ValueError:
+                return None  # path escaped the generated dir
     return None

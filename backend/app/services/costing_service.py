@@ -24,6 +24,8 @@ from typing import Any, Dict, List
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 
+from .worksheet_service import calculate_from_dict
+
 GENERATED_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "generated"
 GENERATED_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -124,29 +126,31 @@ def generate_costing_pdf(
     eta          = header.get("etaDate", "")
     awb          = header.get("blAwbNumber", "")
 
-    exch         = float(worksheet.get("exchange_rate") or 6.77608)
-    exworks_f    = float(worksheet.get("invoice_value_foreign") or worksheet.get("fob_foreign") or 0)
-    inland_f     = float(worksheet.get("inland_foreign") or 0)
-    fob_f        = float(worksheet.get("fob_foreign") or (exworks_f + inland_f))
-    freight_f    = float(worksheet.get("freight_foreign") or 0)
-    insurance_f  = float(worksheet.get("insurance_foreign") or 0)
-    other_f      = float(worksheet.get("other_foreign") or 0)
-    deduct_f     = float(worksheet.get("deduction_foreign") or 0)
-    cif_f        = fob_f + freight_f + insurance_f + other_f - deduct_f
-    cif_l        = cif_f * exch
-    fob_l        = fob_f * exch
+    # ── Centralized calculation ────────────────────────────────────────────
+    calc = calculate_from_dict(worksheet)
+    exch         = calc["exch"]
+    exworks_f    = calc["exworks_f"]
+    inland_f     = calc["inland_f"]
+    fob_f        = calc["fob_f"]
+    freight_f    = calc["freight_f"]
+    insurance_f  = calc["insurance_f"]
+    other_f      = calc["other_f"]
+    deduct_f     = calc["deduct_f"]
+    cif_f        = calc["cif_f"]
+    cif_l        = calc["cif_l"]
+    fob_l        = calc["fob_l"]
 
-    duty_pct     = float(worksheet.get("duty_rate_pct") or 0)
-    surcharge_pct= float(worksheet.get("surcharge_rate_pct") or 0)
-    vat_pct      = float(worksheet.get("vat_rate_pct") or 0)
-    duty         = float(worksheet.get("duty") or cif_l * duty_pct / 100)
-    surcharge    = float(worksheet.get("surcharge") or cif_l * surcharge_pct / 100)
-    vat          = float(worksheet.get("vat") or ((cif_l + duty + surcharge) * vat_pct / 100))
-    cfu          = float(worksheet.get("customs_user_fee") or worksheet.get("extra_fees_local") or 80)
-    ces1         = float(worksheet.get("ces_fee_1") or 0)
-    ces2         = float(worksheet.get("ces_fee_2") or 0)
-    total_govt   = duty + surcharge + vat
-    grand_total  = total_govt + cfu + ces1 + ces2
+    duty_pct     = calc["duty_pct"]
+    surcharge_pct= calc["surcharge_pct"]
+    vat_pct      = calc["vat_pct"]
+    duty         = calc["duty"]
+    surcharge    = calc["surcharge"]
+    vat          = calc["vat"]
+    cfu          = calc["cfu"]
+    ces1         = calc["ces1"]
+    ces2         = calc["ces2"]
+    total_govt   = calc["total_taxes"]
+    grand_total  = calc["grand_total"]
 
     now_str = datetime.utcnow().strftime("%d %B %Y")
     today   = datetime.utcnow().strftime("%Y/%m/%d")

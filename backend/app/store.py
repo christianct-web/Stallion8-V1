@@ -1,5 +1,9 @@
 from __future__ import annotations
+import fcntl
 import json
+import os
+import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 from typing import Dict, Any, List
 
@@ -14,6 +18,57 @@ if not TEMPLATES_FILE.exists():
 DECLARATIONS_FILE = DATA / "declarations.json"
 if not DECLARATIONS_FILE.exists():
     DECLARATIONS_FILE.write_text("[]", encoding="utf-8")
+
+# ── File-locking helpers ─────────────────────────────────────────────────────
+# Uses fcntl.flock for advisory locking + atomic rename to prevent
+# race conditions between concurrent requests.
+
+_LOCK_DIR = DATA / ".locks"
+_LOCK_DIR.mkdir(parents=True, exist_ok=True)
+
+
+@contextmanager
+def _file_lock(filepath: Path):
+    """
+    Advisory file lock scoped to a specific JSON data file.
+    Blocks until the lock is available (LOCK_EX).
+    """
+    lock_path = _LOCK_DIR / f"{filepath.stem}.lock"
+    fd = open(lock_path, "w")
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        yield
+    finally:
+        fcntl.flock(fd, fcntl.LOCK_UN)
+        fd.close()
+
+
+def _safe_read(filepath: Path) -> List[Dict[str, Any]]:
+    """Read JSON list from file under advisory lock."""
+    with _file_lock(filepath):
+        return json.loads(filepath.read_text(encoding="utf-8"))
+
+
+def _safe_write(filepath: Path, items: List[Dict[str, Any]]) -> None:
+    """
+    Atomic write: write to a temp file in the same directory,
+    then rename over the target. Prevents partial writes on crash.
+    """
+    with _file_lock(filepath):
+        fd, tmp_path = tempfile.mkstemp(
+            dir=str(filepath.parent), suffix=".tmp", prefix=filepath.stem
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                json.dump(items, f, indent=2)
+            os.replace(tmp_path, str(filepath))  # atomic on POSIX
+        except BaseException:
+            # Clean up temp file on any failure
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
 
 LOOKUPS: Dict[str, List[Dict[str, Any]]] = {
     "ports": [
@@ -183,16 +238,16 @@ LOOKUPS: Dict[str, List[Dict[str, Any]]] = {
 
 
 def load_templates() -> List[Dict[str, Any]]:
-    return json.loads(TEMPLATES_FILE.read_text(encoding="utf-8"))
+    return _safe_read(TEMPLATES_FILE)
 
 
 def save_templates(items: List[Dict[str, Any]]) -> None:
-    TEMPLATES_FILE.write_text(json.dumps(items, indent=2), encoding="utf-8")
+    _safe_write(TEMPLATES_FILE, items)
 
 
 def load_declarations() -> List[Dict[str, Any]]:
-    return json.loads(DECLARATIONS_FILE.read_text(encoding="utf-8"))
+    return _safe_read(DECLARATIONS_FILE)
 
 
 def save_declarations(items: List[Dict[str, Any]]) -> None:
-    DECLARATIONS_FILE.write_text(json.dumps(items, indent=2), encoding="utf-8")
+    _safe_write(DECLARATIONS_FILE, items)
