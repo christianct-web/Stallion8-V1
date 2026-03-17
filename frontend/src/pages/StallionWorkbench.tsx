@@ -684,6 +684,11 @@ export default function StallionWorkbench() {
               generating={generating} savingDraft={savingDraft}
               calc={calc}
               cooldownSeconds={cooldown}
+              getFormPayload={() => ({
+                header:    buildHeader(form),
+                worksheet: buildWorksheet(form),
+                items,
+              })}
             />
           </div>
 

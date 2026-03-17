@@ -25,6 +25,7 @@ from .services.worksheet_service import calculate_worksheet
 from .store import LOOKUPS, load_templates, save_templates, load_declarations, save_declarations
 from .store_clients import load_clients, save_clients
 from .services.invoice_service import generate_brokerage_invoice
+from .services.costing_service import generate_costing_pdf
 
 app = FastAPI(title="Stallion API", version="0.2.0")
 app.add_middleware(
@@ -911,6 +912,60 @@ def clients_delete(client_id: str):
         raise HTTPException(status_code=404, detail="Client not found")
     save_clients(new_items)
     return {"ok": True, "id": client_id}
+
+
+# ─── Costing / estimate document ──────────────────────────────────────────────
+
+@app.post("/declarations/{declaration_id}/costing")
+def costing_generate(declaration_id: str, req: Dict[str, Any]):
+    """
+    Generate a shareable pre-declaration cost estimate PDF.
+    Body params (all optional):
+      broker_firm, broker_address, broker_phone  — override default broker details
+      notes                                       — free-text notes printed on document
+    """
+    all_decls = load_declarations()
+    decl = next((d for d in all_decls if str(d.get("id")) == declaration_id), None)
+    if not decl:
+        raise HTTPException(status_code=404, detail="Declaration not found")
+
+    header    = req.get("header")    or decl.get("header")    or {}
+    worksheet = req.get("worksheet") or decl.get("worksheet") or {}
+    items     = req.get("items")     or decl.get("items")     or []
+
+    doc_id, _ = generate_costing_pdf(
+        header        = header,
+        worksheet     = worksheet,
+        items         = items,
+        broker_firm   = req.get("broker_firm",    "Fast Freight Forwarders Ltd"),
+        broker_address= req.get("broker_address", "38 O'Connor Street, Woodbrook, Port of Spain"),
+        broker_phone  = req.get("broker_phone",   "(868) 628-2255"),
+        notes         = req.get("notes",          ""),
+    )
+    return {"ok": True, "doc_id": doc_id, "download_url": f"/pack/file/{doc_id}"}
+
+
+@app.post("/worksheet/costing")
+def costing_from_worksheet(req: Dict[str, Any]):
+    """
+    Generate a costing PDF directly from a worksheet payload —
+    no saved declaration needed. Used by the Workbench before a
+    declaration is formally saved.
+    """
+    header    = req.get("header")    or {}
+    worksheet = req.get("worksheet") or {}
+    items     = req.get("items")     or []
+
+    doc_id, _ = generate_costing_pdf(
+        header        = header,
+        worksheet     = worksheet,
+        items         = items,
+        broker_firm   = req.get("broker_firm",    "Fast Freight Forwarders Ltd"),
+        broker_address= req.get("broker_address", "38 O'Connor Street, Woodbrook, Port of Spain"),
+        broker_phone  = req.get("broker_phone",   "(868) 628-2255"),
+        notes         = req.get("notes",          ""),
+    )
+    return {"ok": True, "doc_id": doc_id, "download_url": f"/pack/file/{doc_id}"}
 
 
 # ─── Brokerage invoice generation ─────────────────────────────────────────────

@@ -4,6 +4,7 @@ import {
   listDeclarations,
   reviewDeclaration,
   generateBrokerageInvoice,
+  generateCostingFromDeclaration,
   listClients,
   calculateWorksheet,
   STALLION_BASE_URL,
@@ -1026,7 +1027,24 @@ function ReviewPanel({
           </div>
         )}
 
-        {tab === "WORKSHEET" && (
+        {tab === "WORKSHEET" && (() => {
+          // Costing state local to this tab render
+          const [costingLoading, setCostingLoading] = React.useState(false);
+          const [costingDocId,   setCostingDocId]   = React.useState<string | null>(null);
+
+          const handleCosting = async () => {
+            setCostingLoading(true);
+            try {
+              const res = await generateCostingFromDeclaration(decl.id, {});
+              setCostingDocId(res.doc_id);
+            } catch (e: any) {
+              alert(e?.message || "Costing generation failed");
+            } finally {
+              setCostingLoading(false);
+            }
+          };
+
+          return (
           <div>
             <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.14em", color: C.inkLight, marginBottom: 10 }}>
               VALUATION
@@ -1084,8 +1102,43 @@ function ReviewPanel({
                 ✓ Rate overrides pending — will be saved on next action (Approve / Flag / etc.)
               </div>
             )}
+
+            {/* ── Costing document ── */}
+            <div style={{ marginTop: 16, paddingTop: 12, borderTop: `1px solid ${C.paperBorder}` }}>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.14em", color: C.inkLight, marginBottom: 8 }}>
+                DOCUMENTS
+              </div>
+              <button
+                onClick={handleCosting}
+                disabled={costingLoading}
+                style={{
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
+                  padding: "7px 14px", borderRadius: 4,
+                  background: C.paperAlt, border: `1px solid ${C.paperMid}`,
+                  color: C.ink, cursor: costingLoading ? "not-allowed" : "pointer",
+                  opacity: costingLoading ? 0.6 : 1,
+                }}
+              >
+                {costingLoading ? "Generating…" : "📄 Generate Costing Estimate"}
+              </button>
+              {costingDocId && (
+                <a
+                  href={`${STALLION_BASE_URL}/pack/file/${costingDocId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  style={{
+                    display: "block", marginTop: 8,
+                    fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
+                    color: C.approved, textDecoration: "underline",
+                  }}
+                >
+                  ↓ Download Costing PDF
+                </a>
+              )}
+            </div>
           </div>
-        )}
+          );
+        })()}
 
         {tab === "HISTORY" && (
           <div>

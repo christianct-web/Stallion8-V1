@@ -209,6 +209,178 @@ def build_complete_declaration(
     decl_code = (regime_row or {}).get("asycudaCode", "IM")
     decl_subcode = (regime_row or {}).get("asycudaSubCode", "4")
 
+    # ── Determine if this is an export or import declaration ──────────────────
+    is_export = decl_code == "EX"
+
+    exch = float(worksheet.get("exchange_rate", 1.0) or 1.0)
+    fob_foreign = float(worksheet.get("fob_foreign") or worksheet.get("invoice_value_foreign", 0) or 0)
+    freight_foreign = float(worksheet.get("freight_foreign", 0) or 0)
+    insurance_foreign = float(worksheet.get("insurance_foreign", 0) or 0)
+    other_foreign = float(worksheet.get("other_foreign", 0) or 0)
+    deduction_foreign = float(worksheet.get("deduction_foreign", 0) or 0)
+
+    cif_foreign = fob_foreign + freight_foreign + insurance_foreign + other_foreign - deduction_foreign
+    cif_local = cif_foreign * exch
+
+    contract_items = _to_contract_items(items)
+    header_total_packages = int(float(header.get("totalPackages", 0) or 0))
+    items_total_packages = sum(int(float(i.get("qty", 0) or 0)) for i in items)
+    containers_total_packages = sum(int(float(c.get("packages", 0) or 0)) for c in containers) if containers else 0
+    resolved_total_packages = header_total_packages or containers_total_packages or items_total_packages
+
+    # ── Traders block differs between import and export ───────────────────────
+    # Import: exporter = consignor; consignee = local company
+    # Export: exporter = local company (consignor); consignee = foreign buyer
+    if is_export:
+        traders = {
+            "exporter_exporter_name": f"{header.get('consignorName', '')}\n{header.get('consignorAddress', '')}",
+            "consignee_consignee_code": header.get("exportConsigneeCode") or header.get("consigneeCode", ""),
+            "consignee_consignee_name": (
+                f"{header.get('exportConsigneeName') or header.get('consigneeName', '')}\n"
+                f"{header.get('exportConsigneeAddress') or header.get('consigneeAddress', '')}"
+            ),
+        }
+    else:
+        traders = {
+            "exporter_exporter_name": f"{header.get('consignorName', '')}\n{header.get('consignorAddress', '')}",
+            "consignee_consignee_code": header.get("consigneeCode", ""),
+            "consignee_consignee_name": f"{header.get('consigneeName', header.get('consigneeCode', ''))}\n{header.get('consigneeAddress', '')}",
+        }
+
+    # ── General information — destination/origin swap for exports ─────────────
+    if is_export:
+        gen_info = {
+            "country_country_first_destination": header.get("destinationCountry") or header.get("countryFirstDestination", "US"),
+            "country_trading_country": header.get("tradingCountry", "US"),
+            "export_export_country_code": "TT",
+            "export_export_country_name": "Trinidad and Tobago",
+            "destination_destination_country_code": header.get("destinationCountry") or header.get("countryFirstDestination", "US"),
+            "destination_destination_country_name": header.get("destinationCountryName") or header.get("exportCountryName", "United States"),
+            "country_of_origin_name": "Trinidad and Tobago",
+            "comments_free_text": (
+                f"B/L - AWB NO:  {header.get('blAwbNumber', '')}"
+                f"                Dated:  {header.get('blAwbDate', '')}\n"
+                f"RATE OF EXCH: {header.get('currency', 'USD')}     {exch:.5f}\n"
+                f"GROSS WGHT (kgs):    {float(worksheet.get('grossWeight', 0) or 0):.3f}\n"
+                f"ETD:    {header.get('etaDate', '')}\n \n"
+                f"WE HEREBY CERTIFY THAT THE ABOVE GOODS ARE OF TRINIDAD AND TOBAGO ORIGIN.\n \n"
+            ),
+        }
+    else:
+        gen_info = {
+            "country_country_first_destination": header.get("countryFirstDestination", "US"),
+            "country_trading_country": header.get("tradingCountry", "US"),
+            "export_export_country_code": header.get("exportCountryCode", "US"),
+            "export_export_country_name": header.get("exportCountryName", "United States"),
+            "destination_destination_country_code": "TT",
+            "destination_destination_country_name": "Trinidad and Tobago",
+            "country_of_origin_name": header.get("countryOfOriginName", "United States"),
+            "comments_free_text": (
+                f"B/L - AWB NO:  {header.get('blAwbNumber', '')}"
+                f"                Dated:  {header.get('blAwbDate', '')}\n"
+                f"RATE OF EXCH: {header.get('currency', 'USD')}     {exch:.5f}\n"
+                f"GROSS WGHT (kgs):    {float(worksheet.get('grossWeight', 0) or 0):.3f}\n"
+                f"E T A:    {header.get('etaDate', '')}\n \n"
+                f"WE HEREBY DECLARE THAT THE ABOVE MENTIONED GOODS ARE NOT INSURED "
+                f"AND WILL NOT BE INSURED.\n \n"
+            ),
+        }
+
+    # ── sad_flow: "I" for import, "E" for export ──────────────────────────────
+    sad_flow = "E" if is_export else "I"
+
+    return {
+        "identification": {
+            "office_segment_customs_clearance_office_code": office_code,
+            "type_type_of_declaration": decl_code,
+            "declaration_gen_procedure_code": int(decl_subcode),
+            "registration_number": header.get("declarationRef", ""),
+            "registration_date": header.get("invoiceDate", ""),
+        },
+        "traders": traders,
+        "declarant": {
+            "declarant_code": header.get("declarantTIN", header.get("consigneeCode", "")),
+            "declarant_name": header.get("declarantName", ""),
+            "declarant_address": header.get("declarantAddress", ""),
+            "reference_number": header.get("declarationRef", ""),
+        },
+        "general_information": gen_info,
+        "transport": {
+            "border_office_code": office_code,
+            "border_office_name": office_name,
+            "container_flag": "true" if containers else "false",
+            "delivery_terms_code": header.get("term", "CIF"),
+            "delivery_terms_place": header.get("port", ""),
+            "means_of_transport_border_information_identity": header.get("vesselName", ""),
+            "means_of_transport_departure_arrival_information_identity": header.get("vesselName", ""),
+        },
+        "financial": {
+            "bank_code": int(header.get("bankCode", 1) or 1),
+            "mode_of_payment": header.get("modeOfPayment", "CASH"),
+            "terms_code": int(header.get("termsCode", 99) or 99),
+            "terms_description": header.get("termsDescription", "Basic"),
+            "total_invoice": str(cif_local),
+        },
+        "valuation": {
+            "calculation_working_mode": 2,
+            "total_total_invoice": cif_local,
+            "total_cif": cif_local,
+            "gs_invoice_amount_foreign_currency": cif_foreign,
+            "gs_invoice_amount_national_currency": cif_local,
+            "gs_invoice_currency_code": header.get("currency", "USD"),
+            "gs_invoice_currency_rate": exch,
+            "gs_external_freight_amount_foreign_currency": freight_foreign,
+            "gs_external_freight_amount_national_currency": freight_foreign * exch,
+            "gs_external_freight_currency_code": header.get("currency", "USD"),
+            "gs_external_freight_currency_rate": exch,
+            "gs_insurance_amount_foreign_currency": insurance_foreign,
+            "gs_insurance_amount_national_currency": insurance_foreign * exch,
+            "gs_insurance_currency_code": header.get("currency", "USD"),
+            "gs_insurance_currency_rate": exch,
+            "gs_other_cost_amount_foreign_currency": other_foreign,
+            "gs_other_cost_amount_national_currency": other_foreign * exch,
+            "gs_other_cost_currency_code": header.get("currency", "USD"),
+            "gs_other_cost_currency_rate": exch,
+            "gs_deduction_amount_foreign_currency": deduction_foreign,
+            "gs_deduction_amount_national_currency": deduction_foreign * exch,
+            "gs_deduction_currency_code": header.get("currency", "USD"),
+            "gs_deduction_currency_rate": exch,
+            "weight_gross_weight": str(float(worksheet.get("grossWeight", 0) or 0)),
+        },
+        "items": contract_items,
+        "suppliers_documents": {
+            "suppliers_document_name": header.get("consignorName", ""),
+            "suppliers_document_street": header.get("consignorStreet", ""),
+            "suppliers_document_city": header.get("consignorCity", ""),
+            "suppliers_document_country": header.get("consignorCountry", ""),
+            "suppliers_document_type_code": "IV05",
+            "suppliers_document_invoice_nbr": int("".join(filter(str.isdigit, header.get("invoiceNumber", ""))) or "0"),
+            "suppliers_document_date": _format_asycuda_date(header.get("invoiceDate", "")),
+        },
+        "assessment_notice": {"item_tax_total": []},
+        "global_taxes": {"global_tax_item": []},
+        "property": {
+            "sad_flow": sad_flow,
+            "forms_number_of_the_form": 1,
+            "forms_total_number_of_forms": 1,
+            "nbers_total_number_of_items": len(items),
+            "nbers_total_number_of_packages": resolved_total_packages,
+            "selected_page": 1,
+        },
+        "warehouse": {"identification": "", "delay": ""},
+        "transit": {
+            "principal_code": "",
+            "principal_name": "",
+            "signature_place": "",
+            "signature_date": header.get("invoiceDate", ""),
+            "destination_office": "",
+            "seals_number": "",
+            "result_of_control": "",
+            "time_limit": "",
+            "officer_name": "",
+        },
+    }
+
     exch = float(worksheet.get("exchange_rate", 1.0) or 1.0)
     fob_foreign = float(worksheet.get("fob_foreign") or worksheet.get("invoice_value_foreign", 0) or 0)
     freight_foreign = float(worksheet.get("freight_foreign", 0) or 0)
@@ -367,7 +539,21 @@ def validate_decl(decl: Dict[str, Any]) -> Dict[str, Any]:
     except js_exceptions.SchemaError as e:
         raise HTTPException(status_code=500, detail=f"Schema error: {e}")
 
-    for p in MVP_REQUIRED_PATHS:
+    # Determine if export — consignee code not required for EX declarations
+    decl_type = get_path(decl, "identification.type_type_of_declaration") or "IM"
+    is_export  = str(decl_type).upper() == "EX"
+
+    mvp_required = [
+        "identification.office_segment_customs_clearance_office_code",
+        "identification.type_type_of_declaration",
+        "declarant.declarant_code",
+        "valuation.total_total_invoice",
+        "valuation.total_cif",
+    ]
+    if not is_export:
+        mvp_required.append("traders.consignee_consignee_code")
+
+    for p in mvp_required:
         v = get_path(decl, p)
         if v is None or v == "":
             errors.append({"path": p, "message": "Required"})

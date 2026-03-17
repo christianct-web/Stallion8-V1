@@ -559,7 +559,7 @@
     },
     "confidence": 87,
     "worksheet": {
-      "invoice_value_foreign": 13319.0,
+      "invoice_value_foreign": 13319,
       "exchange_rate": 6.79547,
       "freight_foreign": 0,
       "insurance_foreign": 0,
@@ -579,8 +579,8 @@
         "qty": 1,
         "packageType": "BOX",
         "grossKg": 2.5,
-        "netKg": 2.0,
-        "itemValue": 13319.0,
+        "netKg": 2,
+        "itemValue": 13319,
         "unitCode": "NMB",
         "dutyTaxCode": "DUTY",
         "dutyTaxBase": "CIF",
@@ -589,7 +589,7 @@
     ],
     "containers": [],
     "id": "UPSL-DEMO-001",
-    "status": "pending_review",
+    "status": "approved",
     "updated_at": "2026-03-13T05:51:19.425116Z",
     "header": {
       "declarationRef": "HMTL3227-25",
@@ -674,7 +674,10 @@
         "errors": 0,
         "warnings": 1
       }
-    }
+    },
+    "review_notes": "",
+    "reviewed_by": "Broker",
+    "reviewed_at": "2026-03-17T15:25:56.817Z"
   },
   {
     "source": {
@@ -814,7 +817,7 @@
   },
   {
     "id": "EXT-79A45820",
-    "status": "pending_review",
+    "status": "needs_correction",
     "updated_at": "2026-03-13T05:59:40.961200Z",
     "source": {
       "type": "EXTRACT",
@@ -840,7 +843,7 @@
       "currency": "USD"
     },
     "worksheet": {
-      "invoice_value_foreign": 0.0,
+      "invoice_value_foreign": 0,
       "exchange_rate": 6.77,
       "freight_foreign": 0,
       "insurance_foreign": 0,
@@ -861,7 +864,7 @@
         "packageType": "BOX",
         "grossKg": 0,
         "netKg": 0,
-        "itemValue": 0.0,
+        "itemValue": 0,
         "unitCode": "NMB",
         "dutyTaxCode": "",
         "dutyTaxBase": "",
@@ -871,11 +874,14 @@
     "containers": [],
     "extraction_notes": [
       "Low confidence \u2014 broker review required"
-    ]
+    ],
+    "review_notes": "",
+    "reviewed_by": "Broker",
+    "reviewed_at": "2026-03-17T15:37:10.804Z"
   },
   {
     "id": "EXT-E7BB5D28",
-    "status": "pending_review",
+    "status": "needs_correction",
     "updated_at": "2026-03-13T11:47:29.970241Z",
     "source": {
       "type": "EXTRACT",
@@ -901,7 +907,7 @@
       "currency": "USD"
     },
     "worksheet": {
-      "invoice_value_foreign": 0.0,
+      "invoice_value_foreign": 0,
       "exchange_rate": 6.77,
       "freight_foreign": 0,
       "insurance_foreign": 0,
@@ -922,7 +928,7 @@
         "packageType": "BOX",
         "grossKg": 0,
         "netKg": 0,
-        "itemValue": 0.0,
+        "itemValue": 0,
         "unitCode": "NMB",
         "dutyTaxCode": "",
         "dutyTaxBase": "",
@@ -932,7 +938,10 @@
     "containers": [],
     "extraction_notes": [
       "Low confidence \u2014 broker review required"
-    ]
+    ],
+    "review_notes": "",
+    "reviewed_by": "Broker",
+    "reviewed_at": "2026-03-17T15:37:12.910Z"
   },
   {
     "id": "EXT-87E899BB",
@@ -1246,7 +1255,7 @@
   {
     "id": "EXT-9E70ACDD",
     "reference_number": "EXT-9E70ACDD",
-    "status": "pending_review",
+    "status": "approved",
     "updated_at": "2026-03-13T20:11:43.400393Z",
     "created_at": "2026-03-13T20:11:43.400393Z",
     "source": {
@@ -1333,7 +1342,10 @@
         "sequence": 29,
         "permitType": "Meat"
       }
-    ]
+    ],
+    "review_notes": "",
+    "reviewed_by": "Broker",
+    "reviewed_at": "2026-03-17T15:25:45.572Z"
   },
   {
     "id": "id-1773501084688-b49a1e8af8d06",
@@ -1524,5 +1536,298 @@
     "review_notes": "[]",
     "reviewed_by": "Broker",
     "reviewed_at": "2026-03-16T17:26:44.967Z"
+  },
+  {
+    "id": "id-1773759812476-a1295ec0c17af",
+    "status": "approved",
+    "updated_at": "2026-03-17T15:18:50.117Z",
+    "source": {
+      "type": "WORKBENCH",
+      "filename": "manual-entry"
+    },
+    "confidence": 100,
+    "header": {
+      "declarationRef": "AZI03-0726",
+      "port": "12",
+      "term": "02",
+      "modeOfTransport": "42",
+      "customsRegime": "C4",
+      "consignorName": "PAS CARGO LTD",
+      "consignorAddress": "",
+      "consignorStreet": "HALIEAH",
+      "consignorCity": "UNITED STATES",
+      "consignorCountry": "TRINIDAD",
+      "consigneeCode": "N111645",
+      "consigneeName": "FUJITSU CARIBBEAN LTD",
+      "consigneeAddress": "6TH AVE, SOUTH EXT. BARATRIA",
+      "declarantTIN": "BR0343",
+      "declarantName": "JASON MAULE",
+      "vesselName": "PLANE",
+      "blAwbNumber": "PAS-A-1741460",
+      "blAwbDate": "2026/03/13",
+      "etaDate": "2026-03-18",
+      "rotationNumber": "",
+      "invoiceNumber": "1750515",
+      "invoiceDate": "20260325",
+      "currency": "USD",
+      "bankCode": "01",
+      "modeOfPayment": "CASH",
+      "termsCode": "99",
+      "termsDescription": "Basic",
+      "countryFirstDestination": "TT",
+      "tradingCountry": "US",
+      "exportCountryCode": "US",
+      "exportCountryName": "United States",
+      "countryOfOriginName": "United States"
+    },
+    "worksheet": {
+      "invoice_value_foreign": 5117.55,
+      "inland_foreign": 0,
+      "uplift_pct": 0,
+      "exchange_rate": 6.775,
+      "freight_foreign": 260.2,
+      "insurance_foreign": 0,
+      "other_foreign": 0,
+      "deduction_foreign": 0,
+      "duty_rate_pct": 0,
+      "surcharge_rate_pct": 0,
+      "vat_rate_pct": 12.5,
+      "extra_fees_local": 0,
+      "ces_fee_1": 0,
+      "ces_fee_2": 0,
+      "global_fee": 40
+    },
+    "items": [
+      {
+        "id": "id-1773759812476-c169681d1dcb18",
+        "description": "DELL PRO SLIM [LAPTOP]",
+        "hsCode": "8471.30.00.00",
+        "qty": 1,
+        "packageType": "41",
+        "grossKg": 28.35,
+        "netKg": 0,
+        "itemValue": 0,
+        "dutyTaxCode": "01",
+        "dutyTaxBase": "",
+        "cpc": "C4",
+        "unitCode": "",
+        "exchangeRate": 6.775
+      }
+    ],
+    "containers": [],
+    "review_notes": "",
+    "export_events": [
+      {
+        "at": "2026-03-17T15:21:38.926609Z",
+        "status": "blocked",
+        "ref": null,
+        "preflight": {
+          "errors": 1,
+          "warnings": 0
+        }
+      }
+    ],
+    "last_export": {
+      "at": "2026-03-17T15:21:38.926609Z",
+      "status": "blocked",
+      "ref": null,
+      "preflight": {
+        "errors": 1,
+        "warnings": 0
+      }
+    },
+    "reviewed_by": "Broker",
+    "reviewed_at": "2026-03-17T15:25:59.164Z"
+  },
+  {
+    "id": "EXT-3EFB524D",
+    "reference_number": "EXT-3EFB524D",
+    "status": "pending_review",
+    "updated_at": "2026-03-17T15:24:49.216590Z",
+    "created_at": "2026-03-17T15:24:49.216590Z",
+    "source": {
+      "type": "EXTRACT",
+      "mode": "separate",
+      "files": [
+        "AWB.pdf"
+      ]
+    },
+    "confidence": 0.62,
+    "extraction_notes": [
+      "AWB is upside-down/mirrored in the scan; fields extracted by reversing orientation.",
+      "AWB number identified as BW73712 (Reference Number field).",
+      "Shipper's account number: INTCOM1.",
+      "Consignee account number: 23000986.",
+      "Issuing carrier's agent: PAS CARGO USA, INC, 14501 NW 109TH AVE, HIALEAH GARDENS, FL 33018.",
+      "Authorized agent for INTCOMEX: PAS CARGO USA, INC.",
+      "Weight charge: $164.58 prepaid; total prepaid: $260.20.",
+      "Chargeable weight: 106.18 kg; gross weight: 62.9 / 28.35 K.",
+      "AES proof of filing citation present: X20260312152028, AES ITN noted.",
+      "No commercial invoice number or invoice date found in this document.",
+      "No invoice value (FOB/EXW) found \u2014 only freight/airfreight charges visible.",
+      "No country of origin found in AWB.",
+      "No HS code present.",
+      "No container or seal number (air shipment).",
+      "Flight number appears to be 791; carrier: CARIBBEAN AIRLINES.",
+      "CARICOM fee listed as $15.00 on AWB charges section.",
+      "TSA screening notice present on AWB.",
+      "MAWB #: 106-3127-3712 listed under accounting information."
+    ],
+    "header": {
+      "declarationRef": "HELPP",
+      "port": "TTPTS",
+      "term": "CIF",
+      "modeOfTransport": "AIR",
+      "customsRegime": "IM4",
+      "consignorName": "INTCOMEX",
+      "consignorAddress": "3505 NW 107 AVE, DORAL, FL 33178, UNITED STATES OF AMERICA",
+      "consigneeCode": "",
+      "consigneeName": "FUJITSU CARIBBEAN (TRINIDAD) LIMITED",
+      "consigneeAddress": "CORNER 6TH AVE SOUTH EXTENSION & IBIS AVE, BARATARIA, Trinidad and Tobago",
+      "vesselName": "791 / 791",
+      "blAwbNumber": "BW73712",
+      "blAwbDate": "2026-03-13",
+      "invoiceNumber": "",
+      "invoiceDate": "",
+      "currency": "USD",
+      "portOfLoading": "MIAMI INTERNATIONAL AIRPORT",
+      "countryOfOrigin": ""
+    },
+    "worksheet": {
+      "invoice_value_foreign": 0,
+      "fob_foreign": 0,
+      "exchange_rate": 6.77,
+      "freight_foreign": 0,
+      "insurance_foreign": 0,
+      "other_foreign": 0,
+      "deduction_foreign": 0,
+      "duty_rate_pct": 0,
+      "surcharge_rate_pct": 0,
+      "vat_rate_pct": 0,
+      "extra_fees_local": 40,
+      "global_fee": 40
+    },
+    "items": [
+      {
+        "id": "ITEM-698253",
+        "description": "(5 CTN) stc computer",
+        "hsCode": "87173000",
+        "qty": 5,
+        "packageType": "CTN",
+        "grossKg": 106.18,
+        "netKg": 0,
+        "itemValue": 0,
+        "unitCode": "NMB",
+        "dutyTaxCode": "",
+        "dutyTaxBase": "",
+        "cpc": "4000",
+        "countryOfOrigin": ""
+      }
+    ],
+    "containers": [],
+    "certificates": [],
+    "permit_flags": [],
+    "review_notes": "",
+    "reviewed_by": "Broker",
+    "reviewed_at": "2026-03-17T15:45:07.793Z"
+  },
+  {
+    "id": "EXT-97B63758",
+    "reference_number": "EXT-97B63758",
+    "status": "receipted",
+    "updated_at": "2026-03-17T15:24:49.216590Z",
+    "created_at": "2026-03-17T15:24:49.216590Z",
+    "source": {
+      "type": "EXTRACT",
+      "mode": "separate",
+      "files": [
+        "INVOICE.pdf"
+      ]
+    },
+    "confidence": 0.65,
+    "extraction_notes": [
+      "Document is scanned upside-down/mirrored; fields were interpreted by reversing the orientation.",
+      "Invoice date interpreted as 02/23/26 (February 23, 2026); unusual future date \u2014 please verify.",
+      "Trans Date and Invoice Date both show 02/23/26; Order date shown as 02/23/26.",
+      "Order number: 1750515; Customer PO: 021963; Customer ID: 13027.",
+      "No airway bill or bill of lading number found.",
+      "No country of origin explicitly stated; assumed US based on consignor address in Florida.",
+      "No HS code present on document.",
+      "No shipping/freight details (port of loading, port of discharge, vessel/flight) found.",
+      "No gross or net weight information found.",
+      "No container or seal number found.",
+      "No certificates present.",
+      "Ship Charge listed as Prepaid; Delivery Fee $0.00; Carrier: 3er Party Monday.",
+      "Quantity shipped: 5 units at $1,023.51 each = $5,117.55 subtotal (used as invoiceValueForeign)."
+    ],
+    "header": {
+      "declarationRef": "HELP",
+      "port": "TTPTS",
+      "term": "CIF",
+      "modeOfTransport": "AIR",
+      "customsRegime": "IM4",
+      "consignorName": "INTCOMEX - Software Brokers of America, INC",
+      "consignorAddress": "10310 NW 121st Way Suite 100, Medley, FL 33178, United States",
+      "consigneeCode": "N111645",
+      "consigneeName": "FUJITSU CARIBBEAN (TRINIDAD) LIMITED",
+      "consigneeAddress": "6TH AVE EXT & IBIS AVE, Barataria, TT 00000, Trinidad & Tobago",
+      "vesselName": "AIRCRAFT",
+      "blAwbNumber": "PAS-A-1741460",
+      "blAwbDate": "13.03.2026",
+      "invoiceNumber": "1628586",
+      "invoiceDate": "2026-02-23",
+      "currency": "USD",
+      "portOfLoading": "",
+      "countryOfOrigin": "US",
+      "declarantTIN": "0343",
+      "etaDate": "14.03.2026",
+      "exportCountryCode": "USD",
+      "termsCode": "FOB"
+    },
+    "worksheet": {
+      "invoice_value_foreign": 5117.55,
+      "fob_foreign": 5117.55,
+      "exchange_rate": 6.77,
+      "freight_foreign": 0,
+      "insurance_foreign": 0,
+      "other_foreign": 0,
+      "deduction_foreign": 0,
+      "duty_rate_pct": 0,
+      "surcharge_rate_pct": 0,
+      "vat_rate_pct": 0,
+      "extra_fees_local": 40,
+      "global_fee": 40
+    },
+    "items": [
+      {
+        "id": "ITEM-CBEBD7",
+        "description": "Dell Pro Slim QC51250 ENG 17-14700 16GB 1TB W11P \u2014 PC971DEL58, MPN: 30001982876423",
+        "hsCode": "8471.30.000",
+        "qty": 5,
+        "packageType": "ea",
+        "grossKg": 0,
+        "netKg": 0,
+        "itemValue": 5117.55,
+        "unitCode": "NMB",
+        "dutyTaxCode": "",
+        "dutyTaxBase": "",
+        "cpc": "4000",
+        "countryOfOrigin": "US"
+      }
+    ],
+    "containers": [],
+    "certificates": [],
+    "permit_flags": [],
+    "review_notes": "",
+    "reviewed_by": "Broker",
+    "reviewed_at": "2026-03-17T15:26:15.956Z",
+    "receipt_number": "1234",
+    "brokerage_invoices": [
+      {
+        "docId": "brokerage-inv-48b675611b",
+        "brokerageFee": 0.0,
+        "generatedAt": "2026-03-17T15:29:23.148351Z"
+      }
+    ]
   }
 ]

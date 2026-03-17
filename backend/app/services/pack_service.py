@@ -489,17 +489,26 @@ def preflight_workbench(header: Dict[str, Any], worksheet: Dict[str, Any], items
     errors: List[Dict[str, str]] = []
     warnings: List[Dict[str, str]] = []
 
+    # Determine if this is an export declaration
+    from ..store import LOOKUPS as _LOOKUPS
+    selected_regime = str(header.get("customsRegime", "C4") or "C4")
+    _regime_row = next((r for r in _LOOKUPS.get("customs_regimes", []) if str(r.get("regimeCode")) == selected_regime), None)
+    is_export = (_regime_row or {}).get("asycudaCode", "IM") == "EX"
+
     required_header = [
-        ("declarationRef", "Declaration reference is required"),
-        ("port", "Port is required"),
-        ("term", "Terms are required"),
+        ("declarationRef",  "Declaration reference is required"),
+        ("port",            "Port is required"),
+        ("term",            "Terms are required"),
         ("modeOfTransport", "Mode of transport is required"),
-        ("customsRegime", "Customs regime is required"),
-        ("consigneeCode", "Consignee code is required"),
-        ("consignorName", "Consignor/company name is required"),
-        ("invoiceNumber", "Invoice number is required"),
-        ("invoiceDate", "Invoice date is required"),
+        ("customsRegime",   "Customs regime is required"),
+        ("consignorName",   "Consignor/company name is required"),
+        ("invoiceNumber",   "Invoice number is required"),
+        ("invoiceDate",     "Invoice date is required"),
     ]
+    # consigneeCode required for imports; exports go to a foreign buyer
+    if not is_export:
+        required_header.append(("consigneeCode", "Consignee code is required"))
+
     for key, msg in required_header:
         if not str(header.get(key, "")).strip():
             errors.append({"path": f"header.{key}", "message": msg})

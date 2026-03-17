@@ -1,4 +1,5 @@
-import { STALLION_BASE_URL } from "@/services/stallionApi";
+import { useState } from "react";
+import { STALLION_BASE_URL, generateCostingFromWorksheet } from "@/services/stallionApi";
 
 interface PreflightResult {
   status: "pass" | "fail";
@@ -16,6 +17,8 @@ interface WorkbenchActionsProps {
   savingDraft?: boolean;
   calc: any;
   cooldownSeconds?: number;
+  // Costing document
+  getFormPayload?: () => { header: any; worksheet: any; items: any[] };
 }
 
 export function bucketFromPath(
@@ -195,10 +198,27 @@ function PackResult({ packResult }: { packResult: any }) {
 export function WorkbenchActions({
   preflight, packResult, onGenerate, onSaveDraft,
   generating, savingDraft, calc, cooldownSeconds = 0,
+  getFormPayload,
 }: WorkbenchActionsProps) {
 
   const hasErrors = (preflight?.counts.errors ?? 0) > 0;
   const cooldownActive = cooldownSeconds > 0;
+  const [costingLoading, setCostingLoading] = useState(false);
+  const [costingDocId, setCostingDocId]     = useState<string | null>(null);
+
+  const handleCosting = async () => {
+    if (!getFormPayload || !calc) return;
+    setCostingLoading(true);
+    try {
+      const { header, worksheet, items } = getFormPayload();
+      const res = await generateCostingFromWorksheet({ header, worksheet, items });
+      setCostingDocId(res.doc_id);
+    } catch (e: any) {
+      alert(e.message || "Costing generation failed");
+    } finally {
+      setCostingLoading(false);
+    }
+  };
 
   return (
     <div className="wb-card" style={{ position: "sticky", bottom: 0, zIndex: 10 }}
@@ -254,6 +274,34 @@ export function WorkbenchActions({
           >
             {generating ? "Generating…" : cooldownActive ? `Wait ${cooldownSeconds}s` : "⚡ Generate Pack"}
           </button>
+
+          {/* ── Costing / Estimate button ── */}
+          {getFormPayload && (
+            <button
+              className="wb-btn wb-btn-secondary"
+              onClick={handleCosting}
+              disabled={costingLoading || !calc}
+              title={!calc ? "Run worksheet calculation first" : "Generate a shareable cost estimate PDF for your client"}
+              style={{
+                opacity: !calc ? 0.45 : 1,
+                cursor: !calc ? "not-allowed" : "pointer",
+              }}
+            >
+              {costingLoading ? "Generating…" : "📄 Costing Estimate"}
+            </button>
+          )}
+
+          {costingDocId && (
+            <a
+              href={`${STALLION_BASE_URL}/pack/file/${costingDocId}`}
+              target="_blank"
+              rel="noreferrer"
+              className="wb-download-link"
+              style={{ fontFamily: "var(--wb-font-mono)", fontSize: 11 }}
+            >
+              ↓ Download Costing PDF
+            </a>
+          )}
 
           {packResult && (
             <span style={{

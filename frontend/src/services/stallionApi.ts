@@ -354,3 +354,35 @@ export async function generateBrokerageInvoice(
     body: JSON.stringify(payload),
   });
 }
+
+// ─── Costing / estimate document ───────────────────────────────────────────
+
+export async function generateCostingFromDeclaration(
+  declarationId: string,
+  payload: {
+    broker_firm?: string;
+    broker_address?: string;
+    broker_phone?: string;
+    notes?: string;
+  } = {}
+): Promise<{ ok: boolean; doc_id: string; download_url: string }> {
+  return api(`/declarations/${declarationId}/costing`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function generateCostingFromWorksheet(payload: {
+  header: Record<string, unknown>;
+  worksheet: Record<string, unknown>;
+  items: Array<Record<string, unknown>>;
+  broker_firm?: string;
+  broker_address?: string;
+  broker_phone?: string;
+  notes?: string;
+}): Promise<{ ok: boolean; doc_id: string; download_url: string }> {
+  return api("/worksheet/costing", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
