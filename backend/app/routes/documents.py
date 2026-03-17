@@ -14,6 +14,7 @@ from ..services.costing_service import generate_costing_pdf
 from ..services.invoice_service import generate_brokerage_invoice
 from ..store import load_declarations, save_declarations
 from ..store_clients import load_clients
+from ..broker_profile import get_broker_profile
 
 router = APIRouter(tags=["documents"])
 
@@ -34,13 +35,14 @@ def costing_generate(declaration_id: str, req: Dict[str, Any]):
     worksheet = req.get("worksheet") or decl.get("worksheet") or {}
     items     = req.get("items")     or decl.get("items")     or []
 
+    bp = get_broker_profile()
     doc_id, _ = generate_costing_pdf(
         header        = header,
         worksheet     = worksheet,
         items         = items,
-        broker_firm   = req.get("broker_firm",    "Fast Freight Forwarders Ltd"),
-        broker_address= req.get("broker_address", "38 O'Connor Street, Woodbrook, Port of Spain"),
-        broker_phone  = req.get("broker_phone",   "(868) 628-2255"),
+        broker_firm   = req.get("broker_firm",    bp["firm"]),
+        broker_address= req.get("broker_address", bp["address"]),
+        broker_phone  = req.get("broker_phone",   bp["phone"]),
         notes         = req.get("notes",          ""),
     )
     return {"ok": True, "doc_id": doc_id, "download_url": f"/pack/file/{doc_id}"}
@@ -56,13 +58,14 @@ def costing_from_worksheet(req: Dict[str, Any]):
     worksheet = req.get("worksheet") or {}
     items     = req.get("items")     or []
 
+    bp = get_broker_profile()
     doc_id, _ = generate_costing_pdf(
         header        = header,
         worksheet     = worksheet,
         items         = items,
-        broker_firm   = req.get("broker_firm",    "Fast Freight Forwarders Ltd"),
-        broker_address= req.get("broker_address", "38 O'Connor Street, Woodbrook, Port of Spain"),
-        broker_phone  = req.get("broker_phone",   "(868) 628-2255"),
+        broker_firm   = req.get("broker_firm",    bp["firm"]),
+        broker_address= req.get("broker_address", bp["address"]),
+        broker_phone  = req.get("broker_phone",   bp["phone"]),
         notes         = req.get("notes",          ""),
     )
     return {"ok": True, "doc_id": doc_id, "download_url": f"/pack/file/{doc_id}"}

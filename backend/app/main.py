@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 
@@ -17,6 +18,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .middleware_auth import ApiKeyMiddleware
+from .cleanup import cleanup_generated_files
 from .routes.declarations import router as declarations_router
 from .routes.lookups import router as lookups_router
 from .routes.extract import router as extract_router
@@ -28,9 +30,25 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
 )
+logger = logging.getLogger("stallion")
+
+
+# ── Lifespan ──────────────────────────────────────────────────────────────────
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: clean up expired generated files
+    try:
+        result = cleanup_generated_files()
+        if result["deleted"]:
+            logger.info("Startup cleanup: removed %d expired files", result["deleted"])
+    except Exception as exc:
+        logger.warning("Startup cleanup failed (non-fatal): %s", exc)
+    yield
+    # Shutdown: nothing to do
+
 
 # ── App ───────────────────────────────────────────────────────────────────────
-app = FastAPI(title="Stallion API", version="0.3.0")
+app = FastAPI(title="Stallion API", version="0.3.0", lifespan=lifespan)
 
 # CORS — restrict in production via STALLION_CORS_ORIGINS env var
 cors_origins = os.environ.get("STALLION_CORS_ORIGINS", "*").split(",")

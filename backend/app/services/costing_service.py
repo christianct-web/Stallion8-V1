@@ -49,15 +49,21 @@ def generate_costing_pdf(
     header: Dict[str, Any],
     worksheet: Dict[str, Any],
     items: List[Dict[str, Any]],
-    broker_firm: str = "Fast Freight Forwarders Ltd",
-    broker_address: str = "38 O'Connor Street, Woodbrook, Port of Spain",
-    broker_phone: str = "(868) 628-2255",
+    broker_firm: str = "",
+    broker_address: str = "",
+    broker_phone: str = "",
     notes: str = "",
 ) -> tuple[str, str]:
     """
     Generate a costing / landed-cost estimate PDF.
+    Broker details fall back to the centralized broker profile if not provided.
     Returns (doc_id, file_path).
     """
+    from ..broker_profile import get_broker_profile
+    bp = get_broker_profile()
+    broker_firm    = broker_firm    or bp["firm"]
+    broker_address = broker_address or bp["address"]
+    broker_phone   = broker_phone   or bp["phone"]
     doc_id = f"costing-{uuid.uuid4().hex[:10]}"
     out = GENERATED_DIR / f"{doc_id}.pdf"
     c = canvas.Canvas(str(out), pagesize=A4)
