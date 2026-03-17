@@ -23,6 +23,7 @@ interface WorkbenchHeaderProps {
   onLoadTemplate: (id: string) => void;
   sectionErrors: number;
   sectionWarnings: number;
+  sectionComplete?: boolean;
 }
 
 // ─── Field components (local, consistent with design system) ─────────────
@@ -104,13 +105,24 @@ function SubHead({ label, warn = false }: { label: string; warn?: boolean }) {
 export function WorkbenchHeader({
   form, setForm, ports, terms, transportModes, customsRegimes,
   templates, selectedTemplateId, setSelectedTemplateId, onLoadTemplate,
-  sectionErrors, sectionWarnings,
+  sectionErrors, sectionWarnings, sectionComplete,
 }: WorkbenchHeaderProps) {
 
   const F = (k: string) => (v: string) => setForm((f: any) => ({ ...f, [k]: v }));
 
   const hasIssue = sectionErrors > 0 || sectionWarnings > 0;
   const titleCls = sectionErrors > 0 ? "has-errors" : sectionWarnings > 0 ? "has-warnings" : "";
+
+  // Required fields that are missing — shown as a "complete these first" banner
+  const missingRequired = [
+    { label: "Ref. Number",   ok: !!form.declarationRef },
+    { label: "Port of Entry", ok: !!form.port },
+    { label: "Customs Regime",ok: !!form.customsRegime },
+    { label: "Invoice No.",   ok: !!form.invoiceNumber },
+    { label: "Vessel / Flight",ok:!!form.vesselName },
+    { label: "AWB / B/L No.", ok: !!form.blAwbNumber },
+    { label: "ETA Date",      ok: !!form.etaDate },
+  ].filter(f => !f.ok);
 
   return (
     <div className="wb-card" id="section-header">
@@ -123,6 +135,18 @@ export function WorkbenchHeader({
             </span>
           )}
         </span>
+        {/* Live completion badge */}
+        {sectionComplete !== undefined && (
+          <span style={{
+            fontFamily: "var(--wb-font-mono)", fontSize: 10, fontWeight: 700,
+            padding: "2px 8px", borderRadius: 3,
+            background: sectionComplete ? "#EBF7F1" : "var(--wb-critical)",
+            color: sectionComplete ? "var(--wb-approved)" : "var(--wb-crit-border)",
+            border: `1px solid ${sectionComplete ? "var(--wb-approved)" : "var(--wb-crit-border)"}44`,
+          }}>
+            {sectionComplete ? "✓ Complete" : `${missingRequired.length} missing`}
+          </span>
+        )}
         {/* Template loader */}
         {templates.length > 0 && (
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -149,6 +173,32 @@ export function WorkbenchHeader({
       </div>
 
       <div className="wb-card-body">
+        {/* ── Required fields banner ── */}
+        {missingRequired.length > 0 && (
+          <div style={{
+            padding: "8px 16px",
+            background: "#FEF0E8",
+            borderBottom: "1px solid #963A1022",
+            display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+          }}>
+            <span style={{
+              fontFamily: "var(--wb-font-mono)", fontSize: 9, fontWeight: 700,
+              letterSpacing: "0.12em", color: "var(--wb-correction)", flexShrink: 0,
+            }}>
+              COMPLETE FIRST
+            </span>
+            {missingRequired.map(f => (
+              <span key={f.label} style={{
+                fontFamily: "var(--wb-font-serif)", fontSize: 11,
+                color: "var(--wb-correction)",
+                padding: "1px 7px", borderRadius: 2,
+                background: "#963A1011", border: "1px solid #963A1022",
+              }}>
+                {f.label}
+              </span>
+            ))}
+          </div>
+        )}
         {/* ── Declaration reference ── */}
         <SubHead label="Declaration" />
         <WbField

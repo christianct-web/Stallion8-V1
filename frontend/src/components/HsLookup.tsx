@@ -3,7 +3,7 @@ import { hsSearch, HsResult } from "@/services/stallionApi";
 
 interface HsLookupProps {
   defaultQuery?: string;
-  onSelect: (code: string, description: string, dutyRate: string) => void;
+  onSelect: (code: string, description: string, dutyRate: string, result?: HsResult) => void;
   onClose: () => void;
   /** use "dark" for void/dark panels, default is paper */
   theme?: "paper" | "dark";
@@ -169,7 +169,7 @@ export function HsLookup({ defaultQuery = "", onSelect, onClose, theme = "paper"
           {results.map((r, i) => (
             <button
               key={i}
-              onClick={() => { onSelect(r.code, r.description, r.dutyRate); onClose(); }}
+              onClick={() => { onSelect(r.code, r.description, r.dutyRate, r); onClose(); }}
               style={{
                 display: "flex", alignItems: "flex-start", gap: 12,
                 textAlign: "left", width: "100%",

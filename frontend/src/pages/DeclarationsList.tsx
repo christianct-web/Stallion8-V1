@@ -91,8 +91,8 @@ function getConfidence(decl: any): number | null {
 
 function confidenceTone(conf: number | null) {
   if (conf == null) return { color: C.ghostDim, bg: "transparent", border: C.paperBorder, label: "—" };
-  if (conf < 60) return { color: C.rejected, bg: C.critical, border: C.critBorder, label: `${Math.round(conf)}%` };
-  if (conf < 80) return { color: C.pending, bg: C.warn, border: C.warnBorder, label: `${Math.round(conf)}%` };
+  if (conf < 70) return { color: C.rejected, bg: C.critical, border: C.critBorder, label: `${Math.round(conf)}%` };
+  if (conf < 90) return { color: C.pending, bg: C.warn, border: C.warnBorder, label: `${Math.round(conf)}%` };
   return { color: C.approved, bg: "#EBF7F1", border: C.approved + "44", label: `${Math.round(conf)}%` };
 }
 
@@ -111,20 +111,21 @@ function ActionCard({
       onMouseEnter={() => setHov(true)}
       onMouseLeave={() => setHov(false)}
       style={{
-        padding: "16px 18px",
+        padding: "18px 22px",
         background: bg,
         border: `2px solid ${border}`,
+        borderLeft: `4px solid ${border}`,
         boxShadow: hov ? `0 0 0 2px ${border}33` : "none",
         borderRadius: 3, cursor: "pointer",
         textAlign: "left" as const,
         transition: "all 0.15s", flex: 1, minWidth: 220,
       }}
     >
-      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.12em", color: color + "bb", marginBottom: 6 }}>
+      <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.12em", color: color + "bb", marginBottom: 8 }}>
         URGENT WORK
       </div>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 4 }}>
-        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 34, fontWeight: 700, color, lineHeight: 1 }}>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
+        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 40, fontWeight: 700, color, lineHeight: 1 }}>
           {count}
         </span>
         <span style={{ fontFamily: "'Fraunces', serif", fontSize: 16, fontWeight: 700, color }}>
@@ -183,6 +184,7 @@ export default function DeclarationsList() {
   const [searchQuery,    setSearchQuery]    = useState("");
   const [deleteId,       setDeleteId]       = useState<string | null>(null);
   const [csvExporting,   setCsvExporting]   = useState(false);
+  const [confSort,       setConfSort]       = useState<"asc" | "desc" | null>(null);
 
   // ── Fetch backend declarations ─────────────────────────────────────────────
   const fetchBackend = useCallback(async () => {
@@ -223,7 +225,7 @@ export default function DeclarationsList() {
       return 4;
     };
 
-    return filtered.sort((a, b) => {
+    const base = filtered.sort((a, b) => {
       const pa = priority(a.status);
       const pb = priority(b.status);
       if (pa !== pb) return pa - pb;
@@ -238,7 +240,17 @@ export default function DeclarationsList() {
 
       return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
     });
-  }, [allDeclarations, searchQuery]);
+
+    if (confSort !== null) {
+      base.sort((a, b) => {
+        const ca = getConfidence(a) ?? (confSort === "asc" ? 999 : -1);
+        const cb = getConfidence(b) ?? (confSort === "asc" ? 999 : -1);
+        return confSort === "asc" ? ca - cb : cb - ca;
+      });
+    }
+
+    return base;
+  }, [allDeclarations, searchQuery, confSort]);
 
   // ── Counts ─────────────────────────────────────────────────────────────────
   const counts = useMemo(() => {
@@ -308,6 +320,8 @@ export default function DeclarationsList() {
         .decl-row:hover .decl-ref { color: ${C.ink} !important; }
         input::placeholder { color: ${C.inkLight}; opacity: 0.6; }
         input:focus { outline: none; border-color: ${C.inkLight} !important; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+        .urgent-dot { width:7px;height:7px;border-radius:50%;display:inline-block;margin-right:6px;animation:pulse 1.8s ease-in-out infinite; }
       `}</style>
 
       <div style={{ minHeight: "100vh", background: C.paper, fontFamily: "'Fraunces', serif", color: C.ink }}>
@@ -351,8 +365,9 @@ export default function DeclarationsList() {
 
           {/* Urgent actions */}
           {hasUrgent && (
-            <div style={{ marginBottom: 28, border: `1px solid ${C.paperBorder}`, borderRadius: 3, padding: 14, background: C.paperAlt }}>
-              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.14em", color: C.inkMid, marginBottom: 10, fontWeight: 700 }}>
+            <div style={{ marginBottom: 28, borderRadius: 3, padding: 14 }}>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.14em", color: C.inkMid, marginBottom: 10, fontWeight: 700, display: "flex", alignItems: "center" }}>
+                <span className="urgent-dot" style={{ background: C.correction }} />
                 NEEDS ATTENTION TODAY
               </div>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
@@ -459,9 +474,27 @@ export default function DeclarationsList() {
                   {/* Head */}
                   <div style={{ display: "grid", gridTemplateColumns: "2fr 120px 92px 70px 150px 52px", padding: "7px 14px", background: C.paperAlt, borderBottom: `1px solid ${C.paperBorder}` }}>
                     {["Reference", "Status", "Confidence", "Items", "Updated", ""].map((h, i) => (
-                      <div key={i} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", color: C.inkLight, textAlign: i === 4 ? "right" as const : "left" as const }}>
-                        {h}
-                      </div>
+                      i === 2 ? (
+                        <button
+                          key={i}
+                          onClick={() => setConfSort(s => s === "asc" ? "desc" : s === "desc" ? null : "asc")}
+                          style={{
+                            fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700,
+                            letterSpacing: "0.12em", color: confSort ? C.inkMid : C.inkLight,
+                            textAlign: "left", background: "transparent", border: "none",
+                            cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 4,
+                          }}
+                        >
+                          {h}
+                          <span style={{ fontSize: 10 }}>
+                            {confSort === "asc" ? "↑" : confSort === "desc" ? "↓" : "↕"}
+                          </span>
+                        </button>
+                      ) : (
+                        <div key={i} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", color: C.inkLight, textAlign: i === 4 ? "right" as const : "left" as const }}>
+                          {h}
+                        </div>
+                      )
                     ))}
                   </div>
                   {/* Rows */}
@@ -573,6 +606,20 @@ export default function DeclarationsList() {
                     <button
                       key={label}
                       onClick={fn}
+                      onMouseEnter={e => {
+                        const el = e.currentTarget;
+                        if (primary) {
+                          el.style.background = "#2A2118";
+                        } else {
+                          el.style.background = C.paperAlt;
+                          el.style.borderColor = C.inkMid;
+                        }
+                      }}
+                      onMouseLeave={e => {
+                        const el = e.currentTarget;
+                        el.style.background = primary ? C.ink : C.paper;
+                        el.style.borderColor = primary ? C.ink : C.paperBorder;
+                      }}
                       style={{
                         width: "100%",
                         padding: "10px 12px",
@@ -584,6 +631,7 @@ export default function DeclarationsList() {
                         display: "flex",
                         alignItems: "center",
                         gap: 10,
+                        transition: "background 0.12s, border-color 0.12s",
                       }}
                     >
                       <span style={{

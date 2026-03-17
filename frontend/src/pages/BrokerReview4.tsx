@@ -1,12 +1,11 @@
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   listDeclarations,
   reviewDeclaration,
-  receiptDeclaration,
-  submitDeclaration,
   generateBrokerageInvoice,
   listClients,
+  calculateWorksheet,
   STALLION_BASE_URL,
   type Client,
 } from "@/services/stallionApi";
@@ -43,40 +42,44 @@ function statusCfg(s: string) {
 
 // ─── Normalise API shape to ReviewDecl ───────────────────────────────────────
 interface ReviewDecl {
-  id:           string;
-  status:       string;
-  reference?:   string;
-  brokerNotes?: string;
-  reviewedBy?:  string;
-  reviewedAt?:  string;
-  receiptNumber?: string;
-  source?:      { type?: string; filename?: string };
-  confidence?:  number;
-  header?:      Record<string, any>;
-  worksheet?:   Record<string, any>;
-  items?:       any[];
-  containers?:  any[];
-  export_events?: any[];
-  last_export?: any;
+  id:              string;
+  status:          string;
+  declarationType?: string;
+  clientId?:       string;
+  reference?:      string;
+  brokerNotes?:    string;
+  reviewedBy?:     string;
+  reviewedAt?:     string;
+  receiptNumber?:  string;
+  source?:         { type?: string; filename?: string };
+  confidence?:     number;
+  header?:         Record<string, any>;
+  worksheet?:      Record<string, any>;
+  items?:          any[];
+  containers?:     any[];
+  export_events?:  any[];
+  last_export?:    any;
 }
 
 function normaliseDecl(raw: any): ReviewDecl {
   return {
-    id:            raw.id          ?? "",
-    status:        raw.status      ?? "draft",
-    reference:     raw.reference_number ?? raw.header?.declarationRef ?? raw.id?.slice(0, 12) ?? "",
-    brokerNotes:   raw.review_notes ?? raw.brokerNotes ?? "",
-    reviewedBy:    raw.reviewed_by  ?? raw.reviewedBy  ?? "",
-    reviewedAt:    raw.reviewed_at  ?? raw.reviewedAt  ?? "",
-    receiptNumber: raw.receipt_number ?? raw.receiptNumber ?? "",
-    source:        raw.source       ?? {},
-    confidence:    raw.confidence   ?? null,
-    header:        raw.header       ?? {},
-    worksheet:     raw.worksheet    ?? {},
-    items:         raw.items        ?? [],
-    containers:    raw.containers   ?? [],
-    export_events: raw.export_events ?? [],
-    last_export:   raw.last_export  ?? null,
+    id:              raw.id             ?? "",
+    status:          raw.status         ?? "draft",
+    declarationType: raw.declaration_type ?? raw.header?.customsRegime?.startsWith("E") ? "export" : "import",
+    clientId:        raw.client_id      ?? "",
+    reference:       raw.reference_number ?? raw.header?.declarationRef ?? raw.id?.slice(0, 12) ?? "",
+    brokerNotes:     raw.review_notes   ?? raw.brokerNotes ?? "",
+    reviewedBy:      raw.reviewed_by    ?? raw.reviewedBy  ?? "",
+    reviewedAt:      raw.reviewed_at    ?? raw.reviewedAt  ?? "",
+    receiptNumber:   raw.receipt_number ?? raw.receiptNumber ?? "",
+    source:          raw.source         ?? {},
+    confidence:      raw.confidence     ?? null,
+    header:          raw.header         ?? {},
+    worksheet:       raw.worksheet      ?? {},
+    items:           raw.items          ?? [],
+    containers:      raw.containers     ?? [],
+    export_events:   raw.export_events  ?? [],
+    last_export:     raw.last_export    ?? null,
   };
 }
 
@@ -96,56 +99,94 @@ function StatusPill({ status }: { status: string }) {
 
 // ─── Batch list (left panel) ─────────────────────────────────────────────────
 function BatchList({
-  batch, onSelect, loading,
+  batch, onSelect, loading, sort, onSort, collapsed, onCollapseToggle,
 }: {
   batch: ReviewDecl[]; onSelect: (id: string) => void; loading: boolean;
+  sort: "conf" | "time"; onSort: (s: "conf" | "time") => void;
+  collapsed: boolean; onCollapseToggle: () => void;
 }) {
   const pending  = batch.filter(d => d.status === "pending_review" || d.status === "pending");
   const others   = batch.filter(d => d.status !== "pending_review" && d.status !== "pending");
 
+  const sortedPending = sort === "conf"
+    ? [...pending].sort((a, b) => (a.confidence ?? 999) - (b.confidence ?? 999))
+    : pending;
+
+  if (collapsed) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 12 }}>
+        <button onClick={onCollapseToggle} title="Expand queue" style={{
+          background: "transparent", border: "none", color: C.ghostDim,
+          cursor: "pointer", fontSize: 18, padding: "4px",
+        }}>›</button>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ flex: 1, overflow: "auto", background: C.voidMid }}>
+    <div style={{ flex: 1, overflow: "auto", background: C.voidMid, display: "flex", flexDirection: "column" }}>
       {/* Sub-header */}
-      <div style={{ padding: "12px 18px", borderBottom: `1px solid ${C.voidBorder}`, display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ padding: "12px 18px", borderBottom: `1px solid ${C.voidBorder}`, display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
         <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.ghostDim, letterSpacing: "0.1em" }}>
           {batch.length} DECLARATION{batch.length !== 1 ? "S" : ""}
         </div>
+        <button
+          onClick={() => onSort(sort === "conf" ? "time" : "conf")}
+          style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, padding: "2px 8px", background: "transparent", border: `1px solid ${C.voidBorder}`, borderRadius: 3, color: C.ghostDim, cursor: "pointer" }}
+        >
+          {sort === "conf" ? "↑ CONF" : "RECENT"}
+        </button>
+        <button onClick={onCollapseToggle} title="Collapse queue" style={{
+          marginLeft: "auto", background: "transparent", border: "none",
+          color: C.ghostDim, cursor: "pointer", fontSize: 16, padding: "2px 4px",
+        }}>‹</button>
       </div>
 
-      {loading ? (
-        <div style={{ padding: 40, textAlign: "center", fontFamily: "'Fraunces', serif", fontStyle: "italic", color: C.ghostDim }}>
-          Loading…
-        </div>
-      ) : batch.length === 0 ? (
-        <div style={{ padding: 48, textAlign: "center" }}>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 28, color: C.voidBorder, marginBottom: 16 }}>▤</div>
-          <div style={{ fontFamily: "'Fraunces', serif", fontSize: 15, color: C.ghost, fontWeight: 600, marginBottom: 8 }}>Queue is clear</div>
-          <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 12, color: C.ghostDim }}>
-            No declarations pending review
+      <div style={{ flex: 1, overflow: "auto" }}>
+        {loading ? (
+          <div style={{ padding: 40, textAlign: "center", fontFamily: "'Fraunces', serif", fontStyle: "italic", color: C.ghostDim }}>
+            Loading…
           </div>
+        ) : batch.length === 0 ? (
+          <div style={{ padding: 48, textAlign: "center" }}>
+            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 28, color: C.voidBorder, marginBottom: 16 }}>▤</div>
+            <div style={{ fontFamily: "'Fraunces', serif", fontSize: 15, color: C.ghost, fontWeight: 600, marginBottom: 8 }}>Queue is clear</div>
+            <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 12, color: C.ghostDim }}>
+              No declarations pending review
+            </div>
+          </div>
+        ) : (
+          <div>
+            {/* Pending group */}
+            {sortedPending.length > 0 && (
+              <>
+                <div style={{ padding: "8px 18px 4px", fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.14em", color: C.ghostDim }}>
+                  PENDING REVIEW · {sortedPending.length}
+                </div>
+                {sortedPending.map(d => <BatchRow key={d.id} d={d} onSelect={onSelect} />)}
+              </>
+            )}
+            {/* Other group */}
+            {others.length > 0 && (
+              <>
+                <div style={{ padding: "12px 18px 4px", fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.14em", color: C.ghostDim }}>
+                  ALL · {others.length}
+                </div>
+                {others.map(d => <BatchRow key={d.id} d={d} onSelect={onSelect} />)}
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Keyboard shortcut strip */}
+      <div style={{ padding: "8px 12px", borderTop: `1px solid ${C.voidBorder}`, background: C.voidMid, flexShrink: 0 }}>
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: C.ghostDim, letterSpacing: "0.08em", display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <span><kbd style={{ background: C.voidBorder, padding: "1px 4px", borderRadius: 2, color: C.ghost }}>←</kbd><kbd style={{ background: C.voidBorder, padding: "1px 4px", borderRadius: 2, color: C.ghost }}>→</kbd> navigate</span>
+          <span><kbd style={{ background: C.voidBorder, padding: "1px 4px", borderRadius: 2, color: C.ghost }}>A</kbd> approve</span>
+          <span><kbd style={{ background: C.voidBorder, padding: "1px 4px", borderRadius: 2, color: C.ghost }}>C</kbd> correct</span>
         </div>
-      ) : (
-        <div>
-          {/* Pending group */}
-          {pending.length > 0 && (
-            <>
-              <div style={{ padding: "8px 18px 4px", fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.14em", color: C.ghostDim }}>
-                PENDING REVIEW · {pending.length}
-              </div>
-              {pending.map(d => <BatchRow key={d.id} d={d} onSelect={onSelect} />)}
-            </>
-          )}
-          {/* Other group */}
-          {others.length > 0 && (
-            <>
-              <div style={{ padding: "12px 18px 4px", fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.14em", color: C.ghostDim }}>
-                ALL · {others.length}
-              </div>
-              {others.map(d => <BatchRow key={d.id} d={d} onSelect={onSelect} />)}
-            </>
-          )}
-        </div>
-      )}
+      </div>
     </div>
   );
 }
@@ -534,8 +575,10 @@ function ReviewPanel({
   onBack: () => void;
   idx: number; total: number;
 }) {
-  const [tab,      setTab]      = useState<ReviewTab>("FIELDS");
-  const [notes,    setNotes]    = useState(decl.brokerNotes ?? "");
+  const [tab,        setTab]        = useState<ReviewTab>("FIELDS");
+  const [notes,      setNotes]      = useState(decl.brokerNotes ?? "");
+  const [newNoteText, setNewNoteText] = useState("");
+  const [savingNote,  setSavingNote]  = useState(false);
   const [submitting, setSubmitting] = useState<string | null>(null);
 
   // Editable header fields
@@ -543,16 +586,87 @@ function ReviewPanel({
   const hdr = (key: string) => editHeader[key] ?? (decl.header?.[key] ?? "");
   const setHdr = (key: string, val: string) => setEditHeader(p => ({ ...p, [key]: val }));
 
-  // Editable item fields (keyed by item index)
-  const [editItems,  setEditItems]  = useState<Record<number, Partial<any>>>({});
-  const setItemField = (i: number, key: string, val: any) =>
-    setEditItems(p => ({ ...p, [i]: { ...(p[i] ?? {}), [key]: val } }));
+  // Editable worksheet rate overrides (applied by HS lookup or manually)
+  const [editWorksheet, setEditWorksheet] = useState<Record<string, number>>({});
+  const wsRate = (key: string) => key in editWorksheet ? editWorksheet[key] : ((decl.worksheet ?? {})[key] ?? "");
+  const setWsRate = (key: string, val: string) => setEditWorksheet(p => ({ ...p, [key]: Number(val) }));
 
-  // HS lookup open state — stores item index (or -1 for none)
+  // Editable items — full mutable copy so add/remove/edit all work uniformly
+  const [localItems,  setLocalItems]  = useState<any[]>(decl.items ?? []);
+  const setItemField = (i: number, key: string, val: any) =>
+    setLocalItems(prev => prev.map((item, idx) => idx === i ? { ...item, [key]: val } : item));
+
+  // Client linkage
+  const [clientId,  setClientId]  = useState<string>(decl.clientId ?? "");
+  const [clients,   setClients]   = useState<Client[]>([]);
+
+  // HS lookup open state — stores item index (or null for none)
   const [hsSearchIdx, setHsSearchIdx] = useState<number | null>(null);
 
-  const ws  = decl.worksheet ?? {};
-  const itms = decl.items ?? [];
+  // Worksheet auto-calc
+  const [wsCalc, setWsCalc] = useState<any>(null);
+  const [wsCalcLoading, setWsCalcLoading] = useState(false);
+
+  // Reset all local edits when the active declaration changes
+  useEffect(() => {
+    setEditHeader({});
+    setEditWorksheet({});
+    setLocalItems(decl.items ?? []);
+    setClientId(decl.clientId ?? "");
+    setNotes(decl.brokerNotes ?? "");
+    setNewNoteText("");
+    setHsSearchIdx(null);
+    setTab("FIELDS");
+    setWsCalc(null);
+  }, [decl.id]);
+
+  // Auto-calculate worksheet when tab opens and cif_local is missing
+  useEffect(() => {
+    if (tab !== "WORKSHEET") return;
+    if (ws.cif_local != null && ws.cif_local !== "") return;
+    if (wsCalcLoading) return;
+    const iv = ws.invoice_value_foreign;
+    if (!iv) return;
+
+    setWsCalcLoading(true);
+    calculateWorksheet({
+      invoice_value_foreign: Number(iv) || 0,
+      inland_foreign: 0,
+      uplift_pct: 0,
+      exchange_rate: Number(ws.exchange_rate) || 6.77,
+      freight_foreign: Number(ws.freight_foreign) || 0,
+      insurance_foreign: Number(ws.insurance_foreign) || 0,
+      other_foreign: Number(ws.other_foreign) || 0,
+      deduction_foreign: Number(ws.deduction_foreign) || 0,
+      duty_rate_pct: Number(wsRate("duty_rate_pct")) || 0,
+      surcharge_rate_pct: Number(wsRate("surcharge_rate_pct")) || 0,
+      vat_rate_pct: Number(wsRate("vat_rate_pct")) || 12.5,
+      extra_fees_local: 40,
+      ces_fee_1: 0,
+      ces_fee_2: 0,
+    }).then(r => {
+      setWsCalc(r);
+    }).catch(() => {}).finally(() => {
+      setWsCalcLoading(false);
+    });
+  }, [tab]);
+
+  // Load clients once for selector
+  useEffect(() => {
+    listClients().then(setClients).catch(() => {});
+  }, []);
+
+  // Auto-match client from consignee code when clients load
+  useEffect(() => {
+    if (clientId || !clients.length) return;
+    const code = decl.header?.consigneeCode ?? "";
+    if (!code) return;
+    const match = clients.find(c => c.consigneeCode?.toUpperCase() === code.toUpperCase());
+    if (match) setClientId(match.id);
+  }, [clients, decl.header?.consigneeCode]);
+
+  const ws   = decl.worksheet ?? {};
+  const itms = localItems;
 
   const isPending   = decl.status === "pending_review" || decl.status === "pending";
   const isApproved  = decl.status === "approved";
@@ -566,13 +680,15 @@ function ReviewPanel({
     try {
       const updatedHeader = Object.keys(editHeader).length > 0
         ? { ...decl.header, ...editHeader }
-        : undefined;
-      const updatedItems = Object.keys(editItems).length > 0
-        ? itms.map((item: any, i: number) => ({ ...item, ...(editItems[i] ?? {}) }))
-        : undefined;
+        : decl.header;
+      const updatedWorksheet = Object.keys(editWorksheet).length > 0
+        ? { ...decl.worksheet, ...editWorksheet }
+        : decl.worksheet;
       await onStatusChange(decl.id, status, notes, {
-        ...(updatedHeader ? { header: updatedHeader } : {}),
-        ...(updatedItems  ? { items:  updatedItems  } : {}),
+        header:      updatedHeader,
+        worksheet:   updatedWorksheet,
+        items:       localItems,
+        client_id:   clientId || undefined,
       });
     } finally {
       setSubmitting(null);
@@ -601,6 +717,11 @@ function ReviewPanel({
           {decl.reference || decl.id.slice(0, 16)}
         </div>
         <StatusPill status={decl.status} />
+        {decl.declarationType === "export" && (
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: "#1E4A8C", background: "#EEF2FA", padding: "3px 8px", borderRadius: 3, border: "1px solid #1E4A8C44" }}>
+            EXPORT
+          </span>
+        )}
         {decl.confidence != null && (
           <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.inkLight }}>
             {decl.confidence}% conf.
@@ -643,7 +764,7 @@ function ReviewPanel({
               <div style={{ marginBottom: 14 }}>
                 <div style={{ padding: "10px 14px", background: C.void, borderRadius: 3, display: "flex", alignItems: "center", gap: 14 }}>
                   <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 700, color: "#fff", letterSpacing: "0.04em" }}>
-                    {(editItems[0]?.hsCode ?? itms[0].hsCode ?? itms[0].tarification_hscode_commodity_code) || "——"}
+                    {(localItems[0]?.hsCode ?? itms[0].hsCode ?? itms[0].tarification_hscode_commodity_code) || "——"}
                   </span>
                   <div style={{ flex: 1 }}>
                     <div style={{ fontFamily: "'Fraunces', serif", fontSize: 12, color: C.ghost }}>
@@ -668,9 +789,17 @@ function ReviewPanel({
                 {hsSearchIdx === 0 && (
                   <HsLookup
                     defaultQuery={itms[0].description ?? ""}
-                    onSelect={(code) => {
+                    onSelect={(code, _desc, _rate, result) => {
                       setItemField(0, "hsCode", code);
                       setHsSearchIdx(null);
+                      if (result) {
+                        setEditWorksheet(p => ({
+                          ...p,
+                          duty_rate_pct:      result.dutyPct      ?? p.duty_rate_pct      ?? 0,
+                          surcharge_rate_pct: result.surchargePct ?? p.surcharge_rate_pct ?? 0,
+                          vat_rate_pct:       result.vatPct       ?? p.vat_rate_pct       ?? 12.5,
+                        }));
+                      }
                     }}
                     onClose={() => setHsSearchIdx(null)}
                     theme="paper"
@@ -679,14 +808,39 @@ function ReviewPanel({
               </div>
             )}
 
+            {/* Client selector */}
+            <div style={{ padding: "7px 0", borderBottom: `1px solid ${C.paperBorder}`, display: "flex", gap: 12, alignItems: "center" }}>
+              <div style={{ width: 160, flexShrink: 0, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.inkLight, letterSpacing: "0.06em", paddingTop: 2 }}>
+                CLIENT
+              </div>
+              {clients.length === 0 ? (
+                <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 13, color: C.inkLight }}>
+                  No clients — <a href="/stallion/clients" style={{ color: C.approved }}>add clients</a>
+                </div>
+              ) : (
+                <select
+                  value={clientId}
+                  onChange={e => setClientId(e.target.value)}
+                  style={{ flex: 1, fontFamily: "'Fraunces', serif", fontSize: 13, color: C.ink, background: "transparent", border: `1px solid ${C.paperBorder}`, borderRadius: 3, padding: "3px 8px", outline: "none" }}
+                >
+                  <option value="">— unlinked —</option>
+                  {clients.map(cl => (
+                    <option key={cl.id} value={cl.id}>{cl.name}{cl.consigneeCode ? ` (${cl.consigneeCode})` : ""}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+
             {[
               ["DECLARATION REF",  "declarationRef",          true,  isPending],
+              ["REGIME",           "customsRegime",            true,  false],
               ["PORT",             "port",                    true,  false],
               ["CONSIGNEE",        "consigneeName",           false, isPending],
               ["CONSIGNEE CODE",   "consigneeCode",           true,  isPending],
               ["CONSIGNOR",        "consignorName",           false, false],
               ["DECLARANT TIN",    "declarantTIN",            true,  false],
               ["VESSEL",           "vesselName",              false, isPending],
+              ["ROTATION NO",      "rotationNumber",          true,  false],
               ["AWB / B/L",        "blAwbNumber",             true,  isPending],
               ["AWB DATE",         "blAwbDate",               true,  false],
               ["ETA DATE",         "etaDate",                 true,  false],
@@ -717,62 +871,155 @@ function ReviewPanel({
 
         {tab === "ITEMS" && (
           <div>
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.14em", color: C.inkLight, marginBottom: 10 }}>
-              LINE ITEMS · {itms.length}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.14em", color: C.inkLight }}>
+                LINE ITEMS · {itms.length}
+              </div>
+              <button
+                onClick={() => setLocalItems(prev => [...prev, {
+                  id: `ITEM-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
+                  description: "", hsCode: "", countryOfOrigin: "",
+                  qty: 1, unitCode: "NMB", packageType: "CTN",
+                  grossKg: 0, netKg: 0, itemValue: 0, cpc: "4000", dutyTaxCode: "",
+                }])}
+                style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, padding: "4px 12px", background: C.approved, border: "none", borderRadius: 3, color: "#fff", cursor: "pointer" }}
+              >
+                + Add Item
+              </button>
             </div>
+
             {itms.length === 0 ? (
-              <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", color: C.inkLight, padding: "20px 0" }}>No items</div>
+              <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", color: C.inkLight, padding: "20px 0" }}>No items — use Add Item to create one</div>
             ) : itms.map((item: any, i: number) => {
-              const displayHs = editItems[i]?.hsCode ?? item.hsCode ?? item.tarification_hscode_commodity_code ?? "——";
+              const displayHs = item.hsCode ?? item.tarification_hscode_commodity_code ?? "";
               const isHsOpen = hsSearchIdx === (100 + i);
+
+              const inp = (key: string, type: "text" | "number" = "text", placeholder = "") => (
+                <input
+                  type={type}
+                  value={item[key] ?? ""}
+                  onChange={e => setItemField(i, key, type === "number" ? parseFloat(e.target.value) || 0 : e.target.value)}
+                  placeholder={placeholder}
+                  style={{
+                    flex: 1, fontFamily: type === "number" ? "'JetBrains Mono', monospace" : "'Fraunces', serif",
+                    fontSize: 13, color: C.ink, background: "transparent",
+                    border: `1px solid ${C.paperBorder}`, borderRadius: 3, padding: "3px 8px",
+                    minWidth: 0,
+                  }}
+                />
+              );
+
+              const row = (label: string, field: React.ReactNode) => (
+                <div key={label} style={{ padding: "5px 0", borderBottom: `1px solid ${C.paperBorder}`, display: "flex", gap: 10, alignItems: "center" }}>
+                  <div style={{ width: 120, flexShrink: 0, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.inkLight, letterSpacing: "0.06em" }}>
+                    {label}
+                  </div>
+                  {field}
+                </div>
+              );
+
               return (
-                <div key={item.id ?? i} style={{ border: `1px solid ${C.paperBorder}`, borderRadius: 3, padding: "12px 14px", marginBottom: 10 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700, color: editItems[i]?.hsCode ? C.approved : C.ink, letterSpacing: "0.04em" }}>
-                      {displayHs}
+                <div key={item.id ?? i} style={{ border: `1px solid ${C.paperBorder}`, borderRadius: 3, padding: "12px 14px", marginBottom: 12 }}>
+                  {/* Item header */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 18, fontWeight: 700, color: displayHs ? C.ink : C.paperMid, letterSpacing: "0.04em" }}>
+                      {displayHs || "——"}
                     </span>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                       <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.inkLight }}>
-                        LINE {item.line_number ?? i + 1}
+                        LINE {i + 1}
                       </span>
                       <button
                         onClick={() => setHsSearchIdx(isHsOpen ? null : 100 + i)}
-                        style={{
-                          fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
-                          padding: "3px 8px", background: "transparent",
-                          border: `1px solid ${C.paperBorder}`, borderRadius: 3,
-                          color: C.inkLight, cursor: "pointer",
-                        }}
+                        style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, padding: "3px 8px", background: "transparent", border: `1px solid ${C.paperBorder}`, borderRadius: 3, color: C.inkLight, cursor: "pointer" }}
                       >
                         {isHsOpen ? "Close ✕" : "Lookup HS"}
                       </button>
+                      {itms.length > 1 && (
+                        <button
+                          onClick={() => setLocalItems(prev => prev.filter((_, idx) => idx !== i))}
+                          style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, padding: "3px 8px", background: "transparent", border: `1px solid ${C.critBorder}44`, borderRadius: 3, color: C.critBorder, cursor: "pointer" }}
+                        >
+                          Remove
+                        </button>
+                      )}
                     </div>
                   </div>
 
                   {isHsOpen && (
                     <HsLookup
                       defaultQuery={item.description ?? ""}
-                      onSelect={(code) => {
+                      onSelect={(code, _desc, _rate, result) => {
                         setItemField(i, "hsCode", code);
                         setHsSearchIdx(null);
+                        if (result) {
+                          setEditWorksheet(p => ({
+                            ...p,
+                            duty_rate_pct:      result.dutyPct      ?? p.duty_rate_pct      ?? 0,
+                            surcharge_rate_pct: result.surchargePct ?? p.surcharge_rate_pct ?? 0,
+                            vat_rate_pct:       result.vatPct       ?? p.vat_rate_pct       ?? 12.5,
+                          }));
+                        }
                       }}
                       onClose={() => setHsSearchIdx(null)}
                       theme="paper"
                     />
                   )}
 
-                  {[
-                    ["DESCRIPTION", item.description ?? ""],
-                    ["QTY",         `${item.qty ?? item.quantity ?? ""} ${item.unitCode ?? item.unit_of_measure ?? ""}`.trim()],
-                    ["GROSS KG",    item.grossKg ?? item.gross_weight ?? ""],
-                    ["NET KG",      item.netKg   ?? item.net_weight   ?? ""],
-                    ["ITEM VALUE",  item.itemValue ?? item.customs_value ?? ""],
-                    ["DUTY CODE",   item.dutyTaxCode ?? ""],
-                    ["CPC",         item.cpc ?? ""],
-                    ["PKG TYPE",    item.packageType ?? item.packages_kind ?? ""],
-                  ].map(([l, v]) => (
-                    <FieldRow key={l as string} label={l as string} value={v as any} mono={typeof v === "number"} />
-                  ))}
+                  {row("DESCRIPTION", inp("description", "text", "Goods description"))}
+                  {row("HS CODE", inp("hsCode", "text", "e.g. 0207.14.90.00"))}
+                  {row("ORIGIN",
+                    <input
+                      value={item.countryOfOrigin ?? ""}
+                      onChange={e => setItemField(i, "countryOfOrigin", e.target.value.toUpperCase().slice(0, 2))}
+                      maxLength={2}
+                      placeholder="US"
+                      style={{ width: 60, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: C.ink, background: "transparent", border: `1px solid ${C.paperBorder}`, borderRadius: 3, padding: "3px 8px" }}
+                    />
+                  )}
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "5px 0", borderBottom: `1px solid ${C.paperBorder}` }}>
+                    <div style={{ width: 120, flexShrink: 0, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.inkLight, letterSpacing: "0.06em" }}>QTY / PKG</div>
+                    <input
+                      type="number"
+                      value={item.qty ?? ""}
+                      onChange={e => setItemField(i, "qty", parseFloat(e.target.value) || 0)}
+                      placeholder="1"
+                      style={{ width: 80, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: C.ink, background: "transparent", border: `1px solid ${C.paperBorder}`, borderRadius: 3, padding: "3px 8px" }}
+                    />
+                    <input
+                      value={item.packageType ?? ""}
+                      onChange={e => setItemField(i, "packageType", e.target.value)}
+                      placeholder="CTN"
+                      style={{ width: 70, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: C.ink, background: "transparent", border: `1px solid ${C.paperBorder}`, borderRadius: 3, padding: "3px 8px" }}
+                    />
+                    <input
+                      value={item.unitCode ?? ""}
+                      onChange={e => setItemField(i, "unitCode", e.target.value)}
+                      placeholder="NMB"
+                      style={{ width: 60, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: C.ink, background: "transparent", border: `1px solid ${C.paperBorder}`, borderRadius: 3, padding: "3px 8px" }}
+                    />
+                  </div>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "5px 0", borderBottom: `1px solid ${C.paperBorder}` }}>
+                    <div style={{ width: 120, flexShrink: 0, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.inkLight, letterSpacing: "0.06em" }}>GROSS / NET KG</div>
+                    <input
+                      type="number"
+                      value={item.grossKg ?? ""}
+                      onChange={e => setItemField(i, "grossKg", parseFloat(e.target.value) || 0)}
+                      placeholder="0"
+                      style={{ width: 100, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: C.ink, background: "transparent", border: `1px solid ${C.paperBorder}`, borderRadius: 3, padding: "3px 8px" }}
+                    />
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.inkLight }}>/</span>
+                    <input
+                      type="number"
+                      value={item.netKg ?? ""}
+                      onChange={e => setItemField(i, "netKg", parseFloat(e.target.value) || 0)}
+                      placeholder="0"
+                      style={{ width: 100, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: C.ink, background: "transparent", border: `1px solid ${C.paperBorder}`, borderRadius: 3, padding: "3px 8px" }}
+                    />
+                  </div>
+                  {row("ITEM VALUE", inp("itemValue", "number", "0.00"))}
+                  {row("CPC", inp("cpc", "text", "4000"))}
+                  {row("DUTY CODE", inp("dutyTaxCode", "text", ""))}
                 </div>
               );
             })}
@@ -784,6 +1031,11 @@ function ReviewPanel({
             <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.14em", color: C.inkLight, marginBottom: 10 }}>
               VALUATION
             </div>
+            {wsCalcLoading && (
+              <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 12, color: C.inkLight, marginBottom: 10 }}>
+                Calculating worksheet values…
+              </div>
+            )}
             {[
               ["INVOICE VALUE (FOREIGN)", ws.invoice_value_foreign ?? ""],
               ["EXCHANGE RATE",           ws.exchange_rate          ?? ""],
@@ -791,18 +1043,47 @@ function ReviewPanel({
               ["INSURANCE (FOREIGN)",     ws.insurance_foreign      ?? ""],
               ["OTHER (FOREIGN)",         ws.other_foreign          ?? ""],
               ["DEDUCTION (FOREIGN)",     ws.deduction_foreign      ?? ""],
-              ["CIF (FOREIGN)",           ws.cif_foreign            ?? ""],
-              ["CIF (TTD)",               ws.cif_local              ?? ""],
-              ["DUTY RATE %",             ws.duty_rate_pct          ?? ""],
-              ["DUTY",                    ws.duty                   ?? ""],
-              ["SURCHARGE RATE %",        ws.surcharge_rate_pct     ?? ""],
-              ["SURCHARGE",               ws.surcharge              ?? ""],
-              ["VAT RATE %",              ws.vat_rate_pct           ?? ""],
-              ["VAT",                     ws.vat                    ?? ""],
-              ["TOTAL ASSESSED (TTD)",    ws.total_assessed         ?? ""],
+              ["CIF (FOREIGN)",           ws.cif_foreign            ?? wsCalc?.cif_foreign ?? ""],
+              ["CIF (TTD)",               ws.cif_local              ?? wsCalc?.cif_local   ?? ""],
             ].map(([l, v]) => (
               <FieldRow key={l as string} label={l as string} value={v as any} mono />
             ))}
+            {/* Editable rate fields — can be set by HS lookup or manually */}
+            {[
+              ["DUTY RATE %",      "duty_rate_pct"],
+              ["SURCHARGE RATE %", "surcharge_rate_pct"],
+              ["VAT RATE %",       "vat_rate_pct"],
+            ].map(([label, key]) => (
+              <div key={key} style={{ display: "flex", alignItems: "center", padding: "7px 0", borderBottom: `1px solid ${C.paperBorder}`, gap: 8 }}>
+                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.inkLight, flex: 1 }}>
+                  {label}
+                </div>
+                <input
+                  type="number"
+                  value={wsRate(key)}
+                  onChange={e => setWsRate(key, e.target.value)}
+                  style={{
+                    fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
+                    width: 80, textAlign: "right",
+                    background: C.paperAlt, border: `1px solid ${C.paperMid}`,
+                    borderRadius: 3, padding: "3px 7px", color: C.ink,
+                  }}
+                />
+              </div>
+            ))}
+            {[
+              ["DUTY",                 ws.duty           ?? wsCalc?.duty           ?? ""],
+              ["SURCHARGE",            ws.surcharge      ?? wsCalc?.surcharge      ?? ""],
+              ["VAT",                  ws.vat            ?? wsCalc?.vat            ?? ""],
+              ["TOTAL ASSESSED (TTD)", ws.total_assessed ?? wsCalc?.total_assessed ?? ""],
+            ].map(([l, v]) => (
+              <FieldRow key={l as string} label={l as string} value={v as any} mono />
+            ))}
+            {Object.keys(editWorksheet).length > 0 && (
+              <div style={{ marginTop: 10, fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 11, color: C.approved }}>
+                ✓ Rate overrides pending — will be saved on next action (Approve / Flag / etc.)
+              </div>
+            )}
           </div>
         )}
 
@@ -845,25 +1126,125 @@ function ReviewPanel({
           </div>
         )}
 
-        {tab === "NOTES" && (
-          <div>
-            <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.14em", color: C.inkLight, marginBottom: 8 }}>
-              BROKER NOTES
+        {tab === "NOTES" && (() => {
+          // Parse notes as JSON thread or fall back to legacy plain string
+          let thread: { id: string; author: string; at: string; text: string }[] = [];
+          try {
+            const parsed = JSON.parse(notes);
+            if (Array.isArray(parsed)) thread = parsed;
+            else if (notes.trim()) thread = [{ id: "legacy", author: "Broker", at: "", text: notes }];
+          } catch {
+            if (notes.trim()) thread = [{ id: "legacy", author: "Broker", at: "", text: notes }];
+          }
+
+          const addNote = async () => {
+            if (!newNoteText.trim()) return;
+            const entry = {
+              id:     crypto.randomUUID(),
+              author: "Broker",
+              at:     new Date().toISOString(),
+              text:   newNoteText.trim(),
+            };
+            const updated = JSON.stringify([...thread, entry]);
+            setSavingNote(true);
+            try {
+              await onStatusChange(decl.id, decl.status, updated, {
+                header:    decl.header,
+                worksheet: decl.worksheet,
+                items:     localItems,
+                client_id: clientId || undefined,
+              });
+              setNotes(updated);
+              setNewNoteText("");
+            } finally {
+              setSavingNote(false);
+            }
+          };
+
+          return (
+            <div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.14em", color: C.inkLight, marginBottom: 12 }}>
+                BROKER NOTES · {thread.length} {thread.length === 1 ? "entry" : "entries"}
+              </div>
+
+              {/* Thread */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+                {thread.length === 0 && (
+                  <div style={{ fontFamily: "'Fraunces', serif", fontSize: 13, color: C.inkLight, padding: "18px 0", textAlign: "center" }}>
+                    No notes yet.
+                  </div>
+                )}
+                {thread.map((entry, i) => {
+                  const date = entry.at ? new Date(entry.at) : null;
+                  const dateStr = date ? date.toLocaleDateString("en-TT", { day: "2-digit", month: "short", year: "numeric" }) : "";
+                  const timeStr = date ? date.toLocaleTimeString("en-TT", { hour: "2-digit", minute: "2-digit" }) : "";
+                  return (
+                    <div key={entry.id ?? i} style={{
+                      padding: "10px 14px",
+                      background: i % 2 === 0 ? C.paper : C.paperAlt,
+                      border: `1px solid ${C.paperBorder}`,
+                      borderRadius: 3,
+                      borderLeft: `3px solid ${C.paperMid}`,
+                    }}>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 6 }}>
+                        <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700, color: C.inkMid }}>
+                          {entry.author || "Broker"}
+                        </span>
+                        {dateStr && (
+                          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: C.inkLight }}>
+                            {dateStr} {timeStr}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ fontFamily: "'Fraunces', serif", fontSize: 13, color: C.ink, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+                        {entry.text}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Add new note */}
+              {!isDone && (
+                <div style={{ borderTop: `1px solid ${C.paperBorder}`, paddingTop: 14 }}>
+                  <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.12em", color: C.inkLight, marginBottom: 6 }}>
+                    ADD NOTE
+                  </div>
+                  <textarea
+                    value={newNoteText}
+                    onChange={e => setNewNoteText(e.target.value)}
+                    placeholder="Enter correction notes, remarks, or clarifications…"
+                    onKeyDown={e => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); addNote(); } }}
+                    style={{
+                      width: "100%", minHeight: 80, padding: "9px 12px",
+                      fontFamily: "'Fraunces', serif", fontSize: 13, color: C.ink,
+                      background: C.paper, border: `1px solid ${C.paperBorder}`,
+                      borderRadius: 3, resize: "vertical", boxSizing: "border-box",
+                    }}
+                  />
+                  <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10, marginTop: 8 }}>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 9, color: C.inkLight }}>
+                      Ctrl+Enter to save
+                    </span>
+                    <button
+                      onClick={addNote}
+                      disabled={savingNote || !newNoteText.trim()}
+                      style={{
+                        padding: "7px 18px", background: newNoteText.trim() ? C.ink : C.paperMid,
+                        border: "none", borderRadius: 3, color: "#fff",
+                        fontFamily: "'Fraunces', serif", fontSize: 12, fontWeight: 600,
+                        cursor: newNoteText.trim() ? "pointer" : "default",
+                        opacity: savingNote ? 0.6 : 1,
+                      }}
+                    >
+                      {savingNote ? "Saving…" : "Add Note"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-            <textarea
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder={isDone ? "No notes" : "Enter correction notes or remarks…"}
-              disabled={isDone}
-              style={{
-                width: "100%", minHeight: 180, padding: "10px 12px",
-                fontFamily: "'Fraunces', serif", fontSize: 13, color: C.ink,
-                background: isDone ? C.paperAlt : C.paper,
-                border: `1px solid ${C.paperBorder}`, borderRadius: 3, resize: "vertical",
-              }}
-            />
-          </div>
-        )}
+          );
+        })()}
 
         {tab === "INVOICE" && (
           <InvoiceTab decl={decl} />
@@ -921,9 +1302,20 @@ function ReviewPanel({
 
 // ─── Root component ───────────────────────────────────────────────────────────
 export default function BrokerReview4() {
-  const [batch,    setBatch]    = useState<ReviewDecl[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [batch,           setBatch]           = useState<ReviewDecl[]>([]);
+  const [loading,         setLoading]         = useState(true);
+  const [activeId,        setActiveId]        = useState<string | null>(null);
+  const [queueSort,       setQueueSort]       = useState<"conf" | "time">("conf");
+  const [queueCollapsed,  setQueueCollapsed]  = useState(false);
+
+  const helpOpenKey = "stallion_review_help_seen";
+  const [helpDefaultOpen] = useState(() => !localStorage.getItem(helpOpenKey));
+
+  useEffect(() => {
+    if (helpDefaultOpen) {
+      localStorage.setItem(helpOpenKey, "1");
+    }
+  }, [helpDefaultOpen]);
 
   const [searchParams] = useSearchParams();
   const urlId = searchParams.get("id");
@@ -934,7 +1326,15 @@ export default function BrokerReview4() {
     (async () => {
       try {
         const { items } = await listDeclarations();
-        setBatch(items.map(normaliseDecl));
+        const sorted = items.map(normaliseDecl).sort((a, b) => {
+          const aPending = ["pending", "pending_review"].includes(a.status);
+          const bPending = ["pending", "pending_review"].includes(b.status);
+          if (aPending !== bPending) return aPending ? -1 : 1;
+          const ca = a.confidence ?? 999;
+          const cb = b.confidence ?? 999;
+          return ca - cb;
+        });
+        setBatch(sorted);
       } catch {
         setBatch([]);
       } finally {
@@ -964,6 +1364,7 @@ export default function BrokerReview4() {
         header:         updated?.header,
         worksheet:      updated?.worksheet,
         items:          updated?.items,
+        client_id:      updated?.client_id,
       });
     } catch {
       // optimistic update regardless
@@ -979,6 +1380,7 @@ export default function BrokerReview4() {
       header:        updated?.header    ?? d.header,
       worksheet:     updated?.worksheet ?? d.worksheet,
       items:         updated?.items     ?? d.items,
+      clientId:      updated?.client_id ?? d.clientId,
     } : d));
 
     // Auto-advance to next pending
@@ -1013,6 +1415,13 @@ export default function BrokerReview4() {
         ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-thumb { background: #2E3748; border-radius: 2px; }
         input:focus { background: #FDFAF5 !important; outline: none; } textarea:focus { outline: none; }
         button { transition: opacity 0.15s; } button:hover:not(:disabled) { opacity: 0.85; }
+
+        /* ── Mobile / narrow layout ── */
+        @media (max-width: 900px) {
+          .review-body { flex-direction: column !important; }
+          .review-queue { width: 100% !important; max-height: 180px; border-right: none !important; border-bottom: 1px solid #2E3748; }
+          .review-panel { min-height: 0; }
+        }
       `}</style>
 
       <div style={{ height: "100vh", display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: "'Fraunces', serif" }}>
@@ -1029,14 +1438,18 @@ export default function BrokerReview4() {
         } />
 
         {/* Body — split layout */}
-        <div style={{ flex: 1, overflow: "hidden", display: "flex" }}>
+        <div className="review-body" style={{ flex: 1, overflow: "hidden", display: "flex" }}>
           {/* Left: batch list (always visible on wider screens) */}
-          <div style={{ width: 280, borderRight: `1px solid ${C.voidBorder}`, display: "flex", flexDirection: "column", overflow: "hidden", flexShrink: 0 }}>
-            <BatchList batch={batch} onSelect={setActiveId} loading={loading} />
+          <div className="review-queue" style={{ width: queueCollapsed ? 36 : 280, borderRight: `1px solid ${C.voidBorder}`, display: "flex", flexDirection: "column", overflow: "hidden", flexShrink: 0, transition: "width 0.2s" }}>
+            <BatchList
+              batch={batch} onSelect={setActiveId} loading={loading}
+              sort={queueSort} onSort={setQueueSort}
+              collapsed={queueCollapsed} onCollapseToggle={() => setQueueCollapsed(c => !c)}
+            />
           </div>
 
           {/* Right: review panel or empty state */}
-          <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div className="review-panel" style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
             {active ? (
               <ReviewPanel
                 key={active.id}
@@ -1059,7 +1472,7 @@ export default function BrokerReview4() {
                 </div>
 
                 <div style={{ maxWidth: 560, margin: "0 auto" }}>
-                  <HelpBox title="How broker review works" defaultOpen={true}>
+                  <HelpBox title="How broker review works" defaultOpen={helpDefaultOpen}>
                     <p style={{ margin: "0 0 10px" }}>
                       Every declaration passes through broker review before a C82 XML is generated.
                       Your job is to verify the AI-extracted fields, correct anything wrong, and either

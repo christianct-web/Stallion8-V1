@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { getCbttRate } from "@/services/stallionApi";
+import {
+  Tooltip, TooltipContent, TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface Props {
   form: any;
@@ -14,8 +17,52 @@ interface Props {
   sectionWarnings: number;
 }
 
-const F = (n: number | undefined | null) =>
+const Fmt = (n: number | undefined | null) =>
   n == null ? "—" : n.toLocaleString("en-TT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+// Reuse the same field component pattern as the rest of the workbench
+function WbField({
+  label, value, onChange, mono = false,
+  warn = false, critical = false, note, placeholder, tooltip, type = "text", step,
+}: {
+  label: string; value: string | number; onChange: (v: string) => void;
+  mono?: boolean; warn?: boolean; critical?: boolean;
+  note?: string; placeholder?: string; tooltip?: string;
+  type?: string; step?: string;
+}) {
+  const cls = critical ? "critical" : warn ? "warn" : "";
+  return (
+    <div className={`wb-field ${cls}`}>
+      <div className="wb-field-label">
+        {tooltip ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span style={{ borderBottom: "1px dotted var(--wb-paper-mid)", cursor: "help" }}>
+                {label}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="right" style={{ fontFamily: "var(--wb-font-serif)", fontSize: 12 }}>
+              {tooltip}
+            </TooltipContent>
+          </Tooltip>
+        ) : label}
+      </div>
+      <input
+        className={`wb-field-input mono`}
+        type={type}
+        step={step}
+        value={value ?? ""}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+      />
+      {note && <div className="wb-field-note">{note}</div>}
+    </div>
+  );
+}
+
+function SubHead({ label }: { label: string }) {
+  return <div className="wb-subhead">{label}</div>;
+}
 
 export function WorkbenchWorksheet({
   form, setForm, calc, onCalculate,
@@ -23,9 +70,9 @@ export function WorkbenchWorksheet({
   shippedOnBoardDate,
   sectionErrors, sectionWarnings,
 }: Props) {
-  const [cbttLoading,  setCbttLoading]  = useState(false);
-  const [cbttSource,   setCbttSource]   = useState<string | null>(null);
-  const [cbttWarning,  setCbttWarning]  = useState<string | null>(null);
+  const [cbttLoading, setCbttLoading] = useState(false);
+  const [cbttSource,  setCbttSource]  = useState<string | null>(null);
+  const [cbttWarning, setCbttWarning] = useState<string | null>(null);
 
   const handleCbttLookup = async () => {
     setCbttLoading(true);
@@ -37,7 +84,7 @@ export function WorkbenchWorksheet({
       setForm((f: any) => ({ ...f, exchange_rate: result.rate }));
       setCbttSource(result.source);
       if (result.source === "fallback") {
-        setCbttWarning(`⚠ Backend couldn't reach Central Bank — using last known rate (${result.rate})`);
+        setCbttWarning(`Rate from fallback cache — couldn't reach Central Bank (${result.rate})`);
       } else {
         setCbttWarning(null);
       }
@@ -56,190 +103,301 @@ export function WorkbenchWorksheet({
     );
   };
 
-  const badgeStyle = (count: number, warn = false) => ({
-    fontFamily: "var(--wb-font-mono)", fontSize: 10, fontWeight: 700,
-    padding: "2px 7px", borderRadius: 3,
-    background: count > 0 ? (warn ? "var(--wb-warn-bg)" : "var(--wb-crit-bg)") : "transparent",
-    color:      count > 0 ? (warn ? "var(--wb-pending)" : "var(--wb-crit-border)") : "transparent",
-  });
+  const N = (k: string) => Number((form as any)[k]) || 0;
+  const set = (k: string) => (v: string) => setForm((f: any) => ({ ...f, [k]: parseFloat(v) || 0 }));
 
-  // sub-label style for section groupings
-  const subLabel: React.CSSProperties = {
-    fontFamily: "var(--wb-font-mono)", fontSize: 9, letterSpacing: "0.14em",
-    color: "var(--wb-ghost-dim)", padding: "8px 0 4px",
-    borderBottom: "1px solid var(--wb-void-border)", marginBottom: 4,
-  };
+  // Live estimate — pure client-side, no API round-trip
+  const liveCalc = useMemo(() => {
+    const iv = N("invoice_value_foreign");
+    if (iv <= 0) return null;
+    const fob         = iv + N("inland_foreign") * (1 + N("uplift_pct") / 100);
+    const cif_foreign = Math.max(0, fob + N("freight_foreign") + N("insurance_foreign") + N("other_foreign") - N("deduction_foreign"));
+    const xr          = N("exchange_rate") || 6.77;
+    const cif_local   = cif_foreign * xr;
+    const duty        = cif_local * N("duty_rate_pct") / 100;
+    const surcharge   = cif_local * N("surcharge_rate_pct") / 100;
+    const vat         = (cif_local + duty + surcharge) * N("vat_rate_pct") / 100;
+    const total       = duty + surcharge + vat + N("extra_fees_local");
+    return { fob, cif_foreign, cif_local, duty, surcharge, vat, total };
+  }, [form]);
+
+  const hasIssue = sectionErrors > 0 || sectionWarnings > 0;
+  const titleCls = sectionErrors > 0 ? "has-errors" : sectionWarnings > 0 ? "has-warnings" : "";
 
   return (
-    <section className="wb-section">
-      <div className="wb-section-header">
-        <span className="wb-section-title">Worksheet & Valuation</span>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          {sectionErrors   > 0 && <span style={badgeStyle(sectionErrors)}>   {sectionErrors}E</span>}
-          {sectionWarnings > 0 && <span style={badgeStyle(sectionWarnings, true)}>{sectionWarnings}W</span>}
-        </div>
+    <div className="wb-card" id="section-worksheet">
+      <div className="wb-card-header">
+        <span className={`wb-card-title ${titleCls}`}>
+          Worksheet · Valuation · Duties
+          {hasIssue && (
+            <span style={{ marginLeft: 8 }}>({sectionErrors}E / {sectionWarnings}W)</span>
+          )}
+        </span>
       </div>
 
-      <div className="wb-fields">
+      <div className="wb-card-body">
 
-        {/* ── Exchange rate ─────────────────────────────────────────────── */}
-        <div style={subLabel}>EXCHANGE RATE</div>
-        <div className="wb-field-row">
-          <label className="wb-label">EXCHANGE RATE (USD/TTD)</label>
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flex: 1 }}>
+        {/* ── Exchange Rate ── */}
+        <SubHead label="Exchange Rate" />
+
+        {/* Exchange rate field with inline CBTT button */}
+        <div className="wb-field">
+          <div className="wb-field-label">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span style={{ borderBottom: "1px dotted var(--wb-paper-mid)", cursor: "help" }}>
+                  USD / TTD Rate
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="right" style={{ fontFamily: "var(--wb-font-serif)", fontSize: 12 }}>
+                Central Bank of Trinidad & Tobago weighted average rate for the shipped-on-board date
+              </TooltipContent>
+            </Tooltip>
+          </div>
+          <div style={{ display: "flex", alignItems: "center" }}>
             <input
-              className="wb-input"
+              className="wb-field-input mono"
               type="number" step="0.0001"
-              value={form.exchange_rate}
-              onChange={e => setForm((f: any) => ({ ...f, exchange_rate: parseFloat(e.target.value) || 0 }))}
+              value={form.exchange_rate ?? ""}
+              onChange={e => set("exchange_rate")(e.target.value)}
+              placeholder="6.7700"
               style={{ flex: 1 }}
             />
             <button
-              className="wb-btn-secondary"
               onClick={handleCbttLookup}
               disabled={cbttLoading}
-              title={shippedOnBoardDate ? `Lookup rate for ${shippedOnBoardDate}` : "Lookup today's CBTT rate"}
-              style={{ whiteSpace: "nowrap", flexShrink: 0 }}
+              title={shippedOnBoardDate ? `Lookup CBTT rate for ${shippedOnBoardDate}` : "Lookup today's CBTT rate"}
+              style={{
+                flexShrink: 0, padding: "0 12px", height: "100%",
+                background: "transparent",
+                borderLeft: "1px solid var(--wb-paper-border)",
+                border: "none", borderLeft: "1px solid var(--wb-paper-border)",
+                fontFamily: "var(--wb-font-mono)", fontSize: 9,
+                fontWeight: 700, letterSpacing: "0.1em",
+                color: cbttLoading ? "var(--wb-paper-mid)" : "var(--wb-approved)",
+                cursor: cbttLoading ? "default" : "pointer",
+                whiteSpace: "nowrap",
+              }}
             >
-              {cbttLoading ? "…" : "LOOKUP CBTT"}
+              {cbttLoading ? "LOOKING UP…" : "CBTT LOOKUP"}
             </button>
           </div>
         </div>
 
         {(cbttSource || cbttWarning) && (
           <div style={{
-            marginTop: -8, marginBottom: 4, padding: "6px 10px",
-            background: cbttWarning ? "var(--wb-warn-bg)" : "#EBF7F1",
-            border: `1px solid ${cbttWarning ? "var(--wb-warn-border)" : "var(--wb-approved)"}`,
-            borderRadius: 3, fontFamily: "var(--wb-font-mono)", fontSize: 10,
-            color: cbttWarning ? "var(--wb-pending)" : "var(--wb-approved)",
+            padding: "6px 16px",
+            background: cbttWarning ? "var(--wb-warn)" : "#EBF7F1",
+            borderBottom: `1px solid ${cbttWarning ? "var(--wb-warn-border)" : "var(--wb-approved)"}`,
+            fontFamily: "var(--wb-font-mono)", fontSize: 10,
+            color: cbttWarning ? "var(--wb-warn-text)" : "var(--wb-approved)",
           }}>
             {cbttWarning
-              ? cbttWarning
-              : `✓ CBTT rate: ${form.exchange_rate} (${cbttSource}${shippedOnBoardDate ? ` · ${shippedOnBoardDate}` : ""})`}
+              ? `⚠ ${cbttWarning}`
+              : `✓ CBTT rate ${form.exchange_rate} (${cbttSource}${shippedOnBoardDate ? ` · SOB ${shippedOnBoardDate}` : ""})`}
           </div>
         )}
 
-        {/* ── EX-WORKS & Inland ────────────────────────────────────────── */}
-        <div style={subLabel}>EX-WORKS / FOB</div>
-        {([
-          ["INVOICE VALUE / EX-WORKS (FOREIGN)", "invoice_value_foreign", "The supplier's ex-works or FOB price on the commercial invoice"],
-          ["INLAND CHARGES (FOREIGN)",            "inland_foreign",        "Inland freight/trucking from factory to port of export — added to EX-WORKS to arrive at FOB"],
-          ["% UPLIFT",                             "uplift_pct",           "Percentage uplift applied to EX-WORKS for statistical or insurance purposes"],
-        ] as [string, string, string][]).map(([label, key, tip]) => (
-          <div key={key} className="wb-field-row">
-            <label className="wb-label" title={tip}>{label}</label>
-            <input
-              className="wb-input"
-              type="number" step="0.01"
-              value={(form as any)[key] ?? 0}
-              onChange={e => setForm((f: any) => ({ ...f, [key]: parseFloat(e.target.value) || 0 }))}
-            />
-          </div>
-        ))}
+        {/* ── EX-WORKS / FOB ── */}
+        <SubHead label="Ex-Works / FOB" />
+        <WbField
+          label="Invoice Value"
+          value={form.invoice_value_foreign ?? 0}
+          onChange={set("invoice_value_foreign")}
+          type="number" step="0.01"
+          placeholder="0.00"
+          tooltip="Supplier's ex-works or FOB price on the commercial invoice (foreign currency)"
+        />
+        <WbField
+          label="Inland Charges"
+          value={form.inland_foreign ?? 0}
+          onChange={set("inland_foreign")}
+          type="number" step="0.01"
+          placeholder="0.00"
+          tooltip="Inland freight / trucking from factory to port of export — added to ex-works to arrive at FOB"
+        />
+        <WbField
+          label="Uplift %"
+          value={form.uplift_pct ?? 0}
+          onChange={set("uplift_pct")}
+          type="number" step="0.01"
+          placeholder="0.00"
+          tooltip="Percentage uplift applied to ex-works for statistical or insurance purposes"
+        />
 
-        {/* ── CIF components ───────────────────────────────────────────── */}
-        <div style={subLabel}>CIF COMPONENTS</div>
-        {([
-          ["FREIGHT (FOREIGN)",       "freight_foreign"],
-          ["INSURANCE (FOREIGN)",     "insurance_foreign"],
-          ["OTHER CHARGES (FOREIGN)", "other_foreign"],
-          ["DEDUCTIONS (FOREIGN)",    "deduction_foreign"],
-        ] as [string, string][]).map(([label, key]) => (
-          <div key={key} className="wb-field-row">
-            <label className="wb-label">{label}</label>
-            <input
-              className="wb-input"
-              type="number" step="0.01"
-              value={(form as any)[key] ?? 0}
-              onChange={e => setForm((f: any) => ({ ...f, [key]: parseFloat(e.target.value) || 0 }))}
-            />
-          </div>
-        ))}
+        {/* ── CIF Components ── */}
+        <SubHead label="CIF Components" />
+        <WbField
+          label="Freight"
+          value={form.freight_foreign ?? 0}
+          onChange={set("freight_foreign")}
+          type="number" step="0.01"
+          placeholder="0.00"
+          tooltip="Ocean or air freight charge (foreign currency)"
+        />
+        <WbField
+          label="Insurance"
+          value={form.insurance_foreign ?? 0}
+          onChange={set("insurance_foreign")}
+          type="number" step="0.01"
+          placeholder="0.00"
+        />
+        <WbField
+          label="Other Charges"
+          value={form.other_foreign ?? 0}
+          onChange={set("other_foreign")}
+          type="number" step="0.01"
+          placeholder="0.00"
+        />
+        <WbField
+          label="Deductions"
+          value={form.deduction_foreign ?? 0}
+          onChange={set("deduction_foreign")}
+          type="number" step="0.01"
+          placeholder="0.00"
+          tooltip="Any deductions to be subtracted from the CIF value"
+        />
 
-        {/* ── Duty & Tax rates ─────────────────────────────────────────── */}
-        <div style={subLabel}>DUTY & TAX RATES</div>
-        {([
-          ["DUTY RATE %",      "duty_rate_pct"],
-          ["SURCHARGE RATE %", "surcharge_rate_pct"],
-          ["VAT RATE %",       "vat_rate_pct"],
-        ] as [string, string][]).map(([label, key]) => (
-          <div key={key} className="wb-field-row">
-            <label className="wb-label">{label}</label>
-            <input
-              className="wb-input"
-              type="number" step="0.01"
-              value={(form as any)[key] ?? 0}
-              onChange={e => setForm((f: any) => ({ ...f, [key]: parseFloat(e.target.value) || 0 }))}
-            />
-          </div>
-        ))}
+        {/* ── Duty & Tax Rates ── */}
+        <SubHead label="Duty & Tax Rates" />
+        <WbField
+          label="Duty Rate %"
+          value={form.duty_rate_pct ?? 0}
+          onChange={set("duty_rate_pct")}
+          type="number" step="0.01"
+          placeholder="0.00"
+          tooltip="Import duty rate from the HS tariff schedule"
+        />
+        <WbField
+          label="Surcharge %"
+          value={form.surcharge_rate_pct ?? 0}
+          onChange={set("surcharge_rate_pct")}
+          type="number" step="0.01"
+          placeholder="0.00"
+        />
+        <WbField
+          label="VAT Rate %"
+          value={form.vat_rate_pct ?? 0}
+          onChange={set("vat_rate_pct")}
+          type="number" step="0.01"
+          placeholder="12.50"
+          tooltip="Value Added Tax — standard rate is 12.5%"
+        />
 
-        {/* ── Box 23 / Fees ────────────────────────────────────────────── */}
-        <div style={subLabel}>FEES (TTD)</div>
-        {([
-          ["CUSTOMS USER FEE / CFU (TTD)", "extra_fees_local", "Standard Customs User Fee — typically TT$80"],
-          ["CES FEE 1 — Container Ex Fee", "ces_fee_1",        "Container Examination Fee (standard) — typically TT$1,050"],
-          ["CES FEE 2 — Container Ex Fee", "ces_fee_2",        "Container Examination Fee (second line) — typically TT$750"],
-        ] as [string, string, string][]).map(([label, key, tip]) => (
-          <div key={key} className="wb-field-row">
-            <label className="wb-label" title={tip}>{label}</label>
-            <input
-              className="wb-input"
-              type="number" step="0.01"
-              value={(form as any)[key] ?? 0}
-              onChange={e => setForm((f: any) => ({ ...f, [key]: parseFloat(e.target.value) || 0 }))}
-            />
-          </div>
-        ))}
+        {/* ── Fees ── */}
+        <SubHead label="Fees (TTD)" />
+        <WbField
+          label="Customs User Fee"
+          value={form.extra_fees_local ?? 0}
+          onChange={set("extra_fees_local")}
+          type="number" step="0.01"
+          placeholder="80.00"
+          tooltip="Standard Customs User Fee (CFU) — typically TT$80"
+        />
+        <WbField
+          label="CES Fee 1"
+          value={form.ces_fee_1 ?? 0}
+          onChange={set("ces_fee_1")}
+          type="number" step="0.01"
+          placeholder="0.00"
+          tooltip="Container Examination Fee (first line) — typically TT$1,050"
+        />
+        <WbField
+          label="CES Fee 2"
+          value={form.ces_fee_2 ?? 0}
+          onChange={set("ces_fee_2")}
+          type="number" step="0.01"
+          placeholder="0.00"
+          tooltip="Container Examination Fee (second line) — typically TT$750"
+        />
 
-        {/* ── Calculate button ──────────────────────────────────────────── */}
-        <div style={{ marginTop: 8, marginBottom: 12 }}>
-          <button className="wb-btn-primary" onClick={onCalculate} style={{ width: "100%" }}>
-            ⟳ CALCULATE WORKSHEET
+        {/* ── Live Estimate ── */}
+        {liveCalc && (
+          <>
+            <SubHead label="Live Estimate" />
+            <div style={{ padding: "12px 16px", background: "var(--wb-paper-alt)" }}>
+              <table className="wb-calc-table" style={{ marginBottom: 0 }}>
+                <tbody>
+                  {[
+                    ["FOB",       liveCalc.fob,         "USD"],
+                    ["CIF",       liveCalc.cif_foreign, "USD"],
+                    ["CIF (TTD)", liveCalc.cif_local,   "TTD"],
+                    ["Duty",      liveCalc.duty,        "TTD"],
+                    ["Surcharge", liveCalc.surcharge,   "TTD"],
+                    ["VAT",       liveCalc.vat,         "TTD"],
+                  ].map(([label, val, ccy]) => (
+                    <tr key={label as string}>
+                      <td>{label as string}</td>
+                      <td style={{ textAlign: "right", color: "var(--wb-ink-mid)" }}>
+                        {(val as number).toLocaleString("en-TT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        <span style={{ color: "var(--wb-paper-mid)", marginLeft: 4, fontSize: 10 }}>{ccy as string}</span>
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="total">
+                    <td>Total Due</td>
+                    <td style={{ textAlign: "right" }}>
+                      {liveCalc.total.toLocaleString("en-TT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      <span style={{ color: "var(--wb-paper-mid)", marginLeft: 4, fontSize: 10 }}>TTD</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+              <div style={{ marginTop: 8, fontFamily: "var(--wb-font-mono)", fontSize: 9, color: "var(--wb-paper-mid)", fontStyle: "italic" }}>
+                Live estimate · updates as you type · click Calculate to confirm
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ── Calculate Button ── */}
+        <div style={{ padding: "12px 16px", borderTop: "1px solid var(--wb-paper-border)" }}>
+          <button
+            className="wb-btn wb-btn-primary"
+            onClick={onCalculate}
+            style={{ width: "100%" }}
+          >
+            Calculate Worksheet
           </button>
         </div>
 
-        {/* ── Calc results ─────────────────────────────────────────────── */}
+        {/* ── Confirmed Results ── */}
         {calc && (
-          <div style={{
-            background: "var(--wb-void)", borderRadius: 4,
-            padding: "14px 16px", marginBottom: 12,
-          }}>
-            <div style={{ fontFamily: "var(--wb-font-mono)", fontSize: 9, letterSpacing: "0.14em", color: "var(--wb-ghost-dim)", marginBottom: 10 }}>
-              CALCULATED TOTALS
+          <>
+            <SubHead label="Confirmed Calculation" />
+            <div style={{ padding: "12px 16px", background: "var(--wb-paper)" }}>
+              <table className="wb-calc-table">
+                <tbody>
+                  {([
+                    ["FOB",             calc.fob_foreign],
+                    ["CIF (Foreign)",   calc.cif_foreign],
+                    ["CIF (TTD)",       calc.cif_local],
+                    ["Duty",            calc.duty],
+                    ["Surcharge",       calc.surcharge],
+                    ["VAT",             calc.vat],
+                    ["Customs User Fee",calc.customs_user_fee ?? calc.extra_fees_local],
+                    ["CES Fees",        (calc.ces_fee_1 ?? 0) + (calc.ces_fee_2 ?? 0)],
+                  ] as [string, number][]).map(([label, val]) => (
+                    <tr key={label}>
+                      <td>{label}</td>
+                      <td style={{ textAlign: "right" }}>{Fmt(val)}</td>
+                    </tr>
+                  ))}
+                  <tr className="total">
+                    <td>Total Amount Due (TTD)</td>
+                    <td style={{ textAlign: "right", fontSize: 15 }}>{Fmt(calc.total_assessed)}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 16px" }}>
-              {([
-                ["FOB (Foreign)",      calc.fob_foreign],
-                ["CIF (Foreign)",      calc.cif_foreign],
-                ["CIF (TTD)",          calc.cif_local],
-                ["Duty",               calc.duty],
-                ["Surcharge",          calc.surcharge],
-                ["VAT",                calc.vat],
-                ["CFU",                calc.customs_user_fee ?? calc.extra_fees_local],
-                ["CES Fees",           (calc.ces_fee_1 ?? 0) + (calc.ces_fee_2 ?? 0)],
-              ] as [string, number][]).map(([label, val]) => (
-                <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                  <span style={{ fontFamily: "var(--wb-font-mono)", fontSize: 10, color: "var(--wb-ghost-dim)" }}>{label}</span>
-                  <span style={{ fontFamily: "var(--wb-font-mono)", fontSize: 12, fontWeight: 700, color: "var(--wb-ghost)" }}>{F(val)}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--wb-void-border)", display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-              <span style={{ fontFamily: "var(--wb-font-mono)", fontSize: 10, color: "var(--wb-ghost)" }}>TOTAL AMOUNT DUE (TTD)</span>
-              <span style={{ fontFamily: "var(--wb-font-mono)", fontSize: 18, fontWeight: 700, color: "#fff" }}>{F(calc.total_assessed)}</span>
-            </div>
-          </div>
+          </>
         )}
 
-        {/* ── Box 23 charges (legacy toggle) ──────────────────────────── */}
+        {/* ── Box 23 Charges ── */}
         {box23Types.length > 0 && (
-          <div>
-            <div style={{ fontFamily: "var(--wb-font-mono)", fontSize: 9, letterSpacing: "0.14em", color: "var(--wb-ghost-dim)", marginBottom: 8 }}>
-              BOX 23 CHARGES
-            </div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          <>
+            <SubHead label="Box 23 Charges" />
+            <div style={{ padding: "10px 16px", display: "flex", flexWrap: "wrap", gap: 6 }}>
               {box23Types.map(b => (
                 <button
                   key={b.type}
@@ -250,11 +408,10 @@ export function WorkbenchWorksheet({
                 </button>
               ))}
             </div>
-          </div>
+          </>
         )}
+
       </div>
-    </section>
+    </div>
   );
 }
-
-

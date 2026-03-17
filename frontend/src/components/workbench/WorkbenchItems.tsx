@@ -33,6 +33,15 @@ interface Item {
   itemValueLocal?: number;
 }
 
+interface HsRates {
+  dutyPct: number;
+  surchargePct: number;
+  vatPct: number;
+  code: string;
+  description: string;
+  dutyRate: string;
+}
+
 interface WorkbenchItemsProps {
   items: Item[];
   setItems: React.Dispatch<React.SetStateAction<Item[]>>;
@@ -44,6 +53,7 @@ interface WorkbenchItemsProps {
   hsTariffSamples: Array<{ description: string; tariff: string; taxes?: Array<{ code: string; rate: number }> }>;
   sectionErrors: number;
   sectionWarnings: number;
+  onHsRatesApplied?: (rates: HsRates) => void;
 }
 
 const uid = () =>
@@ -108,16 +118,18 @@ function SubHead({ label }: { label: string }) {
 // ─── Single item editor ─────────────────────────────────────────────────────
 function ItemEditor({
   item, idx, total,
-  onChange, onRemove,
+  onChange, onRemove, onHsRatesApplied,
   packages, unitCodes, dutyTaxCodes, dutyTaxBases, cpcCodes,
 }: {
   item: Item; idx: number; total: number;
   onChange: (id: string, key: keyof Item, value: any) => void;
   onRemove: (id: string) => void;
+  onHsRatesApplied?: (rates: HsRates) => void;
   packages: any[]; unitCodes: any[]; dutyTaxCodes: any[];
   dutyTaxBases: any[]; cpcCodes: any[];
 }) {
   const [showHsSearch, setShowHsSearch] = useState(false);
+  const [appliedRate, setAppliedRate] = useState<string | null>(null);
   const S = (k: keyof Item) => (v: string) => onChange(item.id, k, v);
   const N = (k: keyof Item) => (v: string) => onChange(item.id, k, Number(v || 0));
 
@@ -160,7 +172,7 @@ function ItemEditor({
             {showHsSearch ? "Hide search" : "Search HS ↓"}
           </button>
           <a
-            href="https://trtc.gov.tt/customs-tariff/"
+            href="https://customs.gov.tt"
             target="_blank"
             rel="noopener noreferrer"
             className="wb-btn wb-btn-ghost"
@@ -174,13 +186,34 @@ function ItemEditor({
       {showHsSearch && (
         <HsLookup
           defaultQuery={item.description}
-          onSelect={(code, _desc, _rate) => {
+          onSelect={(code, description, dutyRate, result) => {
             onChange(item.id, "hsCode", code);
             setShowHsSearch(false);
+            if (result && onHsRatesApplied) {
+              const rates: HsRates = {
+                code,
+                description,
+                dutyRate,
+                dutyPct:      result.dutyPct      ?? 0,
+                surchargePct: result.surchargePct ?? 0,
+                vatPct:       result.vatPct       ?? 12.5,
+              };
+              setAppliedRate(`${dutyRate} · ${rates.vatPct}% VAT`);
+              onHsRatesApplied(rates);
+            }
           }}
           onClose={() => setShowHsSearch(false)}
           theme="paper"
         />
+      )}
+      {appliedRate && (
+        <div style={{
+          fontFamily: "var(--wb-font-mono)", fontSize: 10,
+          color: "var(--wb-approved)", letterSpacing: "0.06em",
+          padding: "4px 0 2px",
+        }}>
+          ✓ RATES APPLIED: {appliedRate}
+        </div>
       )}
 
       {/* Core description fields */}
@@ -335,6 +368,7 @@ export function WorkbenchItems({
   items, setItems,
   packages, unitCodes, dutyTaxCodes, dutyTaxBases, cpcCodes,
   sectionErrors, sectionWarnings,
+  onHsRatesApplied,
 }: WorkbenchItemsProps) {
 
   const handleChange = (id: string, key: keyof Item, value: any) => {
@@ -380,6 +414,7 @@ export function WorkbenchItems({
             total={items.length}
             onChange={handleChange}
             onRemove={handleRemove}
+            onHsRatesApplied={onHsRatesApplied}
             packages={packages}
             unitCodes={unitCodes}
             dutyTaxCodes={dutyTaxCodes}

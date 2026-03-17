@@ -282,6 +282,7 @@ Return ONLY a valid JSON object with these fields (use null for fields not found
   "shippedOnBoardDate": "string — ISO date YYYY-MM-DD, look for 'Laden on Board', 'Shipped on Board', 'Flight Date'",
   "shippedOnBoardLabel": "string — exact label used in document for this date",
   "vesselOrFlight": "string — vessel name or flight number",
+  "rotationNumber": "string — Port Authority rotation number assigned when vessel arrives at port (e.g. R2024/001234). Look for 'Rotation No', 'Rot. No', 'Rotation Number'. Null if not found or if air freight.",
   "portOfLoading": "string",
   "portOfDischarge": "string — typically Port of Spain (TTPTS) or Piarco (TTPIA)",
   "packageCount": number or null,
@@ -299,6 +300,7 @@ Return ONLY a valid JSON object with these fields (use null for fields not found
       "country": "string — country of issue (2-letter ISO code if possible)"
     }
   ],
+  "declarationType": "string — 'import' if goods are being imported into T&T, 'export' if goods are being exported from T&T. Look for document type, shipper/consignee direction, or explicit labels. Default 'import' if unclear.",
   "confidence": number — between 0.0 and 1.0 reflecting how complete and certain the extraction is,
   "notes": ["array of strings — flag any fields that are missing, ambiguous, or need broker attention"]
 }
@@ -308,11 +310,18 @@ Rules:
   If only one total is shown, use that.
 - For hsCode: only return if clearly printed on the document. Do not guess.
 - For certificates: extract every certificate present. A Caricom certificate of origin has type CARICOM. A health or veterinary certificate has type HEALTH. A free-sale certificate has type FREE_SALE. A phytosanitary certificate has type PHYTO.
-- For containerNumber: format is typically 4 letters + 7 digits (e.g. MSCU1234567). Look on packing list or BL.
+- For containerNumber: format is typically 4 uppercase letters + 7 digits (e.g. MSCU1234567, TGHU4591234). Look on packing list, BL, or delivery order. The check digit (last digit) is part of the number.
+- For sealNumber: appears near containerNumber on packing list or BL as 'Seal No.', 'Seal #', or 'Seal'. Can be alphanumeric (e.g. TT12345, BOLT123456).
+- For packageCount: look for total cartons, cases, packages, pieces — NOT individual item quantities. Usually labelled 'Total Packages', 'No. of Packages', or 'Total Cartons'.
+- For grossWeightKg: total gross weight of shipment in kg. Convert from lbs if needed (1 lb = 0.4536 kg). Label: 'Gross Weight', 'Total Gross Weight'.
+- For netWeightKg: total net weight in kg. Label: 'Net Weight', 'Total Net Weight'.
 - For confidence: 0.90+ means all critical fields found clearly. 0.70-0.89 means some fields missing.
   Below 0.70 means significant gaps.
 - Critical fields (required for TT customs): consigneeName, invoiceValueForeign, currency, invoiceNumber.
 - Add a note if a packing list is present but containerNumber or sealNumber could not be found.
+- Add a note if gross weight could not be determined from the document.
+- For rotationNumber: only extract if explicitly stated on the document. Do not guess. This is assigned by the T&T Port Authority and appears on Port Authority documents, manifests, or agent instructions.
+- For declarationType: 'export' if the T&T party is the shipper/exporter and foreign party is the consignee. 'import' if the T&T party is the consignee/importer.
 - Return ONLY the JSON object, no markdown, no explanation."""
 
 
@@ -471,10 +480,21 @@ def _fallback_extract(upload: UploadFile) -> Dict[str, Any]:
     invoice_no = _first(r"INVOICE\s*(?:NO\.?|NUMBER)?\s*[:#\-]?\s*([A-Z0-9\-/]+)", upper)
     invoice_date = _first(r"(?:INVOICE\s+DATE|DATE)\s*[:\-]?\s*(\d{4}-\d{2}-\d{2}|\d{2}/\d{2}/\d{2,4})")
 
+    # Packing list fields
+    # Container: IICL format — 4 letters + 7 digits (e.g. MSCU1234567)
+    container_no = _first(r"\b([A-Z]{4}\d{7})\b", upper)
+    # Seal: 5–12 alphanumeric chars after keyword
+    seal_no = _first(r"(?:SEAL\s*(?:NO\.?|NUMBER|#))\s*[:\-]?\s*([A-Z0-9]{4,12})\b", upper)
+    # Rotation: Port Authority format
+    rotation_no = _first(r"(?:ROTATION\s*(?:NO\.?|NUMBER|#))\s*[:\-]?\s*([A-Z0-9/\-]{4,20})\b", upper)
+    # Package count
+    pkg_count_raw = _first(r"(\d+)\s*(?:CARTONS?|CTNS?|CASES?|PIECES?|PCS|PKGS?|BOXES?)\b", upper)
+    pkg_count = int(pkg_count_raw) if pkg_count_raw and pkg_count_raw.isdigit() else None
+
     hits = sum(bool(x) for x in [hs, amount > 0, consignee, invoice_no])
     confidence = round(min(0.65, 0.35 + hits * 0.08), 2)
 
-    return {
+    result: Dict[str, Any] = {
         "consigneeName": consignee,
         "consignorName": consignor,
         "hsCode": hs,
@@ -486,7 +506,17 @@ def _fallback_extract(upload: UploadFile) -> Dict[str, Any]:
         "description": "",
         "confidence": confidence,
         "notes": ["Extracted via text fallback — Claude API unavailable"],
+        "declarationType": "import",
     }
+    if container_no:
+        result["containerNumber"] = container_no
+    if seal_no:
+        result["sealNumber"] = seal_no
+    if rotation_no:
+        result["rotationNumber"] = rotation_no
+    if pkg_count:
+        result["packageCount"] = pkg_count
+    return result
 
 
 def _build_declaration_record(ex: Dict[str, Any], mode: str, filenames: List[str], now: str) -> Dict[str, Any]:
@@ -507,27 +537,49 @@ def _build_declaration_record(ex: Dict[str, Any], mode: str, filenames: List[str
     if vessel and not any(ch.isdigit() for ch in vessel[:3]):
         transport = "SEA"
 
+    dec_type = (ex.get("declarationType") or "import").lower()
+    customs_regime = "E1" if dec_type == "export" else "IM4"
+
+    # Try to auto-link client by consignee name match (best-effort)
+    client_id = ""
+    consignee_name = ex.get("consigneeName") or ""
+    if consignee_name:
+        try:
+            clients = load_clients()
+            match = next(
+                (c for c in clients if c.get("name", "").lower() in consignee_name.lower()
+                 or consignee_name.lower() in c.get("name", "").lower()),
+                None,
+            )
+            if match:
+                client_id = match.get("id", "")
+        except Exception:
+            pass
+
     return {
         "id": dec_id,
         "reference_number": dec_id,
         "status": "pending_review",
+        "declaration_type": dec_type,
         "updated_at": now,
         "created_at": now,
         "source": {"type": "EXTRACT", "mode": mode, "files": filenames},
         "confidence": ex.get("confidence", 0.7),
         "extraction_notes": ex.get("notes") or [],
+        "client_id": client_id,
         "header": {
             "declarationRef": dec_id,
             "port": "TTPTS",
             "term": "CIF",
             "modeOfTransport": transport,
-            "customsRegime": "IM4",
+            "customsRegime": customs_regime,
             "consignorName": ex.get("consignorName") or "",
             "consignorAddress": ex.get("consignorAddress") or "",
             "consigneeCode": "",
-            "consigneeName": ex.get("consigneeName") or "",
+            "consigneeName": consignee_name,
             "consigneeAddress": ex.get("consigneeAddress") or "",
             "vesselName": vessel,
+            "rotationNumber": ex.get("rotationNumber") or "",
             "blAwbNumber": awb,
             "blAwbDate": ex.get("shippedOnBoardDate") or "",
             "invoiceNumber": ex.get("invoiceNumber") or "",
@@ -661,6 +713,12 @@ def declarations_review(declaration_id: str, req: Dict[str, Any]):
     if action == "receipted" and req.get("receipt_number"):
         patch["receipt_number"] = req["receipt_number"]
 
+    # Persist client linkage and declaration type if provided
+    if req.get("client_id") is not None:
+        patch["client_id"] = req["client_id"]
+    if req.get("declaration_type"):
+        patch["declaration_type"] = req["declaration_type"]
+
     # Merge header / worksheet / items if provided
     if "header" in req:
         patch["header"] = req["header"]
@@ -733,15 +791,21 @@ def activity_log(limit: int = 200):
 
 # ─── HS code search (Claude-powered) ─────────────────────────────────────────
 
-HS_SEARCH_PROMPT = """You are a Trinidad and Tobago customs tariff specialist with deep knowledge of the CARICOM Common External Tariff (CET) as applied in T&T under ASYCUDA World.
+HS_SEARCH_PROMPT = """You are a Trinidad and Tobago customs tariff specialist with deep knowledge of the CARICOM Common External Tariff (CET) as applied in T&T under ASYCUDA World and the Customs Act Chap 78:01.
 
 Given goods described as: "{query}"
 
 Return EXACTLY 5 HS code suggestions as a JSON array. Each object must have:
 - "code": HS tariff code in T&T format XXXX.XX.XX.XX (11-digit with dots)
 - "description": concise official tariff description (under 80 chars)
-- "dutyRate": the applicable T&T rate (e.g. "20%", "0%", "Free", "30% + 12.5% VAT")
-- "notes": one short sentence about classification rules, exclusions, or conditions
+- "dutyRate": human-readable rate string (e.g. "20%", "0%", "Free", "40% + 12.5% VAT")
+- "dutyPct": numeric import duty percentage only (e.g. 20, 0, 40). Use 0 for Free.
+- "surchargePct": numeric surcharge percentage if applicable (e.g. Customs Service Charge, levy). Use 0 if none.
+- "vatPct": numeric VAT percentage. In T&T standard VAT is 12.5%. Use 0 for VAT-exempt goods (basic food items, medicine, agricultural inputs). Use 12.5 for all other goods.
+- "notes": one short sentence about classification rules, exclusions, or key conditions
+
+T&T VAT exemptions include: basic food (rice, flour, sugar, cooking oil, salt, cornmeal, breadfruit), medicines/pharmaceuticals, agricultural inputs.
+Most other goods attract 12.5% VAT. Vehicles may attract additional motor vehicle tax.
 
 Order results from most likely to least likely match. Return ONLY the JSON array — no prose, no markdown fences, no other text."""
 

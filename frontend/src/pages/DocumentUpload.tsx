@@ -46,7 +46,7 @@ type ExtractedItem = {
 
 function ConfidencePill({ confidence }: { confidence: number }) {
   const pct = Math.round((confidence || 0) * 100);
-  const color = pct >= 80 ? C.approved : pct >= 60 ? C.pending : "#963A10";
+  const color = pct >= 90 ? C.approved : pct >= 70 ? C.pending : "#963A10";
   return (
     <span style={{
       fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700,
@@ -66,6 +66,7 @@ export default function DocumentUpload() {
   const [results, setResults] = useState<ExtractedItem[]>([]);
   const [error, setError] = useState("");
   const [dragging, setDragging] = useState(false);
+  const [progressStep, setProgressStep] = useState<string | null>(null);
 
   const onPick = (list: FileList | null) => {
     if (!list) return;
@@ -84,13 +85,24 @@ export default function DocumentUpload() {
     setLoading(true);
     setError("");
     setResults([]);
+    setProgressStep("Reading document…");
+
+    const steps = ["Reading document…", "Extracting fields…", "Checking permit requirements…", "Finalising results…"];
+    let stepIdx = 0;
+    const stepTimer = setInterval(() => {
+      stepIdx = Math.min(stepIdx + 1, steps.length - 1);
+      setProgressStep(steps[stepIdx]);
+    }, 1800);
+
     try {
       const res = await extractDocuments(files, mode);
       setResults(res.items || []);
     } catch (e: any) {
       setError(e?.message || "Extraction failed — check that files are valid PDFs");
     } finally {
+      clearInterval(stepTimer);
       setLoading(false);
+      setProgressStep(null);
     }
   };
 
@@ -102,6 +114,7 @@ export default function DocumentUpload() {
         @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400;1,9..144,600&family=JetBrains+Mono:wght@400;500;700&display=swap');
         *, *::before, *::after { box-sizing: border-box; }
         body { background: ${C.paper}; }
+        @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
       `}</style>
 
       <div style={{ minHeight: "100vh", background: C.paper, fontFamily: "'Fraunces', serif", color: C.ink }}>
@@ -273,21 +286,37 @@ export default function DocumentUpload() {
           )}
 
           {/* Extract button */}
-          <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
-            <button
-              onClick={onExtract}
-              disabled={!files.length || loading}
-              style={{
-                padding: "10px 24px",
-                background: files.length && !loading ? C.ink : C.paperMid,
-                border: "none", borderRadius: 3, cursor: files.length && !loading ? "pointer" : "not-allowed",
-                fontFamily: "'Fraunces', serif", fontSize: 14, fontWeight: 600,
-                color: files.length && !loading ? C.paper : C.inkLight,
-                transition: "background 0.15s",
-              }}
-            >
-              {loading ? "Extracting…" : "Run Extraction"}
-            </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 24 }}>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button
+                onClick={onExtract}
+                disabled={!files.length || loading}
+                title={!files.length ? "Upload at least one document to run extraction" : loading ? "Extraction in progress…" : ""}
+                style={{
+                  padding: "10px 24px",
+                  background: files.length && !loading ? C.ink : C.paperMid,
+                  border: "none", borderRadius: 3, cursor: files.length && !loading ? "pointer" : "not-allowed",
+                  fontFamily: "'Fraunces', serif", fontSize: 14, fontWeight: 600,
+                  color: files.length && !loading ? C.paper : C.inkLight,
+                  transition: "background 0.15s",
+                }}
+              >
+                {loading ? (progressStep || "Extracting…") : "Run Extraction"}
+              </button>
+            </div>
+            {!files.length && !loading && (
+              <div style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 11, color: C.inkLight, marginTop: 2 }}>
+                ↑ Upload at least one document to enable extraction
+              </div>
+            )}
+            {loading && progressStep && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4, padding: "8px 12px", background: C.paperAlt, border: `1px solid ${C.paperBorder}`, borderRadius: 3 }}>
+                <span style={{ animation: "spin 1s linear infinite", display: "inline-block", fontSize: 14 }}>⟳</span>
+                <span style={{ fontFamily: "'Fraunces', serif", fontStyle: "italic", fontSize: 12, color: C.inkMid }}>
+                  {progressStep}
+                </span>
+              </div>
+            )}
           </div>
 
           {error && (

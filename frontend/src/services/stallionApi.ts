@@ -226,8 +226,12 @@ export interface HsResult {
   code: string;
   description: string;
   dutyRate: string;
+  dutyPct?: number;
+  surchargePct?: number;
+  vatPct?: number;
   notes: string;
 }
+
 
 export async function hsSearch(query: string): Promise<HsResult[]> {
   const res = await fetch(`${BASE_URL}/hs/search`, {

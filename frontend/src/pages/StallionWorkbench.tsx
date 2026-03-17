@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { TopNav } from "@/components/TopNav";
 import { HelpBox, HelpTip, HelpHeading } from "@/components/HelpBox";
 import {
@@ -90,6 +90,183 @@ function buildWorksheet(form: any) {
   };
 }
 
+// ─── Design tokens (matches paper/ink system) ───────────────────────────────
+const CL = {
+  paper: "#F6F3EE", paperAlt: "#EFECE6", paperBorder: "#E2DDD6",
+  ink: "#18150F", inkMid: "#3D3830", inkLight: "#6B6560",
+  approved: "#1A5E3A", correction: "#963A10",
+};
+
+// ─── Completion checklist sidebar ────────────────────────────────────────────
+function ChecklistSidebar({ form, items, calc }: { form: any; items: any[]; calc: any }) {
+  const fi = items[0] ?? {};
+
+  const sections = [
+    {
+      id: "section-header", label: "Header",
+      fields: [
+        { label: "Declaration Ref",  ok: !!form.declarationRef },
+        { label: "Port of Entry",    ok: !!form.port },
+        { label: "Customs Regime",   ok: !!form.customsRegime },
+        { label: "Delivery Terms",   ok: !!form.term },
+        { label: "Invoice Number",   ok: !!form.invoiceNumber },
+        { label: "Invoice Date",     ok: !!form.invoiceDate },
+      ],
+    },
+    {
+      id: "section-parties", label: "Parties",
+      fields: [
+        { label: "Consignee Name",   ok: !!form.consigneeName },
+        { label: "Consignee Code",   ok: !!form.consigneeCode },
+        { label: "Consignor Name",   ok: !!form.consignorName },
+        { label: "Declarant TIN",    ok: !!form.declarantTIN },
+      ],
+    },
+    {
+      id: "section-header", label: "Transport",
+      fields: [
+        { label: "Vessel / Flight",  ok: !!form.vesselName },
+        { label: "AWB / B/L No.",    ok: !!form.blAwbNumber },
+        { label: "Shipped-on-Board", ok: !!form.blAwbDate },
+        { label: "ETA Date",         ok: !!form.etaDate },
+      ],
+    },
+    {
+      id: "section-items", label: "Items",
+      fields: [
+        { label: "HS Code",          ok: !!fi.hsCode },
+        { label: "Description",      ok: !!fi.description },
+        { label: "Quantity",         ok: (fi.qty ?? 0) > 0 },
+        { label: "Item Value",       ok: (fi.itemValue ?? 0) > 0 },
+      ],
+    },
+    {
+      id: "section-worksheet", label: "Worksheet",
+      fields: [
+        { label: "Invoice Value",    ok: (form.invoice_value_foreign ?? 0) > 0 },
+        { label: "Exchange Rate",    ok: (form.exchange_rate ?? 0) > 0 },
+        { label: "Calculation run",  ok: !!calc },
+      ],
+    },
+  ];
+
+  const allFields  = sections.flatMap(s => s.fields);
+  const doneCount  = allFields.filter(f => f.ok).length;
+  const totalCount = allFields.length;
+  const allDone    = doneCount === totalCount;
+  const pct        = Math.round((doneCount / totalCount) * 100);
+
+  const jump = useCallback((id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+
+  return (
+    <div style={{
+      border: `1px solid ${CL.paperBorder}`, borderRadius: 3,
+      overflow: "hidden", fontFamily: "'Fraunces', serif",
+      background: CL.paper,
+    }}>
+      {/* Progress header */}
+      <div style={{
+        padding: "12px 14px",
+        background: allDone ? CL.approved : CL.paperAlt,
+        borderBottom: `1px solid ${allDone ? CL.approved + "44" : CL.paperBorder}`,
+      }}>
+        <div style={{
+          fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
+          letterSpacing: "0.12em", color: allDone ? "#ffffffaa" : CL.inkLight,
+          marginBottom: 8,
+        }}>
+          COMPLETION CHECK
+        </div>
+        {/* Bar */}
+        <div style={{ height: 3, background: allDone ? "#ffffff33" : CL.paperBorder, borderRadius: 2, marginBottom: 8 }}>
+          <div style={{
+            height: "100%", borderRadius: 2, transition: "width 0.35s",
+            width: `${pct}%`,
+            background: allDone ? "#fff" : CL.approved,
+          }} />
+        </div>
+        <div style={{
+          fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
+          fontWeight: 700, color: allDone ? "#fff" : CL.inkMid,
+        }}>
+          {allDone
+            ? "✓ Ready for review"
+            : `${doneCount} / ${totalCount} fields`}
+        </div>
+      </div>
+
+      {/* Section rows */}
+      <div style={{ padding: "6px 0 10px" }}>
+        {sections.map((sec, si) => {
+          const secDone     = sec.fields.filter(f => f.ok).length;
+          const secComplete = secDone === sec.fields.length;
+          return (
+            <div key={`${sec.label}-${si}`} style={{ marginBottom: 2 }}>
+              {/* Section label */}
+              <button
+                onClick={() => jump(sec.id)}
+                style={{
+                  width: "100%", padding: "5px 14px", border: "none",
+                  background: "transparent", cursor: "pointer",
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = CL.paperAlt)}
+                onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+              >
+                <span style={{
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
+                  letterSpacing: "0.12em", fontWeight: 700,
+                  color: secComplete ? CL.approved : CL.inkMid,
+                }}>
+                  {sec.label.toUpperCase()}
+                </span>
+                <span style={{
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: 9,
+                  color: secComplete ? CL.approved : CL.inkLight,
+                }}>
+                  {secDone}/{sec.fields.length}
+                </span>
+              </button>
+              {/* Field rows */}
+              {sec.fields.map(field => (
+                <button
+                  key={field.label}
+                  onClick={() => jump(sec.id)}
+                  style={{
+                    width: "100%", padding: "2px 14px 2px 24px",
+                    border: "none", background: "transparent", cursor: "pointer",
+                    display: "flex", alignItems: "center", gap: 7,
+                    textAlign: "left",
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.background = CL.paperAlt)}
+                  onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+                >
+                  <span style={{
+                    fontSize: 8, flexShrink: 0, lineHeight: 1,
+                    color: field.ok ? CL.approved : CL.correction,
+                  }}>
+                    {field.ok ? "●" : "○"}
+                  </span>
+                  <span style={{
+                    fontFamily: "'Fraunces', serif", fontSize: 11,
+                    color: field.ok ? CL.inkLight : CL.inkMid,
+                    textDecoration: field.ok ? "line-through" : "none",
+                    opacity: field.ok ? 0.6 : 1,
+                  }}>
+                    {field.label}
+                  </span>
+                </button>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export default function StallionWorkbench() {
   // ── stable declaration ID for this session ──────────────────────────────
   const declarationId = useStableId();
@@ -177,6 +354,13 @@ export default function StallionWorkbench() {
   const [preflight,     setPreflight]     = useState<any>(null);
   const [generating,    setGenerating]    = useState(false);
   const [savingDraft,   setSavingDraft]   = useState(false);
+  const [cooldown,      setCooldown]      = useState(0);
+  const cooldownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── cooldown cleanup ──────────────────────────────────────────────────────
+  useEffect(() => {
+    return () => { if (cooldownRef.current) clearInterval(cooldownRef.current); };
+  }, []);
 
   // ── bootstrap ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -326,6 +510,17 @@ export default function StallionWorkbench() {
         toast.error("Pack blocked — fix required fields");
       } else {
         toast.success("Pack generated — declaration queued for broker review");
+        // Start 5-second cooldown
+        setCooldown(5);
+        cooldownRef.current = setInterval(() => {
+          setCooldown(c => {
+            if (c <= 1) {
+              if (cooldownRef.current) clearInterval(cooldownRef.current);
+              return 0;
+            }
+            return c - 1;
+          });
+        }, 1000);
       }
     } catch (err: any) {
       toast.error(err?.message ?? "Pack generation failed");
@@ -333,6 +528,15 @@ export default function StallionWorkbench() {
       setGenerating(false);
     }
   };
+
+  // ── live field completeness (no preflight needed) ─────────────────────────
+  const liveComplete = useMemo(() => ({
+    Header:    !!(form.declarationRef && form.port && form.customsRegime &&
+                  form.invoiceNumber && form.vesselName && form.blAwbNumber && form.etaDate),
+    Parties:   !!(form.consigneeName && form.consigneeCode && form.consignorName && form.declarantTIN),
+    Items:     items.every(i => i.hsCode && i.description && i.qty > 0 && i.itemValue > 0),
+    Worksheet: !!(Number(form.invoice_value_foreign) > 0 && Number(form.exchange_rate) > 0 && calc),
+  }), [form, items, calc]);
 
   // ── section issue counts ───────────────────────────────────────────────────
   const sectionIssueCounts = useMemo(() => {
@@ -416,52 +620,81 @@ export default function StallionWorkbench() {
           </HelpBox>
         </div>
 
-        <div style={{ flex: 1, maxWidth: 860, margin: "0 auto", width: "100%", padding: "24px 16px 120px" }}>
-          <WorkbenchHeader
-            form={form} setForm={setForm}
-            ports={ports} terms={terms}
-            transportModes={transportModes} customsRegimes={customsRegimes}
-            templates={templates}
-            selectedTemplateId={selectedTemplateId}
-            setSelectedTemplateId={setSelectedTemplateId}
-            onLoadTemplate={handleLoadTemplate}
-            sectionErrors={sectionIssueCounts.Header.e}
-            sectionWarnings={sectionIssueCounts.Header.w}
-          />
-          <WorkbenchParties
-            form={form} setForm={setForm}
-            sectionErrors={sectionIssueCounts.Parties.e}
-            sectionWarnings={sectionIssueCounts.Parties.w}
-          />
-          <WorkbenchItems
-            items={items} setItems={setItems}
-            packages={packages} unitCodes={unitCodes}
-            dutyTaxCodes={dutyTaxCodes} dutyTaxBases={dutyTaxBases}
-            cpcCodes={cpcCodes} hsTariffSamples={hsTariffSamples}
-            sectionErrors={sectionIssueCounts.Items.e}
-            sectionWarnings={sectionIssueCounts.Items.w}
-          />
-          <WorkbenchContainers
-            containers={containers} setContainers={setContainers}
-            packages={packages}
-            sectionErrors={sectionIssueCounts.Containers.e}
-            sectionWarnings={sectionIssueCounts.Containers.w}
-          />
-          <WorkbenchWorksheet
-            form={form} setForm={setForm}
-            calc={calc} onCalculate={handleCalculate}
-            box23Types={box23Types}
-            selectedBox23={selectedBox23} setSelectedBox23={setSelectedBox23}
-            shippedOnBoardDate={form.blAwbDate}
-            sectionErrors={sectionIssueCounts.Worksheet.e}
-            sectionWarnings={sectionIssueCounts.Worksheet.w}
-          />
-          <WorkbenchActions
-            preflight={preflight} packResult={packResult}
-            onGenerate={handleGenerate} onSaveDraft={handleSaveDraft}
-            generating={generating} savingDraft={savingDraft}
-            calc={calc}
-          />
+        {/* Two-column: form left, sticky checklist right */}
+        <div style={{
+          flex: 1, maxWidth: 1160, margin: "0 auto", width: "100%",
+          padding: "24px 16px 0",
+          display: "flex", gap: 24, alignItems: "flex-start",
+        }}>
+          {/* Main form */}
+          <div style={{ flex: 1, minWidth: 0, paddingBottom: 120 }}>
+            <WorkbenchHeader
+              form={form} setForm={setForm}
+              ports={ports} terms={terms}
+              transportModes={transportModes} customsRegimes={customsRegimes}
+              templates={templates}
+              selectedTemplateId={selectedTemplateId}
+              setSelectedTemplateId={setSelectedTemplateId}
+              onLoadTemplate={handleLoadTemplate}
+              sectionErrors={sectionIssueCounts.Header.e}
+              sectionWarnings={sectionIssueCounts.Header.w}
+              sectionComplete={liveComplete.Header}
+            />
+            <WorkbenchParties
+              form={form} setForm={setForm}
+              sectionErrors={sectionIssueCounts.Parties.e}
+              sectionWarnings={sectionIssueCounts.Parties.w}
+              sectionComplete={liveComplete.Parties}
+            />
+            <WorkbenchItems
+              items={items} setItems={setItems}
+              packages={packages} unitCodes={unitCodes}
+              dutyTaxCodes={dutyTaxCodes} dutyTaxBases={dutyTaxBases}
+              cpcCodes={cpcCodes} hsTariffSamples={hsTariffSamples}
+              sectionErrors={sectionIssueCounts.Items.e}
+              sectionWarnings={sectionIssueCounts.Items.w}
+              onHsRatesApplied={(rates) => {
+                setForm(f => ({
+                  ...f,
+                  duty_rate_pct:      rates.dutyPct,
+                  surcharge_rate_pct: rates.surchargePct,
+                  vat_rate_pct:       rates.vatPct,
+                }));
+                toast.success(`Rates applied: ${rates.dutyRate} · ${rates.vatPct}% VAT`);
+              }}
+            />
+            <WorkbenchContainers
+              containers={containers} setContainers={setContainers}
+              packages={packages}
+              sectionErrors={sectionIssueCounts.Containers.e}
+              sectionWarnings={sectionIssueCounts.Containers.w}
+            />
+            <WorkbenchWorksheet
+              form={form} setForm={setForm}
+              calc={calc} onCalculate={handleCalculate}
+              box23Types={box23Types}
+              selectedBox23={selectedBox23} setSelectedBox23={setSelectedBox23}
+              shippedOnBoardDate={form.blAwbDate}
+              sectionErrors={sectionIssueCounts.Worksheet.e}
+              sectionWarnings={sectionIssueCounts.Worksheet.w}
+            />
+            <WorkbenchActions
+              preflight={preflight} packResult={packResult}
+              onGenerate={handleGenerate} onSaveDraft={handleSaveDraft}
+              generating={generating} savingDraft={savingDraft}
+              calc={calc}
+              cooldownSeconds={cooldown}
+            />
+          </div>
+
+          {/* Sticky completion checklist */}
+          <div style={{
+            width: 220, flexShrink: 0,
+            position: "sticky", top: 72,
+            maxHeight: "calc(100vh - 88px)", overflowY: "auto",
+          }}>
+            <ChecklistSidebar form={form} items={items} calc={calc} />
+          </div>
         </div>
       </div>
     </TooltipProvider>

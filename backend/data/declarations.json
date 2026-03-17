@@ -131,15 +131,24 @@
           "errors": 0,
           "warnings": 0
         }
+      },
+      {
+        "at": "2026-03-17T06:51:01.104408Z",
+        "status": "generated",
+        "ref": "worksheet-lb01-6497305887",
+        "preflight": {
+          "errors": 0,
+          "warnings": 1
+        }
       }
     ],
     "last_export": {
-      "at": "2026-03-16T17:34:29.708526Z",
+      "at": "2026-03-17T06:51:01.104408Z",
       "status": "generated",
-      "ref": "worksheet-lb01-f40a27d8cb",
+      "ref": "worksheet-lb01-6497305887",
       "preflight": {
         "errors": 0,
-        "warnings": 0
+        "warnings": 1
       }
     }
   },
@@ -398,7 +407,7 @@
   },
   {
     "id": "SMOKE-WB-001",
-    "status": "needs_correction",
+    "status": "approved",
     "updated_at": "2026-03-10T06:00:00Z",
     "header": {
       "declarationRef": "SMOKE-WB-001",
@@ -462,7 +471,7 @@
     },
     "review_notes": "",
     "reviewed_by": "Broker",
-    "reviewed_at": "2026-03-12T15:32:36.890Z"
+    "reviewed_at": "2026-03-17T06:47:56.360Z"
   },
   {
     "id": "UAT-SMOKE-001",
@@ -674,7 +683,7 @@
     },
     "confidence": 87,
     "worksheet": {
-      "invoice_value_foreign": 13319.0,
+      "invoice_value_foreign": 13319,
       "exchange_rate": 6.79547,
       "freight_foreign": 0,
       "insurance_foreign": 0,
@@ -694,8 +703,8 @@
         "qty": 1,
         "packageType": "BOX",
         "grossKg": 2.5,
-        "netKg": 2.0,
-        "itemValue": 13319.0,
+        "netKg": 2,
+        "itemValue": 13319,
         "unitCode": "NMB",
         "dutyTaxCode": "DUTY",
         "dutyTaxBase": "CIF",
@@ -704,7 +713,7 @@
     ],
     "containers": [],
     "id": "UPSL-DEMO-002",
-    "status": "pending_review",
+    "status": "approved",
     "updated_at": "2026-03-13T05:52:07.298260+00:00",
     "header": {
       "declarationRef": "HMTL3227-25-B",
@@ -798,7 +807,10 @@
         "errors": 1,
         "warnings": 1
       }
-    }
+    },
+    "review_notes": "",
+    "reviewed_by": "Broker",
+    "reviewed_at": "2026-03-17T06:47:50.344Z"
   },
   {
     "id": "EXT-79A45820",
