@@ -170,8 +170,8 @@ export function WorkbenchWorksheet({
               style={{
                 flexShrink: 0, padding: "0 12px", height: "100%",
                 background: "transparent",
+                border: "none",
                 borderLeft: "1px solid var(--wb-paper-border)",
-                border: "none", borderLeft: "1px solid var(--wb-paper-border)",
                 fontFamily: "var(--wb-font-mono)", fontSize: 9,
                 fontWeight: 700, letterSpacing: "0.1em",
                 color: cbttLoading ? "var(--wb-paper-mid)" : "var(--wb-approved)",

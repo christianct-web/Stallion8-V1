@@ -5,6 +5,7 @@ __pycache__/
 
 # Runtime outputs
 backend/data/generated/
+backend/data/.locks/
 
 # Node
 frontend/node_modules/
