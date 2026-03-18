@@ -71,12 +71,10 @@ Return ONLY a valid JSON object with these fields (use null for fields not found
   "consigneeAddress": "string — consignee full address",
   "consignorName": "string — the exporter / shipper",
   "consignorAddress": "string — consignor full address",
-  "hsCode": "string — HS tariff code in format XXXX.XX.XX.XX if available, else null",
-  "description": "string — description of goods (be specific — include product name, form, and any brand if present)",
   "countryOfOrigin": "string — 2-letter ISO country code of origin",
   "invoiceNumber": "string",
   "invoiceDate": "string — ISO date YYYY-MM-DD",
-  "invoiceValueForeign": number — the EXW/FOB value (not CIF), numeric only,
+  "invoiceValueForeign": number — the total EXW/FOB value of the entire invoice (not CIF), numeric only,
   "currency": "string — 3-letter ISO currency code, default USD",
   "blAwbNumber": "string — air waybill or bill of lading number",
   "shippedOnBoardDate": "string — ISO date YYYY-MM-DD, look for 'Laden on Board', 'Shipped on Board', 'Flight Date'",
@@ -101,13 +99,27 @@ Return ONLY a valid JSON object with these fields (use null for fields not found
     }
   ],
   "declarationType": "string — 'import' if goods are being imported into T&T, 'export' if goods are being exported from T&T. Look for document type, shipper/consignee direction, or explicit labels. Default 'import' if unclear.",
+  "lineItems": [
+    {
+      "description": "string — specific product description for this line item",
+      "hsCode": "string — HS tariff code in format XXXX.XX.XX or XXXX.XX.XX.XX if printed on document, else null",
+      "quantity": number or null,
+      "unitPrice": number or null — price per unit in invoice currency,
+      "lineTotal": number — total value for this line item in invoice currency,
+      "countryOfOrigin": "string — 2-letter ISO code if different per item, else null"
+    }
+  ],
   "confidence": number — between 0.0 and 1.0 reflecting how complete and certain the extraction is,
   "notes": ["array of strings — flag any fields that are missing, ambiguous, or need broker attention"]
 }
 
 Rules:
-- For invoiceValueForeign: use the EXW or FOB subtotal, NOT the grand total if freight/insurance are included.
+- For invoiceValueForeign: use the EXW or FOB subtotal of the ENTIRE invoice, NOT the grand total if freight/insurance are included.
   If only one total is shown, use that.
+- For lineItems: extract EVERY distinct product/line from the invoice. Each row in the invoice table is a separate line item.
+  If the invoice has only one product, return an array with one item. If it has 15 products, return 15 items.
+  The sum of all lineItem.lineTotal values should approximately equal invoiceValueForeign.
+  If no line-item breakdown is visible, return a single item with the full description and invoiceValueForeign as lineTotal.
 - For hsCode: only return if clearly printed on the document. Do not guess.
 - For certificates: extract every certificate present. A Caricom certificate of origin has type CARICOM. A health or veterinary certificate has type HEALTH. A free-sale certificate has type FREE_SALE. A phytosanitary certificate has type PHYTO.
 - For containerNumber: format is typically 4 uppercase letters + 7 digits (e.g. MSCU1234567, TGHU4591234). Look on packing list, BL, or delivery order. The check digit (last digit) is part of the number.
@@ -277,6 +289,60 @@ def _fallback_extract(upload: UploadFile) -> Dict[str, Any]:
     return result
 
 
+def _build_items_from_extraction(ex: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """
+    Build multiple declaration items from extraction results.
+    Uses the lineItems array if present, falls back to single item.
+    """
+    line_items = ex.get("lineItems") or []
+    origin = ex.get("countryOfOrigin") or ""
+    pkg_type = ex.get("packageType") or "BOX"
+
+    # Fallback: no lineItems → single item from legacy fields
+    if not line_items:
+        val = 0.0
+        try:
+            val = float(ex.get("invoiceValueForeign") or 0)
+        except Exception:
+            pass
+        return [{
+            "id": f"ITEM-{uuid.uuid4().hex[:6].upper()}",
+            "description": ex.get("description") or "Extracted item",
+            "hsCode": ex.get("hsCode") or "",
+            "qty": ex.get("packageCount") or 1,
+            "packageType": pkg_type,
+            "grossKg": ex.get("grossWeightKg") or 0,
+            "netKg": ex.get("netWeightKg") or 0,
+            "itemValue": val,
+            "unitCode": "NMB",
+            "dutyTaxCode": "",
+            "dutyTaxBase": "",
+            "cpc": "4000",
+            "countryOfOrigin": origin,
+        }]
+
+    items = []
+    for i, li in enumerate(line_items):
+        line_total = float(li.get("lineTotal") or li.get("unitPrice") or 0)
+        qty = int(li.get("quantity") or 1)
+        items.append({
+            "id": f"ITEM-{uuid.uuid4().hex[:6].upper()}",
+            "description": str(li.get("description") or f"Line item {i+1}"),
+            "hsCode": str(li.get("hsCode") or ""),
+            "qty": qty,
+            "packageType": pkg_type,
+            "grossKg": 0,
+            "netKg": 0,
+            "itemValue": line_total,
+            "unitCode": "NMB",
+            "dutyTaxCode": "",
+            "dutyTaxBase": "",
+            "cpc": "4000",
+            "countryOfOrigin": li.get("countryOfOrigin") or origin,
+        })
+    return items
+
+
 def _build_declaration_record(ex: Dict[str, Any], mode: str, filenames: List[str], now: str) -> Dict[str, Any]:
     """Convert a Claude extraction dict into a full declaration record for storage."""
     dec_id = f"EXT-{uuid.uuid4().hex[:8].upper()}"
@@ -358,21 +424,7 @@ def _build_declaration_record(ex: Dict[str, Any], mode: str, filenames: List[str
             "extra_fees_local": 40,
             "global_fee": 40,
         },
-        "items": [{
-            "id": f"ITEM-{uuid.uuid4().hex[:6].upper()}",
-            "description": ex.get("description") or "Extracted item",
-            "hsCode": ex.get("hsCode") or "",
-            "qty": ex.get("packageCount") or 1,
-            "packageType": ex.get("packageType") or "BOX",
-            "grossKg": ex.get("grossWeightKg") or 0,
-            "netKg": ex.get("netWeightKg") or 0,
-            "itemValue": val,
-            "unitCode": "NMB",
-            "dutyTaxCode": "",
-            "dutyTaxBase": "",
-            "cpc": "4000",
-            "countryOfOrigin": ex.get("countryOfOrigin") or "",
-        }],
+        "items": _build_items_from_extraction(ex),
         "containers": (
             [{"containerNumber": ex["containerNumber"], "sealNumber": ex.get("sealNumber") or ""}]
             if ex.get("containerNumber") else []
@@ -441,25 +493,9 @@ async def extract_documents(files: list[UploadFile] = File(...), mode: str = For
     }
 
 
-# ─── HS code search (Claude-powered) ─────────────────────────────────────────
+# ─── HS code search (local-first, Claude fallback) ────────────────────────────
 
-HS_SEARCH_PROMPT = """You are a Trinidad and Tobago customs tariff specialist with deep knowledge of the CARICOM Common External Tariff (CET) as applied in T&T under ASYCUDA World and the Customs Act Chap 78:01.
-
-Given goods described as: "{query}"
-
-Return EXACTLY 5 HS code suggestions as a JSON array. Each object must have:
-- "code": HS tariff code in T&T format XXXX.XX.XX.XX (11-digit with dots)
-- "description": concise official tariff description (under 80 chars)
-- "dutyRate": human-readable rate string (e.g. "20%", "0%", "Free", "40% + 12.5% VAT")
-- "dutyPct": numeric import duty percentage only (e.g. 20, 0, 40). Use 0 for Free.
-- "surchargePct": numeric surcharge percentage if applicable (e.g. Customs Service Charge, levy). Use 0 if none.
-- "vatPct": numeric VAT percentage. In T&T standard VAT is 12.5%. Use 0 for VAT-exempt goods (basic food items, medicine, agricultural inputs). Use 12.5 for all other goods.
-- "notes": one short sentence about classification rules, exclusions, or key conditions
-
-T&T VAT exemptions include: basic food (rice, flour, sugar, cooking oil, salt, cornmeal, breadfruit), medicines/pharmaceuticals, agricultural inputs.
-Most other goods attract 12.5% VAT. Vehicles may attract additional motor vehicle tax.
-
-Order results from most likely to least likely match. Return ONLY the JSON array — no prose, no markdown fences, no other text."""
+from ..services.tariff_service import search_hybrid
 
 
 @router.post("/hs/search")
@@ -468,30 +504,10 @@ async def hs_search(req: Dict[str, Any]):
     if not query:
         raise HTTPException(status_code=400, detail="query is required")
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key:
-        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY not configured")
-
-    client = anthropic.Anthropic(api_key=api_key)
-    prompt = HS_SEARCH_PROMPT.replace("{query}", query.replace('"', "'"))
-
     try:
-        msg = client.messages.create(
-            model="claude-sonnet-4-6",
-            max_tokens=1024,
-            messages=[{"role": "user", "content": prompt}],
-        )
-        raw = msg.content[0].text.strip()
-        raw = re.sub(r"^```[^\n]*\n?", "", raw)
-        raw = re.sub(r"```\s*$", "", raw).strip()
-        results = json.loads(raw)
-        if not isinstance(results, list):
-            results = []
-    except json.JSONDecodeError as exc:
-        logger.error("HS search returned unparseable JSON: raw=%s error=%s", raw[:500], str(exc))
-        raise HTTPException(status_code=502, detail=f"HS search failed: unparseable response")
+        results, source = search_hybrid(query, limit=5)
     except Exception as exc:
-        logger.error("HS search API call failed: %s", str(exc))
+        logger.error("HS search failed: %s", str(exc))
         raise HTTPException(status_code=502, detail=f"HS search failed: {exc}")
 
-    return {"query": query, "results": results}
+    return {"query": query, "results": results, "source": source}

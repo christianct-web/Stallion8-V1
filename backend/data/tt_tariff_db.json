@@ -1,0 +1,2049 @@
+{
+  "version": "2026-03",
+  "source": "CARICOM CET / T&T Customs",
+  "entries": [
+    {
+      "code": "0102.29.00",
+      "description": "Live cattle (other)",
+      "dutyPct": 5,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Agricultural input, VAT exempt",
+      "dutyRate": "5% (VAT exempt)"
+    },
+    {
+      "code": "0105.11.00",
+      "description": "Live fowls (chickens under 185g)",
+      "dutyPct": 40,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Protected agricultural product",
+      "dutyRate": "40% + 12.5% VAT"
+    },
+    {
+      "code": "0201.10.00",
+      "description": "Carcasses of bovine animals, fresh/chilled",
+      "dutyPct": 40,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Meat, VAT exempt basic food",
+      "dutyRate": "40% (VAT exempt)"
+    },
+    {
+      "code": "0201.30.00",
+      "description": "Boneless beef, fresh/chilled",
+      "dutyPct": 40,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Meat, VAT exempt basic food",
+      "dutyRate": "40% (VAT exempt)"
+    },
+    {
+      "code": "0202.30.00",
+      "description": "Boneless beef, frozen",
+      "dutyPct": 40,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Meat, VAT exempt basic food",
+      "dutyRate": "40% (VAT exempt)"
+    },
+    {
+      "code": "0207.14.00",
+      "description": "Frozen cuts of chicken",
+      "dutyPct": 40,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Poultry, VAT exempt basic food",
+      "dutyRate": "40% (VAT exempt)"
+    },
+    {
+      "code": "0302.71.00",
+      "description": "Fresh tilapia",
+      "dutyPct": 5,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Fresh fish, VAT exempt basic food",
+      "dutyRate": "5% (VAT exempt)"
+    },
+    {
+      "code": "0303.89.00",
+      "description": "Other frozen fish",
+      "dutyPct": 20,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Frozen fish, VAT exempt basic food",
+      "dutyRate": "20% (VAT exempt)"
+    },
+    {
+      "code": "0307.49.00",
+      "description": "Cuttle fish and squid, frozen",
+      "dutyPct": 20,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Seafood, VAT exempt",
+      "dutyRate": "20% (VAT exempt)"
+    },
+    {
+      "code": "0401.10.00",
+      "description": "Milk, fat content <= 1%",
+      "dutyPct": 25,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Dairy, VAT exempt basic food",
+      "dutyRate": "25% (VAT exempt)"
+    },
+    {
+      "code": "0402.10.00",
+      "description": "Milk powder, fat <= 1.5%",
+      "dutyPct": 5,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Dairy, VAT exempt basic food",
+      "dutyRate": "5% (VAT exempt)"
+    },
+    {
+      "code": "0406.10.00",
+      "description": "Fresh cheese (unripened)",
+      "dutyPct": 40,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Cheese, standard VAT",
+      "dutyRate": "40% + 12.5% VAT"
+    },
+    {
+      "code": "0407.11.00",
+      "description": "Fertilized eggs for incubation",
+      "dutyPct": 5,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Agricultural input",
+      "dutyRate": "5% (VAT exempt)"
+    },
+    {
+      "code": "0701.90.00",
+      "description": "Potatoes, fresh/chilled",
+      "dutyPct": 40,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Root vegetable, VAT exempt",
+      "dutyRate": "40% (VAT exempt)"
+    },
+    {
+      "code": "0703.10.00",
+      "description": "Onions and shallots",
+      "dutyPct": 40,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Basic food, VAT exempt",
+      "dutyRate": "40% (VAT exempt)"
+    },
+    {
+      "code": "0713.33.00",
+      "description": "Kidney beans, dried",
+      "dutyPct": 5,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Dried legumes, VAT exempt",
+      "dutyRate": "5% (VAT exempt)"
+    },
+    {
+      "code": "0803.10.00",
+      "description": "Plantains, fresh",
+      "dutyPct": 40,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Fruit, VAT exempt",
+      "dutyRate": "40% (VAT exempt)"
+    },
+    {
+      "code": "0901.11.00",
+      "description": "Coffee, not roasted, not decaf",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Coffee beans",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "0902.10.00",
+      "description": "Green tea",
+      "dutyPct": 20,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Tea, VAT exempt basic food, CET suspended",
+      "dutyRate": "20% (VAT exempt)"
+    },
+    {
+      "code": "1001.99.00",
+      "description": "Other wheat and meslin",
+      "dutyPct": 0,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Wheat, duty free, VAT exempt basic food",
+      "dutyRate": "Free (duty + VAT exempt)"
+    },
+    {
+      "code": "1005.90.00",
+      "description": "Maize (corn)",
+      "dutyPct": 0,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Corn/maize, duty free, VAT exempt",
+      "dutyRate": "Free (duty + VAT exempt)"
+    },
+    {
+      "code": "1006.30.00",
+      "description": "Semi-milled or wholly milled rice",
+      "dutyPct": 25,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Rice, VAT exempt basic food",
+      "dutyRate": "25% (VAT exempt)"
+    },
+    {
+      "code": "1101.00.00",
+      "description": "Wheat or meslin flour",
+      "dutyPct": 0,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Flour, duty free, VAT exempt basic food",
+      "dutyRate": "Free (duty + VAT exempt)"
+    },
+    {
+      "code": "1507.10.00",
+      "description": "Soybean oil, crude",
+      "dutyPct": 0,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Cooking oil, duty free, VAT exempt",
+      "dutyRate": "Free (duty + VAT exempt)"
+    },
+    {
+      "code": "1511.10.00",
+      "description": "Palm oil, crude",
+      "dutyPct": 0,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Cooking oil, duty free, VAT exempt",
+      "dutyRate": "Free (duty + VAT exempt)"
+    },
+    {
+      "code": "1517.10.00",
+      "description": "Margarine",
+      "dutyPct": 20,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Basic food spread, VAT exempt",
+      "dutyRate": "20% (VAT exempt)"
+    },
+    {
+      "code": "1604.14.00",
+      "description": "Prepared/preserved tuna",
+      "dutyPct": 20,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Canned fish, VAT exempt basic food, CET suspended to 0%",
+      "dutyRate": "20% (VAT exempt)"
+    },
+    {
+      "code": "1604.20.00",
+      "description": "Other prepared/preserved fish",
+      "dutyPct": 20,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Canned fish, VAT exempt basic food",
+      "dutyRate": "20% (VAT exempt)"
+    },
+    {
+      "code": "1701.14.00",
+      "description": "Raw cane sugar",
+      "dutyPct": 40,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Sugar, VAT exempt basic food",
+      "dutyRate": "40% (VAT exempt)"
+    },
+    {
+      "code": "1701.99.00",
+      "description": "Cane sugar, refined",
+      "dutyPct": 40,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Sugar, VAT exempt basic food",
+      "dutyRate": "40% (VAT exempt)"
+    },
+    {
+      "code": "1806.31.00",
+      "description": "Chocolate bars, filled",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Confectionery",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "1901.10.00",
+      "description": "Infant food preparations",
+      "dutyPct": 0,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Baby food, duty free, VAT exempt",
+      "dutyRate": "Free (duty + VAT exempt)"
+    },
+    {
+      "code": "1902.11.00",
+      "description": "Uncooked pasta, with eggs",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Pasta, increased CET to support local manufacturing",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "1905.31.00",
+      "description": "Sweet biscuits",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Biscuits/cookies",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "1905.90.00",
+      "description": "Bread, pastry, cakes",
+      "dutyPct": 20,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Bakery, VAT exempt basic food",
+      "dutyRate": "20% (VAT exempt)"
+    },
+    {
+      "code": "2009.11.00",
+      "description": "Orange juice, frozen",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Fruit juice",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "2103.10.00",
+      "description": "Soy sauce",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Condiment",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "2103.90.00",
+      "description": "Sauces and preparations",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Mixed condiments/sauces",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "2106.90.00",
+      "description": "Food preparations n.e.s.",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Other food preparations",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "2201.10.00",
+      "description": "Mineral water",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Bottled water",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "2202.10.00",
+      "description": "Sweetened/flavoured water",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Soft drinks",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "2203.00.00",
+      "description": "Beer made from malt",
+      "dutyPct": 30,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Alcoholic beverages, additional excise may apply",
+      "dutyRate": "30% + 12.5% VAT"
+    },
+    {
+      "code": "2204.21.00",
+      "description": "Wine, containers <= 2 litres",
+      "dutyPct": 30,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Wine, additional excise may apply",
+      "dutyRate": "30% + 12.5% VAT"
+    },
+    {
+      "code": "2208.30.00",
+      "description": "Whiskies",
+      "dutyPct": 30,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Spirits, additional excise may apply",
+      "dutyRate": "30% + 12.5% VAT"
+    },
+    {
+      "code": "2208.40.00",
+      "description": "Rum and other spirits from sugar cane",
+      "dutyPct": 30,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Rum, additional excise may apply",
+      "dutyRate": "30% + 12.5% VAT"
+    },
+    {
+      "code": "2402.20.00",
+      "description": "Cigarettes containing tobacco",
+      "dutyPct": 30,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Tobacco, heavy excise tax applies",
+      "dutyRate": "30% + 12.5% VAT"
+    },
+    {
+      "code": "2501.00.00",
+      "description": "Salt",
+      "dutyPct": 5,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Salt, VAT exempt basic food",
+      "dutyRate": "5% (VAT exempt)"
+    },
+    {
+      "code": "2523.29.00",
+      "description": "Portland cement",
+      "dutyPct": 15,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Construction material",
+      "dutyRate": "15% + 12.5% VAT"
+    },
+    {
+      "code": "2710.12.00",
+      "description": "Light petroleum oils (gasoline)",
+      "dutyPct": 0,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Motor spirit, CET suspended to 0%",
+      "dutyRate": "Free + 12.5% VAT"
+    },
+    {
+      "code": "2710.19.00",
+      "description": "Medium/heavy petroleum oils",
+      "dutyPct": 0,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Diesel/kerosene, CET suspended",
+      "dutyRate": "Free + 12.5% VAT"
+    },
+    {
+      "code": "2711.11.00",
+      "description": "Liquefied natural gas",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "LNG, T&T export commodity",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "2836.50.00",
+      "description": "Calcium carbonate",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Chemical intermediate",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "2933.71.00",
+      "description": "Caprolactam",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Chemical input for industry",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "3003.90.00",
+      "description": "Medicaments, not in dosage form",
+      "dutyPct": 0,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Pharmaceutical, duty free, VAT exempt",
+      "dutyRate": "Free (duty + VAT exempt)"
+    },
+    {
+      "code": "3004.10.00",
+      "description": "Medicaments containing penicillin",
+      "dutyPct": 0,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Pharmaceutical, duty free, VAT exempt",
+      "dutyRate": "Free (duty + VAT exempt)"
+    },
+    {
+      "code": "3004.20.00",
+      "description": "Medicaments containing antibiotics",
+      "dutyPct": 0,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Pharmaceutical, duty free, VAT exempt",
+      "dutyRate": "Free (duty + VAT exempt)"
+    },
+    {
+      "code": "3004.90.00",
+      "description": "Other medicaments in dosage form",
+      "dutyPct": 0,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Pharmaceutical, duty free, VAT exempt",
+      "dutyRate": "Free (duty + VAT exempt)"
+    },
+    {
+      "code": "3006.50.00",
+      "description": "First-aid kits",
+      "dutyPct": 0,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Medical supplies, duty free, VAT exempt",
+      "dutyRate": "Free (duty + VAT exempt)"
+    },
+    {
+      "code": "3208.10.00",
+      "description": "Paints and varnishes, polyester based",
+      "dutyPct": 10,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Industrial coating",
+      "dutyRate": "10% + 12.5% VAT"
+    },
+    {
+      "code": "3304.10.00",
+      "description": "Lip make-up preparations",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Cosmetics",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "3305.10.00",
+      "description": "Shampoos",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Personal care products",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "3307.41.00",
+      "description": "Incense preparations",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Household products",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "3401.11.00",
+      "description": "Soap for toilet use",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Personal care",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "3402.20.00",
+      "description": "Preparations put up for retail (cleaning)",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Cleaning products",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "3808.10.00",
+      "description": "Insecticides for retail",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Household/agricultural insecticide",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "3808.91.00",
+      "description": "Insecticides",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Agricultural chemical",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "3824.99.00",
+      "description": "Chemical preparations n.e.s.",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Industrial chemicals",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "3917.21.00",
+      "description": "Tubes/pipes of polyethylene",
+      "dutyPct": 10,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Plastic piping",
+      "dutyRate": "10% + 12.5% VAT"
+    },
+    {
+      "code": "3917.39.00",
+      "description": "Other tubes/pipes \u2014 plastics",
+      "dutyPct": 10,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "PVC piping",
+      "dutyRate": "10% + 12.5% VAT"
+    },
+    {
+      "code": "3919.10.00",
+      "description": "Self-adhesive plates/sheets (packing tape)",
+      "dutyPct": 10,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Packing materials",
+      "dutyRate": "10% + 12.5% VAT"
+    },
+    {
+      "code": "3920.10.00",
+      "description": "Plates of polyethylene",
+      "dutyPct": 10,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Plastic sheet goods",
+      "dutyRate": "10% + 12.5% VAT"
+    },
+    {
+      "code": "3923.10.00",
+      "description": "Boxes, cases, crates \u2014 plastics",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Plastic containers",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "3923.21.00",
+      "description": "Sacks and bags of polyethylene",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Plastic bags/packaging",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "3924.10.00",
+      "description": "Tableware/kitchenware \u2014 plastics",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Plastic household items",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "3924.90.00",
+      "description": "Other household articles \u2014 plastics",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Plastic household goods",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "3925.30.00",
+      "description": "Shutters/blinds \u2014 plastics",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Window fittings",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "3926.20.00",
+      "description": "Articles of apparel \u2014 plastics",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Plastic clothing/accessories",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "3926.90.00",
+      "description": "Other articles of plastics",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Plastic items n.e.s.",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "4011.10.00",
+      "description": "New pneumatic tyres for motor cars",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Vehicle tyres",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "4011.20.00",
+      "description": "New pneumatic tyres for buses/lorries",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Vehicle tyres",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "4202.11.00",
+      "description": "Trunks/suitcases \u2014 leather",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Leather luggage",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "4202.22.00",
+      "description": "Handbags \u2014 leather",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Leather handbags",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "4202.32.00",
+      "description": "Articles normally carried in pocket \u2014 leather",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Wallets, phone cases",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "4202.92.00",
+      "description": "Other containers \u2014 textile outer",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Bags and cases",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "4410.11.00",
+      "description": "Particle board, wood",
+      "dutyPct": 15,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Construction material",
+      "dutyRate": "15% + 12.5% VAT"
+    },
+    {
+      "code": "4418.20.00",
+      "description": "Doors and frames \u2014 wood",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Construction joinery",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "4421.99.00",
+      "description": "Other articles of wood",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Wooden goods n.e.s.",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "4819.10.00",
+      "description": "Cartons, boxes \u2014 corrugated paper",
+      "dutyPct": 15,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Packaging material",
+      "dutyRate": "15% + 12.5% VAT"
+    },
+    {
+      "code": "4819.20.00",
+      "description": "Folding cartons \u2014 non-corrugated",
+      "dutyPct": 15,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Packaging",
+      "dutyRate": "15% + 12.5% VAT"
+    },
+    {
+      "code": "4901.99.00",
+      "description": "Other printed books, brochures",
+      "dutyPct": 0,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Books, duty free, VAT exempt",
+      "dutyRate": "Free (duty + VAT exempt)"
+    },
+    {
+      "code": "4911.10.00",
+      "description": "Trade advertising material",
+      "dutyPct": 0,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Printed promotional material",
+      "dutyRate": "Free + 12.5% VAT"
+    },
+    {
+      "code": "4911.99.00",
+      "description": "Other printed matter",
+      "dutyPct": 0,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Printed promotional material",
+      "dutyRate": "Free + 12.5% VAT"
+    },
+    {
+      "code": "6109.10.00",
+      "description": "T-shirts, singlets \u2014 cotton",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Cotton clothing",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "6109.90.00",
+      "description": "T-shirts \u2014 other fibres",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Synthetic clothing",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "6110.20.00",
+      "description": "Jerseys, pullovers \u2014 cotton",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Knitwear",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "6204.62.00",
+      "description": "Women's trousers \u2014 cotton",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Women's clothing",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "6301.40.00",
+      "description": "Blankets \u2014 synthetic fibres",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Household textiles",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "6302.31.00",
+      "description": "Bed linen \u2014 cotton",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Bed sheets",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "6302.39.00",
+      "description": "Bed linen \u2014 other textiles",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Bed linen",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "6303.92.00",
+      "description": "Curtains \u2014 synthetic fibres",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Home textiles",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "6307.90.00",
+      "description": "Other made-up textile articles",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Textile goods n.e.s.",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "6310.10.00",
+      "description": "Used rags (wiping cloths)",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Industrial textiles",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "6402.91.00",
+      "description": "Footwear covering ankle \u2014 rubber/plastics",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Shoes/boots",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "6402.99.00",
+      "description": "Other footwear \u2014 rubber/plastics",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Shoes",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "6403.91.00",
+      "description": "Footwear covering ankle \u2014 leather",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Leather boots",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "6403.99.00",
+      "description": "Other footwear \u2014 leather",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Leather shoes",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "6404.11.00",
+      "description": "Sports footwear \u2014 textile uppers, rubber soles",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Athletic shoes",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "6506.10.00",
+      "description": "Safety headgear",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Safety equipment, reduced rate",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "6802.93.00",
+      "description": "Granite, worked",
+      "dutyPct": 10,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Construction stone",
+      "dutyRate": "10% + 12.5% VAT"
+    },
+    {
+      "code": "6904.10.00",
+      "description": "Ceramic building bricks",
+      "dutyPct": 15,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Construction material",
+      "dutyRate": "15% + 12.5% VAT"
+    },
+    {
+      "code": "6910.10.00",
+      "description": "Ceramic sinks, baths \u2014 porcelain",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Sanitary ware",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "7005.21.00",
+      "description": "Float glass, coloured",
+      "dutyPct": 10,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Construction glass",
+      "dutyRate": "10% + 12.5% VAT"
+    },
+    {
+      "code": "7010.10.00",
+      "description": "Glass ampoules",
+      "dutyPct": 10,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Pharmaceutical packaging",
+      "dutyRate": "10% + 12.5% VAT"
+    },
+    {
+      "code": "7010.90.00",
+      "description": "Glass bottles, jars",
+      "dutyPct": 15,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Glass containers",
+      "dutyRate": "15% + 12.5% VAT"
+    },
+    {
+      "code": "7013.49.00",
+      "description": "Glassware for table/kitchen",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Glassware",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "7113.11.00",
+      "description": "Silver jewelry",
+      "dutyPct": 30,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Precious metal jewelry",
+      "dutyRate": "30% + 12.5% VAT"
+    },
+    {
+      "code": "7113.19.00",
+      "description": "Jewelry of other precious metals",
+      "dutyPct": 30,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Gold/platinum jewelry",
+      "dutyRate": "30% + 12.5% VAT"
+    },
+    {
+      "code": "7117.90.00",
+      "description": "Imitation jewelry",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Costume jewelry",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "7210.41.00",
+      "description": "Corrugated galvanized steel",
+      "dutyPct": 15,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Galvanize sheets for roofing",
+      "dutyRate": "15% + 12.5% VAT"
+    },
+    {
+      "code": "7213.91.00",
+      "description": "Hot-rolled bars \u2014 circular, < 14mm",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Steel rebar",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "7216.10.00",
+      "description": "U/I/H sections \u2014 hot-rolled",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Structural steel",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "7304.31.00",
+      "description": "Seamless steel tubes, cold-drawn",
+      "dutyPct": 10,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Industrial tubing",
+      "dutyRate": "10% + 12.5% VAT"
+    },
+    {
+      "code": "7306.30.00",
+      "description": "Welded steel tubes/pipes",
+      "dutyPct": 15,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Steel piping",
+      "dutyRate": "15% + 12.5% VAT"
+    },
+    {
+      "code": "7308.90.00",
+      "description": "Iron/steel structures",
+      "dutyPct": 15,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Structural steel components",
+      "dutyRate": "15% + 12.5% VAT"
+    },
+    {
+      "code": "7318.15.00",
+      "description": "Threaded screws \u2014 iron/steel",
+      "dutyPct": 10,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Fasteners",
+      "dutyRate": "10% + 12.5% VAT"
+    },
+    {
+      "code": "7321.11.00",
+      "description": "Gas cooking appliances",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Gas stoves",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "7323.93.00",
+      "description": "Table/kitchen articles \u2014 stainless steel",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Stainless steel cookware",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "7326.90.00",
+      "description": "Other articles of iron/steel",
+      "dutyPct": 15,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Metal goods n.e.s.",
+      "dutyRate": "15% + 12.5% VAT"
+    },
+    {
+      "code": "7604.29.00",
+      "description": "Aluminium alloy profiles",
+      "dutyPct": 10,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Aluminium extrusions",
+      "dutyRate": "10% + 12.5% VAT"
+    },
+    {
+      "code": "7610.10.00",
+      "description": "Aluminium doors/windows/frames",
+      "dutyPct": 15,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Construction aluminium",
+      "dutyRate": "15% + 12.5% VAT"
+    },
+    {
+      "code": "8301.30.00",
+      "description": "Locks for furniture",
+      "dutyPct": 15,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Hardware",
+      "dutyRate": "15% + 12.5% VAT"
+    },
+    {
+      "code": "8311.10.00",
+      "description": "Coated welding electrodes",
+      "dutyPct": 10,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Welding consumables",
+      "dutyRate": "10% + 12.5% VAT"
+    },
+    {
+      "code": "8409.99.00",
+      "description": "Parts for diesel engines",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Engine parts",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "8413.70.00",
+      "description": "Centrifugal pumps",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Industrial machinery",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "8414.30.00",
+      "description": "Compressors for refrigeration",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Refrigeration equipment",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "8414.51.00",
+      "description": "Table/wall fans",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Domestic fans",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "8415.10.00",
+      "description": "Window/wall air conditioners",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Air conditioning units",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "8418.10.00",
+      "description": "Combined refrigerator-freezers",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Domestic refrigerators",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "8418.21.00",
+      "description": "Compression-type refrigerators",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Domestic refrigerators",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "8421.21.00",
+      "description": "Water filtering apparatus",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Water treatment equipment",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "8422.11.00",
+      "description": "Dishwashing machines \u2014 domestic",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Domestic appliances",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "8443.31.00",
+      "description": "Machines for printing, copying",
+      "dutyPct": 0,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Printers, duty free",
+      "dutyRate": "Free + 12.5% VAT"
+    },
+    {
+      "code": "8450.11.00",
+      "description": "Fully-automatic washing machines",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Domestic appliances",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "8450.20.00",
+      "description": "Washing machines > 10kg",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Commercial laundry equipment",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "8471.30.00",
+      "description": "Portable digital computers (laptops)",
+      "dutyPct": 0,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Computers, duty free",
+      "dutyRate": "Free + 12.5% VAT"
+    },
+    {
+      "code": "8471.41.00",
+      "description": "Data processing machines \u2014 desktop",
+      "dutyPct": 0,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Desktop computers, duty free",
+      "dutyRate": "Free + 12.5% VAT"
+    },
+    {
+      "code": "8471.49.00",
+      "description": "Other data processing machines",
+      "dutyPct": 0,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Servers/workstations, duty free",
+      "dutyRate": "Free + 12.5% VAT"
+    },
+    {
+      "code": "8471.60.00",
+      "description": "Input or output units (keyboards, monitors)",
+      "dutyPct": 0,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Computer peripherals, duty free",
+      "dutyRate": "Free + 12.5% VAT"
+    },
+    {
+      "code": "8471.70.00",
+      "description": "Computer storage units",
+      "dutyPct": 0,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Hard drives, SSDs, duty free",
+      "dutyRate": "Free + 12.5% VAT"
+    },
+    {
+      "code": "8473.30.00",
+      "description": "Parts for computing machines",
+      "dutyPct": 0,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Computer parts, duty free",
+      "dutyRate": "Free + 12.5% VAT"
+    },
+    {
+      "code": "8479.89.00",
+      "description": "Other machines with individual functions",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Specialized machinery",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "8481.80.00",
+      "description": "Taps, cocks, valves",
+      "dutyPct": 10,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Plumbing fittings",
+      "dutyRate": "10% + 12.5% VAT"
+    },
+    {
+      "code": "8501.10.00",
+      "description": "Motors, output <= 37.5W",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Small electric motors",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "8501.40.00",
+      "description": "AC motors, single-phase",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Electric motors",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "8502.11.00",
+      "description": "Diesel generating sets, <= 75kVA",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Generators",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "8502.20.00",
+      "description": "Generating sets with spark-ignition",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Petrol generators",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "8504.40.00",
+      "description": "Static converters (UPS, power supply)",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Power equipment",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "8506.10.00",
+      "description": "Manganese dioxide primary cells",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Batteries",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "8507.60.00",
+      "description": "Lithium-ion accumulators",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Rechargeable batteries",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "8516.10.00",
+      "description": "Electric water heaters",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Domestic appliances",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "8516.50.00",
+      "description": "Microwave ovens",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Domestic appliances",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "8516.60.00",
+      "description": "Other ovens/cookers/hot plates",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Cooking appliances",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "8517.12.00",
+      "description": "Telephones for cellular networks (smartphones)",
+      "dutyPct": 0,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Mobile phones, duty free",
+      "dutyRate": "Free + 12.5% VAT"
+    },
+    {
+      "code": "8517.62.00",
+      "description": "Machines for reception, conversion of data (routers)",
+      "dutyPct": 0,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Networking equipment, duty free",
+      "dutyRate": "Free + 12.5% VAT"
+    },
+    {
+      "code": "8518.40.00",
+      "description": "Audio-frequency electric amplifiers",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Audio equipment",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "8519.81.00",
+      "description": "Sound reproducing apparatus",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Audio players",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "8521.90.00",
+      "description": "Video recording apparatus",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "DVD/Blu-ray players, set-top boxes",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "8523.49.00",
+      "description": "Optical media for recording",
+      "dutyPct": 0,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "CDs/DVDs blank, duty free",
+      "dutyRate": "Free + 12.5% VAT"
+    },
+    {
+      "code": "8525.80.00",
+      "description": "Television cameras, digital cameras",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Cameras",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "8527.21.00",
+      "description": "Radio receivers with sound recording",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Car radios",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "8528.52.00",
+      "description": "Monitors \u2014 capable of direct connection to ADP",
+      "dutyPct": 0,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Computer monitors, duty free",
+      "dutyRate": "Free + 12.5% VAT"
+    },
+    {
+      "code": "8528.72.00",
+      "description": "Television receivers \u2014 colour",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Televisions",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "8528.73.00",
+      "description": "Television receivers \u2014 other",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Monitors/displays",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "8531.10.00",
+      "description": "Burglar/fire alarms",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Security equipment",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "8536.20.00",
+      "description": "Automatic circuit breakers",
+      "dutyPct": 10,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Electrical switchgear",
+      "dutyRate": "10% + 12.5% VAT"
+    },
+    {
+      "code": "8536.90.00",
+      "description": "Electrical apparatus for switching",
+      "dutyPct": 10,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Electrical components",
+      "dutyRate": "10% + 12.5% VAT"
+    },
+    {
+      "code": "8539.50.00",
+      "description": "Light-emitting diode (LED) lamps",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "LED lighting, CET suspended",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "8541.40.00",
+      "description": "Photosensitive semiconductor devices (solar cells)",
+      "dutyPct": 0,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Solar panels, duty free",
+      "dutyRate": "Free + 12.5% VAT"
+    },
+    {
+      "code": "8544.42.00",
+      "description": "Electrical conductors <= 1000V, with connectors",
+      "dutyPct": 10,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Electrical cables",
+      "dutyRate": "10% + 12.5% VAT"
+    },
+    {
+      "code": "8702.10.00",
+      "description": "Motor vehicles for >= 10 persons (buses), diesel",
+      "dutyPct": 0,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Buses, plus Motor Vehicle Tax",
+      "dutyRate": "Free + 12.5% VAT"
+    },
+    {
+      "code": "8703.21.00",
+      "description": "Motor cars, spark-ignition, <= 1000cc",
+      "dutyPct": 30,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Small cars, plus MVT",
+      "dutyRate": "30% + 12.5% VAT"
+    },
+    {
+      "code": "8703.22.00",
+      "description": "Motor cars, spark-ignition, 1000-1500cc",
+      "dutyPct": 30,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Cars, plus MVT",
+      "dutyRate": "30% + 12.5% VAT"
+    },
+    {
+      "code": "8703.23.00",
+      "description": "Motor cars, spark-ignition, 1500-3000cc",
+      "dutyPct": 30,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Cars, plus MVT",
+      "dutyRate": "30% + 12.5% VAT"
+    },
+    {
+      "code": "8703.24.00",
+      "description": "Motor cars, spark-ignition, > 3000cc",
+      "dutyPct": 30,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Large cars, plus MVT",
+      "dutyRate": "30% + 12.5% VAT"
+    },
+    {
+      "code": "8703.31.00",
+      "description": "Motor cars, diesel, <= 1500cc",
+      "dutyPct": 30,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Diesel cars, plus MVT",
+      "dutyRate": "30% + 12.5% VAT"
+    },
+    {
+      "code": "8703.32.00",
+      "description": "Motor cars, diesel, 1500-2500cc",
+      "dutyPct": 30,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Diesel cars, plus MVT",
+      "dutyRate": "30% + 12.5% VAT"
+    },
+    {
+      "code": "8703.80.00",
+      "description": "Other motor vehicles \u2014 electric",
+      "dutyPct": 30,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Electric vehicles, plus MVT",
+      "dutyRate": "30% + 12.5% VAT"
+    },
+    {
+      "code": "8704.21.00",
+      "description": "Motor vehicles for transport of goods, diesel, <= 5t",
+      "dutyPct": 10,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Light trucks/vans",
+      "dutyRate": "10% + 12.5% VAT"
+    },
+    {
+      "code": "8704.22.00",
+      "description": "Motor vehicles for transport of goods, diesel, > 5t",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Heavy trucks",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "8708.10.00",
+      "description": "Bumpers and parts \u2014 motor vehicles",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Auto parts",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "8708.30.00",
+      "description": "Brakes and parts \u2014 motor vehicles",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Brake parts",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "8708.40.00",
+      "description": "Gear boxes \u2014 motor vehicles",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Transmission parts",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "8708.80.00",
+      "description": "Suspension components \u2014 motor vehicles",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Suspension parts",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "8708.91.00",
+      "description": "Radiators \u2014 motor vehicles",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Cooling system parts",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "8708.99.00",
+      "description": "Other parts for motor vehicles",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Auto parts n.e.s.",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "8711.20.00",
+      "description": "Motorcycles, 50-250cc",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Motorcycles",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "8903.92.00",
+      "description": "Motorboats, not outboard",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Recreational boats",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "9001.50.00",
+      "description": "Spectacle lenses",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Optical lenses",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "9004.10.00",
+      "description": "Sunglasses",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Eyewear",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "9018.31.00",
+      "description": "Syringes",
+      "dutyPct": 0,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Medical device, duty free, VAT exempt",
+      "dutyRate": "Free (duty + VAT exempt)"
+    },
+    {
+      "code": "9018.39.00",
+      "description": "Catheters and cannulae",
+      "dutyPct": 0,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Medical device, duty free, VAT exempt",
+      "dutyRate": "Free (duty + VAT exempt)"
+    },
+    {
+      "code": "9018.90.00",
+      "description": "Other medical instruments",
+      "dutyPct": 0,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Medical device, duty free, VAT exempt",
+      "dutyRate": "Free (duty + VAT exempt)"
+    },
+    {
+      "code": "9021.10.00",
+      "description": "Orthopaedic appliances",
+      "dutyPct": 0,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Medical device, duty free, VAT exempt",
+      "dutyRate": "Free (duty + VAT exempt)"
+    },
+    {
+      "code": "9021.40.00",
+      "description": "Hearing aids",
+      "dutyPct": 0,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Medical device, duty free, VAT exempt",
+      "dutyRate": "Free (duty + VAT exempt)"
+    },
+    {
+      "code": "9025.11.00",
+      "description": "Clinical thermometers",
+      "dutyPct": 0,
+      "vatPct": 0,
+      "surchargePct": 0,
+      "notes": "Medical device, duty free, VAT exempt",
+      "dutyRate": "Free (duty + VAT exempt)"
+    },
+    {
+      "code": "9027.80.00",
+      "description": "Chemical analysis instruments",
+      "dutyPct": 5,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Laboratory instruments",
+      "dutyRate": "5% + 12.5% VAT"
+    },
+    {
+      "code": "9401.30.00",
+      "description": "Swivel seats with variable height",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Office chairs",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "9401.61.00",
+      "description": "Upholstered seats \u2014 wood frame",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Upholstered furniture",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "9401.71.00",
+      "description": "Upholstered seats \u2014 metal frame",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Metal-frame seating",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "9401.80.00",
+      "description": "Other seats (plastic chairs)",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Plastic/outdoor furniture",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "9401.90.00",
+      "description": "Parts of seats",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Furniture parts",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "9403.10.00",
+      "description": "Metal office furniture",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Office desks/cabinets",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "9403.20.00",
+      "description": "Other metal furniture",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Metal furniture",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "9403.30.00",
+      "description": "Wooden office furniture",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Wooden desks",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "9403.40.00",
+      "description": "Wooden kitchen furniture",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Kitchen cabinets",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "9403.50.00",
+      "description": "Wooden bedroom furniture",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Bedroom sets",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "9403.60.00",
+      "description": "Other wooden furniture",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Wooden furniture n.e.s.",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "9404.21.00",
+      "description": "Mattresses \u2014 cellular rubber/plastics",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Foam mattresses",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "9404.29.00",
+      "description": "Mattresses \u2014 other materials",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Spring mattresses",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "9405.11.00",
+      "description": "Chandeliers and ceiling lights",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Light fixtures",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "9405.21.00",
+      "description": "Table lamps \u2014 LED",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "LED table lamps",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "9405.42.00",
+      "description": "Other electric lamps \u2014 LED",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "LED lighting fixtures",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "9503.00.00",
+      "description": "Toys (tricycles, puzzles, dolls)",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Children's toys",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "9506.62.00",
+      "description": "Inflatable balls",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Sporting goods",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "9608.10.00",
+      "description": "Ball point pens",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Stationery",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "9608.30.00",
+      "description": "Fountain pens",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Writing instruments",
+      "dutyRate": "20% + 12.5% VAT"
+    },
+    {
+      "code": "9619.00.00",
+      "description": "Sanitary towels, diapers",
+      "dutyPct": 20,
+      "vatPct": 12.5,
+      "surchargePct": 0,
+      "notes": "Hygiene products",
+      "dutyRate": "20% + 12.5% VAT"
+    }
+  ]
+}
