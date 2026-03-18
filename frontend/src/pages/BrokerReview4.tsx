@@ -608,6 +608,10 @@ function ReviewPanel({
   const [wsCalc, setWsCalc] = useState<any>(null);
   const [wsCalcLoading, setWsCalcLoading] = useState(false);
 
+  // Costing document state (must remain top-level to preserve hook order)
+  const [costingLoading, setCostingLoading] = useState(false);
+  const [costingDocId, setCostingDocId] = useState<string | null>(null);
+
   // Reset all local edits when the active declaration changes
   useEffect(() => {
     setEditHeader({});
@@ -619,6 +623,8 @@ function ReviewPanel({
     setHsSearchIdx(null);
     setTab("FIELDS");
     setWsCalc(null);
+    setCostingDocId(null);
+    setCostingLoading(false);
   }, [decl.id]);
 
   // Auto-calculate worksheet when tab opens and cif_local is missing
@@ -1028,10 +1034,6 @@ function ReviewPanel({
         )}
 
         {tab === "WORKSHEET" && (() => {
-          // Costing state local to this tab render
-          const [costingLoading, setCostingLoading] = React.useState(false);
-          const [costingDocId,   setCostingDocId]   = React.useState<string | null>(null);
-
           const handleCosting = async () => {
             setCostingLoading(true);
             try {
