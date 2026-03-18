@@ -11,7 +11,7 @@ import os
 import re
 import uuid
 from datetime import datetime
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import anthropic
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
@@ -289,14 +289,37 @@ def _fallback_extract(upload: UploadFile) -> Dict[str, Any]:
     return result
 
 
-def _build_items_from_extraction(ex: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _build_items_from_extraction(ex: Dict[str, Any]) -> Tuple[List[Dict[str, Any]], Dict[str, float]]:
     """
-    Build multiple declaration items from extraction results.
-    Uses the lineItems array if present, falls back to single item.
+    Build declaration commodity items from extraction results.
+    Splits out non-commodity charge lines (freight/insurance/fees) so they do not
+    become dutiable goods items.
+    Returns: (items, charges)
     """
     line_items = ex.get("lineItems") or []
     origin = ex.get("countryOfOrigin") or ""
     pkg_type = ex.get("packageType") or "BOX"
+
+    charges: Dict[str, float] = {
+        "freight_foreign": 0.0,
+        "insurance_foreign": 0.0,
+        "other_foreign": 0.0,
+        "deduction_foreign": 0.0,
+    }
+
+    def _classify_charge(desc: str) -> str | None:
+        d = (desc or "").strip().lower()
+        if not d:
+            return None
+        if any(k in d for k in ["freight", "shipping", "transport", "carriage", "courier"]):
+            return "freight_foreign"
+        if "insurance" in d:
+            return "insurance_foreign"
+        if any(k in d for k in ["discount", "rebate", "credit note", "allowance"]):
+            return "deduction_foreign"
+        if any(k in d for k in ["handling", "documentation", "admin fee", "service fee", "surcharge"]):
+            return "other_foreign"
+        return None
 
     # Fallback: no lineItems → single item from legacy fields
     if not line_items:
@@ -305,7 +328,7 @@ def _build_items_from_extraction(ex: Dict[str, Any]) -> List[Dict[str, Any]]:
             val = float(ex.get("invoiceValueForeign") or 0)
         except Exception:
             pass
-        return [{
+        return ([{
             "id": f"ITEM-{uuid.uuid4().hex[:6].upper()}",
             "description": ex.get("description") or "Extracted item",
             "hsCode": ex.get("hsCode") or "",
@@ -319,15 +342,22 @@ def _build_items_from_extraction(ex: Dict[str, Any]) -> List[Dict[str, Any]]:
             "dutyTaxBase": "",
             "cpc": "4000",
             "countryOfOrigin": origin,
-        }]
+        }], charges)
 
-    items = []
+    items: List[Dict[str, Any]] = []
     for i, li in enumerate(line_items):
         line_total = float(li.get("lineTotal") or li.get("unitPrice") or 0)
         qty = int(li.get("quantity") or 1)
+        desc = str(li.get("description") or f"Line item {i+1}")
+
+        charge_bucket = _classify_charge(desc)
+        if charge_bucket:
+            charges[charge_bucket] += line_total
+            continue
+
         items.append({
             "id": f"ITEM-{uuid.uuid4().hex[:6].upper()}",
-            "description": str(li.get("description") or f"Line item {i+1}"),
+            "description": desc,
             "hsCode": str(li.get("hsCode") or ""),
             "qty": qty,
             "packageType": pkg_type,
@@ -340,7 +370,28 @@ def _build_items_from_extraction(ex: Dict[str, Any]) -> List[Dict[str, Any]]:
             "cpc": "4000",
             "countryOfOrigin": li.get("countryOfOrigin") or origin,
         })
-    return items
+
+    # Guard: if everything was classified as charges, keep first line as commodity item
+    if not items and line_items:
+        li = line_items[0]
+        line_total = float(li.get("lineTotal") or li.get("unitPrice") or 0)
+        items.append({
+            "id": f"ITEM-{uuid.uuid4().hex[:6].upper()}",
+            "description": str(li.get("description") or "Extracted item"),
+            "hsCode": str(li.get("hsCode") or ""),
+            "qty": int(li.get("quantity") or 1),
+            "packageType": pkg_type,
+            "grossKg": 0,
+            "netKg": 0,
+            "itemValue": line_total,
+            "unitCode": "NMB",
+            "dutyTaxCode": "",
+            "dutyTaxBase": "",
+            "cpc": "4000",
+            "countryOfOrigin": li.get("countryOfOrigin") or origin,
+        })
+
+    return items, charges
 
 
 def _build_declaration_record(ex: Dict[str, Any], mode: str, filenames: List[str], now: str) -> Dict[str, Any]:
@@ -351,6 +402,17 @@ def _build_declaration_record(ex: Dict[str, Any], mode: str, filenames: List[str
         val = float(val)
     except Exception:
         val = 0.0
+
+    items, charges = _build_items_from_extraction(ex)
+
+    # If invoice total appears to include extracted freight/insurance/fees,
+    # derive goods/FOB by removing those charge lines to avoid double counting.
+    total_charges = float(charges.get("freight_foreign", 0) or 0) + float(charges.get("insurance_foreign", 0) or 0) + float(charges.get("other_foreign", 0) or 0)
+    goods_sum = sum(float(i.get("itemValue") or 0) for i in items)
+    invoice_value_foreign = val
+    if total_charges > 0 and val > 0:
+        if abs((goods_sum + total_charges) - val) <= 0.02 or abs(total_charges - (val - goods_sum)) <= 0.02:
+            invoice_value_foreign = max(0.0, val - total_charges)
 
     transport = "AIR"
     awb = ex.get("blAwbNumber") or ""
@@ -411,20 +473,20 @@ def _build_declaration_record(ex: Dict[str, Any], mode: str, filenames: List[str
             "countryOfOrigin": ex.get("countryOfOrigin") or "",
         },
         "worksheet": {
-            "invoice_value_foreign": val,
-            "fob_foreign": val,
+            "invoice_value_foreign": invoice_value_foreign,
+            "fob_foreign": invoice_value_foreign,
             "exchange_rate": 6.77,
-            "freight_foreign": 0,
-            "insurance_foreign": 0,
-            "other_foreign": 0,
-            "deduction_foreign": 0,
+            "freight_foreign": float(charges.get("freight_foreign", 0) or 0),
+            "insurance_foreign": float(charges.get("insurance_foreign", 0) or 0),
+            "other_foreign": float(charges.get("other_foreign", 0) or 0),
+            "deduction_foreign": float(charges.get("deduction_foreign", 0) or 0),
             "duty_rate_pct": 0,
             "surcharge_rate_pct": 0,
             "vat_rate_pct": 0,
             "extra_fees_local": 40,
             "global_fee": 40,
         },
-        "items": _build_items_from_extraction(ex),
+        "items": items,
         "containers": (
             [{"containerNumber": ex["containerNumber"], "sealNumber": ex.get("sealNumber") or ""}]
             if ex.get("containerNumber") else []
