@@ -52,6 +52,33 @@ def _normalize(text: str) -> str:
     return re.sub(r"[^a-z0-9\s]", "", text.lower()).strip()
 
 
+def _prepare_keywords(query: str) -> List[str]:
+    """Clean noisy commercial text into search-friendly keywords."""
+    text = _normalize(query)
+    tokens = [t for t in text.split() if len(t) >= 2]
+
+    # Drop high-noise tokens common in invoice descriptions/model strings
+    stop = {
+        "made", "usa", "with", "for", "and", "the", "power", "supply", "vendor", "po",
+        "model", "part", "no", "number", "new", "pack", "pkg", "pcs", "piece",
+        "citrlik", "pbp", "psp", "module", "io",
+    }
+    tokens = [t for t in tokens if t not in stop and not re.fullmatch(r"[a-z]*\d+[a-z\d]*", t)]
+
+    # Strong domain hinting for networking/electronics descriptions
+    if any(t in text for t in ["ethernet", "network", "router", "switch", "transmission", "data"]):
+        tokens.extend(["ethernet", "network", "transmission", "data"])
+
+    # De-duplicate while preserving order
+    seen = set()
+    out: List[str] = []
+    for t in tokens:
+        if t not in seen:
+            seen.add(t)
+            out.append(t)
+    return out
+
+
 def _expand_keywords(keywords: List[str]) -> List[str]:
     """Expand keywords with common customs/trade synonyms to improve recall."""
     SYNONYMS = {
@@ -76,6 +103,9 @@ def _expand_keywords(keywords: List[str]) -> List[str]:
         "pipe": ["tube", "piping"],
         "pipes": ["tube", "piping", "tubes"],
         "wire": ["cable", "conductor", "electrical"],
+        "ethernet": ["network", "transmission", "data", "communication"],
+        "network": ["ethernet", "transmission", "communication", "data"],
+        "module": ["apparatus", "machine", "device"],
         "battery": ["accumulator", "cell", "lithium"],
         "batteries": ["accumulator", "cell", "lithium"],
         "soap": ["detergent", "cleaning", "toilet"],
@@ -162,7 +192,7 @@ def search_local(query: str, limit: int = 5) -> List[Dict[str, Any]]:
             return matches[:limit]
 
     # Strategy 2: keyword search on description
-    keywords = [w for w in _normalize(query).split() if len(w) >= 2]
+    keywords = _prepare_keywords(query)
     if not keywords:
         return []
 
