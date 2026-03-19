@@ -148,6 +148,45 @@ def _is_pdf(upload: UploadFile) -> bool:
     return name.endswith(".pdf")
 
 
+def _safe_parse_extraction_json(raw_text: str) -> Dict[str, Any]:
+    """Parse Claude output robustly, recovering JSON object when wrapped in prose."""
+    t = (raw_text or "").strip()
+
+    # Direct parse
+    try:
+        parsed = json.loads(t)
+        if isinstance(parsed, dict):
+            return parsed
+    except Exception:
+        pass
+
+    # Remove markdown fences if present
+    if t.startswith("```"):
+        t2 = re.sub(r"^```[a-zA-Z]*\n?", "", t)
+        t2 = re.sub(r"\n?```$", "", t2).strip()
+        try:
+            parsed = json.loads(t2)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            pass
+        t = t2
+
+    # Extract first JSON object block in text
+    start = t.find("{")
+    end = t.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        candidate = t[start:end + 1]
+        try:
+            parsed = json.loads(candidate)
+            if isinstance(parsed, dict):
+                return parsed
+        except Exception:
+            pass
+
+    raise json.JSONDecodeError("Could not parse extraction JSON object", t, 0)
+
+
 async def _extract_with_claude(files: List[UploadFile]) -> Dict[str, Any]:
     """
     Send one or more documents to Claude API for extraction.
@@ -196,29 +235,36 @@ async def _extract_with_claude(files: List[UploadFile]) -> Dict[str, Any]:
         "text": "Extract all customs declaration fields from the document(s) above. Return the JSON object as instructed.",
     })
 
-    response = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=2048,
-        system=EXTRACTION_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": content}],
-    )
-
-    raw_text = response.content[0].text.strip()
-
-    # Strip markdown code fences if present
-    if raw_text.startswith("```"):
-        raw_text = re.sub(r"^```[a-z]*\n?", "", raw_text)
-        raw_text = re.sub(r"\n?```$", "", raw_text)
-
-    try:
-        return json.loads(raw_text)
-    except json.JSONDecodeError as exc:
-        logger.error(
-            "Claude returned unparseable JSON for extraction. "
-            "raw_text=%s error=%s",
-            raw_text[:500], str(exc),
+    # Try once, then a strict JSON retry if model returns prose.
+    for attempt in (1, 2):
+        response = client.messages.create(
+            model="claude-sonnet-4-6",
+            max_tokens=2048,
+            system=EXTRACTION_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": content}],
         )
-        raise
+
+        raw_text = response.content[0].text.strip()
+
+        try:
+            return _safe_parse_extraction_json(raw_text)
+        except json.JSONDecodeError as exc:
+            logger.error(
+                "Claude returned unparseable JSON for extraction (attempt %s). raw_text=%s error=%s",
+                attempt,
+                raw_text[:500],
+                str(exc),
+            )
+            if attempt == 1:
+                # Force strict response on retry
+                content.append({
+                    "type": "text",
+                    "text": "RETRY INSTRUCTION: Return ONLY a valid JSON object. No prose, no analysis, no markdown fences.",
+                })
+                continue
+            raise
+
+    raise ValueError("Extraction failed")
 
 
 def _fallback_extract(upload: UploadFile) -> Dict[str, Any]:
@@ -428,6 +474,21 @@ def _infer_transport_and_port(ex: Dict[str, Any]) -> tuple[str, str]:
     return mode_code, port_code
 
 
+def _is_extraction_usable(ex: Dict[str, Any]) -> bool:
+    """Minimum quality gate to avoid saving unusable fallback declarations."""
+    invoice_no = str(ex.get("invoiceNumber") or "").strip()
+    awb = str(ex.get("blAwbNumber") or "").strip()
+    consignee = str(ex.get("consigneeName") or "").strip()
+    val = 0.0
+    try:
+        val = float(ex.get("invoiceValueForeign") or 0)
+    except Exception:
+        val = 0.0
+
+    critical_hits = sum(bool(x) for x in [invoice_no, awb, consignee, val > 0])
+    return critical_hits >= 2
+
+
 def _build_declaration_record(ex: Dict[str, Any], mode: str, filenames: List[str], now: str) -> Dict[str, Any]:
     """Convert a Claude extraction dict into a full declaration record for storage."""
     dec_id = f"EXT-{uuid.uuid4().hex[:8].upper()}"
@@ -592,6 +653,12 @@ async def extract_documents(files: list[UploadFile] = File(...), mode: str = For
                     if not ex.get(k) and v:
                         ex[k] = v
 
+        if not _is_extraction_usable(ex):
+            raise HTTPException(
+                status_code=422,
+                detail="Extraction output was unusable (missing critical fields). Please retry extraction or upload clearer documents.",
+            )
+
         declarations_payload.append(_build_declaration_record(ex, mode, filenames, now))
     else:
         for f in files:
@@ -600,6 +667,11 @@ async def extract_documents(files: list[UploadFile] = File(...), mode: str = For
             except Exception as e:
                 logger.warning("Claude extraction failed for %s: %s", f.filename, str(e))
                 ex = _fallback_extract(f)
+            if not _is_extraction_usable(ex):
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Extraction output for {f.filename or 'document'} was unusable (missing critical fields).",
+                )
             declarations_payload.append(
                 _build_declaration_record(ex, mode, [f.filename or "document"], now)
             )
