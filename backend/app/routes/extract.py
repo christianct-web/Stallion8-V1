@@ -394,6 +394,41 @@ def _build_items_from_extraction(ex: Dict[str, Any]) -> Tuple[List[Dict[str, Any
     return items, charges
 
 
+def _norm_name(s: str) -> str:
+    s = (s or "").upper()
+    s = re.sub(r"[^A-Z0-9 ]+", " ", s)
+    for token in [" LIMITED", " LTD", " COMPANY", " CO", " INC", " LLC", " TRINIDAD", " TOBAGO"]:
+        s = s.replace(token, "")
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def _normalize_hs(hs: str) -> str:
+    raw = re.sub(r"\D", "", str(hs or ""))
+    if len(raw) >= 8:
+        return raw[:8]
+    return raw
+
+
+def _infer_transport_and_port(ex: Dict[str, Any]) -> tuple[str, str]:
+    awb = str(ex.get("blAwbNumber") or "")
+    vessel = str(ex.get("vesselOrFlight") or "")
+    port_text = str(ex.get("portOfDischarge") or ex.get("portOfLoading") or "").upper()
+
+    # SAD-style mode codes: 4 = air, 1 = sea
+    mode_code = "4"
+    if any(k in port_text for k in ["PIARCO", "TTPIA", "AIR"]):
+        mode_code = "4"
+    elif any(k in port_text for k in ["PORT OF SPAIN", "TTPTS", "SEA"]):
+        mode_code = "1"
+    elif vessel and not any(ch.isdigit() for ch in vessel[:3]):
+        mode_code = "1"
+    elif awb and awb[:3].isdigit():
+        mode_code = "4"
+
+    port_code = "TTPIA" if mode_code == "4" else "TTPTS"
+    return mode_code, port_code
+
+
 def _build_declaration_record(ex: Dict[str, Any], mode: str, filenames: List[str], now: str) -> Dict[str, Any]:
     """Convert a Claude extraction dict into a full declaration record for storage."""
     dec_id = f"EXT-{uuid.uuid4().hex[:8].upper()}"
@@ -414,31 +449,40 @@ def _build_declaration_record(ex: Dict[str, Any], mode: str, filenames: List[str
         if abs((goods_sum + total_charges) - val) <= 0.02 or abs(total_charges - (val - goods_sum)) <= 0.02:
             invoice_value_foreign = max(0.0, val - total_charges)
 
-    transport = "AIR"
+    mode_code, port_code = _infer_transport_and_port(ex)
     awb = ex.get("blAwbNumber") or ""
-    if any(c.isalpha() for c in awb[:2]):
-        transport = "AIR"
     vessel = ex.get("vesselOrFlight") or ""
-    if vessel and not any(ch.isdigit() for ch in vessel[:3]):
-        transport = "SEA"
 
     dec_type = (ex.get("declarationType") or "import").lower()
     customs_regime = "E1" if dec_type == "export" else "IM4"
 
     client_id = ""
     consignee_name = ex.get("consigneeName") or ""
+    matched_client: Dict[str, Any] | None = None
     if consignee_name:
         try:
             clients = load_clients()
-            match = next(
-                (c for c in clients if c.get("name", "").lower() in consignee_name.lower()
-                 or consignee_name.lower() in c.get("name", "").lower()),
-                None,
-            )
-            if match:
-                client_id = match.get("id", "")
+            target = _norm_name(consignee_name)
+            def score(c: Dict[str, Any]) -> int:
+                n = _norm_name(c.get("name", ""))
+                if not n:
+                    return 0
+                if n == target:
+                    return 100
+                if n in target or target in n:
+                    return 80
+                return 0
+            ranked = sorted(((score(c), c) for c in clients), key=lambda x: x[0], reverse=True)
+            if ranked and ranked[0][0] >= 80:
+                matched_client = ranked[0][1]
+                client_id = matched_client.get("id", "")
         except Exception:
             pass
+
+    # Normalize extracted item HS codes to SAD-friendly 8-digit numeric format when present
+    for it in items:
+        if it.get("hsCode"):
+            it["hsCode"] = _normalize_hs(it.get("hsCode"))
 
     return {
         "id": dec_id,
@@ -453,15 +497,17 @@ def _build_declaration_record(ex: Dict[str, Any], mode: str, filenames: List[str
         "client_id": client_id,
         "header": {
             "declarationRef": dec_id,
-            "port": "TTPTS",
+            "port": port_code,
             "term": "CIF",
-            "modeOfTransport": transport,
+            "termsCode": ex.get("termsCode") or "CFR",
+            "modeOfTransport": mode_code,
             "customsRegime": customs_regime,
             "consignorName": ex.get("consignorName") or "",
             "consignorAddress": ex.get("consignorAddress") or "",
-            "consigneeCode": "",
+            "consigneeCode": (matched_client or {}).get("consigneeCode", "") or "",
             "consigneeName": consignee_name,
-            "consigneeAddress": ex.get("consigneeAddress") or "",
+            "consigneeAddress": ex.get("consigneeAddress") or (matched_client or {}).get("address", "") or "",
+            "declarantTIN": (matched_client or {}).get("tin", "") or "",
             "vesselName": vessel,
             "rotationNumber": ex.get("rotationNumber") or "",
             "blAwbNumber": awb,
