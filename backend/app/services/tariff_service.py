@@ -165,6 +165,32 @@ def _score_match(entry: Dict[str, Any], keywords: List[str]) -> float:
     return score
 
 
+def _domain_rerank(results: List[Dict[str, Any]], query: str) -> List[Dict[str, Any]]:
+    """Apply domain-specific reranking for common customs search intents."""
+    q = _normalize(query)
+    net_hint = any(t in q for t in ["ethernet", "network", "router", "switch", "data", "communication"])
+    if not net_hint:
+        return results
+
+    def score(e: Dict[str, Any]) -> float:
+        code = str(e.get("code", ""))
+        d = _normalize(e.get("description", ""))
+        s = 0.0
+        # Strong preference for telecom/networking family
+        if code.startswith("8517"):
+            s += 50
+        if code.startswith("8544"):
+            s += 18  # cables/connectors often relevant secondaries
+        if any(k in d for k in ["data", "network", "communication", "transmission apparatus", "reception"]):
+            s += 20
+        # Penalize false-positive "transmission" in unrelated industrial domains
+        if any(k in d for k in ["hydraulic", "brake", "conveyor", "elevator", "fluid"]):
+            s -= 35
+        return s
+
+    return sorted(results, key=score, reverse=True)
+
+
 def search_local(query: str, limit: int = 5) -> List[Dict[str, Any]]:
     """
     Search the local tariff database.
@@ -205,7 +231,9 @@ def search_local(query: str, limit: int = 5) -> List[Dict[str, Any]]:
             scored.append((s, e))
 
     scored.sort(key=lambda x: x[0], reverse=True)
-    return [e for _, e in scored[:limit]]
+    ranked = [e for _, e in scored[: max(limit * 3, limit)]]
+    ranked = _domain_rerank(ranked, query)
+    return ranked[:limit]
 
 
 def search_hybrid(
@@ -220,7 +248,13 @@ def search_hybrid(
     """
     local_results = search_local(query, limit=limit)
 
-    if len(local_results) >= min_local_results:
+    qn = _normalize(query)
+    net_hint = any(t in qn for t in ["ethernet", "network", "router", "switch", "module", "communication", "data"])
+    has_network_family = any(str(r.get("code", "")).startswith(("8517", "8544")) for r in local_results)
+
+    # For networking/electronics queries, force Claude assist when local top hits
+    # are not in expected families (avoids false positives like hydraulic transmission).
+    if len(local_results) >= min_local_results and (not net_hint or has_network_family):
         return local_results[:limit], "local"
 
     # Insufficient local results — try Claude API
@@ -228,7 +262,18 @@ def search_hybrid(
         claude_results = _search_claude(query, limit=limit)
         if not local_results:
             return claude_results, "claude"
-        # Merge: local results first (more reliable rates), then Claude
+        # Merge strategy:
+        # - For networking hint with weak local families, prefer Claude ordering first.
+        # - Otherwise keep local-first ordering.
+        if net_hint and not has_network_family:
+            seen_codes = {r["code"] for r in claude_results}
+            merged = list(claude_results)
+            for lr in local_results:
+                if lr["code"] not in seen_codes:
+                    merged.append(lr)
+                    seen_codes.add(lr["code"])
+            return merged[:limit], "hybrid"
+
         seen_codes = {r["code"] for r in local_results}
         merged = list(local_results)
         for cr in claude_results:
