@@ -166,14 +166,26 @@ def _to_contract_items(workbench_items: List[Dict[str, Any]]) -> List[Dict[str, 
         bl_digits = "".join(filter(str.isdigit, str(it.get("blAwbNumber", ""))))
         previous_doc = int(bl_digits) if bl_digits else 0
 
+        # FIX #4: Separate physical packages from statistical unit quantity.
+        # packages_number_of_packages = physical packages (Box 31: "1 PK")
+        # statistical_unit_qty         = commodity quantity (Box 41: "NMB 12.000")
+        #
+        # "qty" is the commodity quantity (e.g. 12 Ethernet modules).
+        # "packageCount" is the physical package count (e.g. 1 box).
+        # If packageCount is not set, default to 1 (one package per item line).
+        stat_qty = int(float(it.get("qty", 0) or 0))
+        pkg_count = int(float(it.get("packageCount") or 0))
+        if pkg_count <= 0:
+            pkg_count = 1  # default: at least one physical package per item
+
         row: Dict[str, Any] = {
             "tarification_hscode_commodity_code": int(hs_digits),
             "goods_description_commercial_description": str(it.get("description") or "").strip(),
             "goods_description_country_of_origin_code": str(it.get("countryOfOrigin", "US")).strip().upper(),
             "packages_kind_of_packages_code": str(it.get("packageType", "CT")).upper(),
             "packages_kind_of_packages_name": str(it.get("packageTypeName", "Carton")),
-            # FIX #3: package counts must be integers, not floats (no "1394.0")
-            "packages_number_of_packages": int(float(it.get("qty", 0) or 0)),
+            # Physical package count (Box 31) — NOT the commodity quantity
+            "packages_number_of_packages": pkg_count,
             "packages_marks1_of_packages": str(it.get("marks1", "AS ADDRESSED")).strip(),
             "packages_marks2_of_packages": str(it.get("marks2", "")).strip(),
             "valuation_item_weight_itm_gross_weight_itm": float(it.get("grossKg", 0) or 0),
@@ -181,8 +193,6 @@ def _to_contract_items(workbench_items: List[Dict[str, Any]]) -> List[Dict[str, 
             "valuation_item_total_cif_itm": float(it.get("itemValue", 0) or 0),
             "previous_doc_summary_declaration": previous_doc,
             "tarification_extended_customs_procedure": int(it.get("extendedCustomsProcedure", 4000) or 4000),
-            # FIX #3: national_customs_procedure must emit as "000" (zero-padded string)
-            # Store as int in contract, format in postprocess
             "tarification_national_customs_procedure": int(it.get("nationalCustomsProcedure", 0) or 0),
             "tarification_quota_code": str(it.get("quotaCode", "NEW")).strip(),
             "valuation_item_rate_of_adjustment": int(it.get("rateOfAdjustment", 1) or 1),
@@ -191,6 +201,9 @@ def _to_contract_items(workbench_items: List[Dict[str, Any]]) -> List[Dict[str, 
             "valuation_item_item_invoice_amount_national_currency": float(it.get("itemValueLocal", 0) or 0),
             "valuation_item_item_invoice_currency_code": str(it.get("currency", "USD")).upper(),
             "valuation_item_item_invoice_currency_rate": float(it.get("exchangeRate", 1.0) or 1.0),
+            # Statistical unit quantity (Box 41) — the commodity count
+            "supplementary_unit_code": str(it.get("unitCode", "NMB")).upper(),
+            "supplementary_unit_quantity": float(stat_qty) if stat_qty > 0 else 0.0,
         }
         out.append(row)
     return out
@@ -645,6 +658,13 @@ def _fix_item_valuation_blocks(item_elem: ET.Element, declaration: Dict[str, Any
 
         for su in tarification.findall("Supplementary_unit"):
             _ensure_text(su, "Suppplementary_unit_quantity", "0.000")
+
+        # FIX #4: Ensure Supplementary_unit block exists with correct unit code and quantity.
+        # This maps to SAD Box 41 (Statistical Units: e.g. "NMB 12.000").
+        if not tarification.findall("Supplementary_unit"):
+            su = ET.SubElement(tarification, "Supplementary_unit")
+            ET.SubElement(su, "Suppplementary_unit_code")
+            ET.SubElement(su, "Suppplementary_unit_quantity").text = "0.000"
 
 
 def _fix_taxation_stubs(item_elem: ET.Element) -> None:

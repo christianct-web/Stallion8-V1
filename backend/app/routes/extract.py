@@ -69,22 +69,24 @@ Return ONLY a valid JSON object with these fields (use null for fields not found
 {
   "consigneeName": "string — the importer / ship-to party in Trinidad",
   "consigneeAddress": "string — consignee full address",
-  "consignorName": "string — the exporter / shipper",
-  "consignorAddress": "string — consignor full address",
+  "consignorName": "string — the exporter / shipper (prefer the company name from the invoice letterhead over any individual shipper name on the AWB)",
+  "consignorAddress": "string — consignor full address (prefer invoice address over AWB address)",
   "countryOfOrigin": "string — 2-letter ISO country code of origin",
   "invoiceNumber": "string",
   "invoiceDate": "string — ISO date YYYY-MM-DD",
-  "invoiceValueForeign": number — the total EXW/FOB value of the entire invoice (not CIF), numeric only,
+  "invoiceValueForeign": number — the total EXW/FOB goods value of the entire invoice (not CIF, not including freight/insurance), numeric only,
   "currency": "string — 3-letter ISO currency code, default USD",
+  "deliveryTerms": "string — the Incoterm from the invoice (e.g. CIF, CFR, FOB, EXW, FCA, DDP). Look for 'Terms', 'Incoterms', 'Delivery Terms', 'Terms of Sale'. Default null if not found.",
+  "freightCharges": number or null — freight/shipping/carriage charges in invoice currency. Look on BOTH the invoice AND any air waybill for: 'Freight Charges', 'Freight', 'Carriage', 'Shipping charges', or handwritten freight amounts. On FedEx/DHL AWBs look for 'charges are' or 'PREPAID' amounts. This is separate from the goods value.,
   "blAwbNumber": "string — air waybill or bill of lading number",
-  "shippedOnBoardDate": "string — ISO date YYYY-MM-DD, look for 'Laden on Board', 'Shipped on Board', 'Flight Date'",
+  "shippedOnBoardDate": "string — ISO date YYYY-MM-DD, look for 'Laden on Board', 'Shipped on Board', 'Flight Date', 'Ship Date'",
   "shippedOnBoardLabel": "string — exact label used in document for this date",
-  "vesselOrFlight": "string — vessel name or flight number",
-  "rotationNumber": "string — Port Authority rotation number assigned when vessel arrives at port (e.g. R2024/001234). Look for 'Rotation No', 'Rot. No', 'Rotation Number'. Null if not found or if air freight.",
+  "vesselOrFlight": "string — vessel name or flight number. For air shipments: prefer the carrier/aircraft NAME (e.g. 'MOUNTAIN AIR') over the tail/registration number (e.g. 'N800FX'). If only a tail number is available, return it but add a note.",
+  "rotationNumber": "string — Port Authority rotation number (e.g. TTABL 2026-21). Look for 'Rotation No', 'Rotation NO #'. Found on delivery receipts and agent advice notes. Null if not found.",
   "portOfLoading": "string",
   "portOfDischarge": "string — typically Port of Spain (TTPTS) or Piarco (TTPIA)",
-  "packageCount": number or null,
-  "packageType": "string — e.g. CTN, BOX, PKG",
+  "packageCount": number or null — PHYSICAL package count (boxes, cartons, pallets). NOT the commodity quantity. Usually 'No. of Packages', 'Pieces', 'Total Packages'.,
+  "packageType": "string — e.g. PK, CTN, BOX, PKG",
   "grossWeightKg": number or null,
   "netWeightKg": number or null,
   "containerNumber": "string — shipping container number (e.g. MSCU1234567) from packing list or BL, else null",
@@ -98,18 +100,18 @@ Return ONLY a valid JSON object with these fields (use null for fields not found
       "country": "string — country of issue (2-letter ISO code if possible)"
     }
   ],
-  "declarationType": "string — 'import' if goods are being imported into T&T, 'export' if goods are being exported from T&T. Look for document type, shipper/consignee direction, or explicit labels. Default 'import' if unclear.",
+  "declarationType": "string — 'import' if goods are being imported into T&T, 'export' if goods are being exported from T&T. Default 'import' if unclear.",
   "lineItems": [
     {
       "description": "string — specific product description for this line item",
-      "hsCode": "string — HS tariff code in format XXXX.XX.XX or XXXX.XX.XX.XX if printed on document, else null",
-      "quantity": number or null,
+      "hsCode": "string — HS tariff code if printed on document, else null",
+      "quantity": number — the COMMODITY quantity (e.g. 12 modules, 500 sheets). This is the statistical unit count, NOT the package count.,
       "unitPrice": number or null — price per unit in invoice currency,
       "lineTotal": number — total value for this line item in invoice currency,
       "countryOfOrigin": "string — 2-letter ISO code if different per item, else null"
     }
   ],
-  "confidence": number — between 0.0 and 1.0 reflecting how complete and certain the extraction is,
+  "confidence": number — between 0.0 and 1.0,
   "notes": ["array of strings — flag any fields that are missing, ambiguous, or need broker attention"]
 }
 
@@ -120,20 +122,17 @@ Rules:
   If the invoice has only one product, return an array with one item. If it has 15 products, return 15 items.
   The sum of all lineItem.lineTotal values should approximately equal invoiceValueForeign.
   If no line-item breakdown is visible, return a single item with the full description and invoiceValueForeign as lineTotal.
+  IMPORTANT: Do NOT include freight, shipping charges, insurance, handling fees, or discounts as line items. Those go in freightCharges or are excluded.
+- For lineItems.quantity: this is the COMMODITY quantity (number of articles/units), not the number of packages. E.g., "12 modules" → quantity: 12. "500 sheets" → quantity: 500.
+- For packageCount: this is the PHYSICAL package count — how many boxes/cartons/pallets. E.g., "1 PKG" → packageCount: 1. This is different from lineItems.quantity.
+- For freightCharges: extract from whichever document shows the freight — could be on the invoice as a separate line, or on the AWB as 'charges are X.XX' or 'FREIGHT CHARGES'. On courier AWBs (FedEx, DHL), look for handwritten or stamped freight amounts, 'PREPAID' amounts, or 'CARRIAGE VALUE' vs 'CUSTOMS VALUE' differences.
+- For deliveryTerms: look for standard Incoterms (CIF, CFR, FOB, EXW, FCA, CPT, CIP, DDP, DAP). Often near the payment terms or at the bottom of the invoice.
+- For vesselOrFlight: if the document shows an aircraft tail/registration number (e.g. N800FX, VP-xxx) but not the carrier name, return the tail number AND add a note: "Vessel appears to be an aircraft registration number — broker should verify carrier name."
 - For hsCode: only return if clearly printed on the document. Do not guess.
-- For certificates: extract every certificate present. A Caricom certificate of origin has type CARICOM. A health or veterinary certificate has type HEALTH. A free-sale certificate has type FREE_SALE. A phytosanitary certificate has type PHYTO.
-- For containerNumber: format is typically 4 uppercase letters + 7 digits (e.g. MSCU1234567, TGHU4591234). Look on packing list, BL, or delivery order. The check digit (last digit) is part of the number.
-- For sealNumber: appears near containerNumber on packing list or BL as 'Seal No.', 'Seal #', or 'Seal'. Can be alphanumeric (e.g. TT12345, BOLT123456).
-- For packageCount: look for total cartons, cases, packages, pieces — NOT individual item quantities. Usually labelled 'Total Packages', 'No. of Packages', or 'Total Cartons'.
-- For grossWeightKg: total gross weight of shipment in kg. Convert from lbs if needed (1 lb = 0.4536 kg). Label: 'Gross Weight', 'Total Gross Weight'.
-- For netWeightKg: total net weight in kg. Label: 'Net Weight', 'Total Net Weight'.
-- For confidence: 0.90+ means all critical fields found clearly. 0.70-0.89 means some fields missing.
-  Below 0.70 means significant gaps.
+- For grossWeightKg: total gross weight of shipment in kg. Convert from lbs if needed (1 lb = 0.4536 kg).
+- For confidence: 0.90+ means all critical fields found clearly. 0.70-0.89 means some fields missing. Below 0.70 means significant gaps.
 - Critical fields (required for TT customs): consigneeName, invoiceValueForeign, currency, invoiceNumber.
-- Add a note if a packing list is present but containerNumber or sealNumber could not be found.
-- Add a note if gross weight could not be determined from the document.
-- For rotationNumber: only extract if explicitly stated on the document. Do not guess. This is assigned by the T&T Port Authority and appears on Port Authority documents, manifests, or agent instructions.
-- For declarationType: 'export' if the T&T party is the shipper/exporter and foreign party is the consignee. 'import' if the T&T party is the consignee/importer.
+- For rotationNumber: only extract if explicitly stated on the document. Do not guess.
 - Return ONLY the JSON object, no markdown, no explanation."""
 
 
@@ -484,6 +483,35 @@ def _build_declaration_record(ex: Dict[str, Any], mode: str, filenames: List[str
         if it.get("hsCode"):
             it["hsCode"] = _normalize_hs(it.get("hsCode"))
 
+    # FIX #2: Merge top-level freightCharges from AWB/invoice into worksheet charges.
+    # The extraction prompt now asks for freightCharges as a dedicated field
+    # (separate from lineItems), so freight from AWBs gets captured correctly.
+    awb_freight = float(ex.get("freightCharges") or 0)
+    if awb_freight > 0 and charges.get("freight_foreign", 0) == 0:
+        charges["freight_foreign"] = awb_freight
+
+    # FIX #5: Extract delivery terms (Incoterm) from the invoice.
+    # Maps to SAD Box 20 and determines how CIF is calculated.
+    delivery_terms = (ex.get("deliveryTerms") or "").strip().upper()
+    # Map common Incoterms to the ASYCUDA term code
+    TERM_MAP = {
+        "CIF": "CIF", "CFR": "CFR", "C&F": "CFR", "CNF": "CFR",
+        "FOB": "FOB", "EXW": "EXW", "FCA": "FCA", "FAS": "FAS",
+        "CPT": "CPT", "CIP": "CIP", "DDP": "DDP", "DAP": "DAP",
+    }
+    term_code = TERM_MAP.get(delivery_terms, "CIF")
+
+    # FIX #4: Set packageCount on each item (physical packages, not commodity qty).
+    # This ensures _to_contract_items maps packages correctly to Box 31.
+    total_pkg = int(ex.get("packageCount") or 1)
+    if len(items) == 1:
+        items[0]["packageCount"] = total_pkg
+    else:
+        # Distribute packages: first item gets the count, rest get 0
+        # (broker can adjust in the workbench)
+        for idx, it in enumerate(items):
+            it["packageCount"] = total_pkg if idx == 0 else 0
+
     return {
         "id": dec_id,
         "reference_number": dec_id,
@@ -498,8 +526,7 @@ def _build_declaration_record(ex: Dict[str, Any], mode: str, filenames: List[str
         "header": {
             "declarationRef": dec_id,
             "port": port_code,
-            "term": "CIF",
-            "termsCode": ex.get("termsCode") or "CFR",
+            "term": term_code,
             "modeOfTransport": mode_code,
             "customsRegime": customs_regime,
             "consignorName": ex.get("consignorName") or "",
@@ -617,5 +644,13 @@ async def hs_search(req: Dict[str, Any]):
     except Exception as exc:
         logger.error("HS search failed: %s", str(exc))
         raise HTTPException(status_code=502, detail=f"HS search failed: {exc}")
+
+    # FIX #6: Add sadDescription — the tariff heading description formatted for SAD Box 31.
+    # Brokers combine the tariff heading description with the commercial description:
+    # e.g. "MACHINES FOR THE RECEPTION, CONVERSION AND TRANSMISSION OF — ETHERNET I/O MODULE"
+    # The frontend can use this to auto-prepend when the broker selects an HS result.
+    for r in results:
+        tariff_desc = (r.get("description") or "").strip().upper()
+        r["sadDescription"] = tariff_desc
 
     return {"query": query, "results": results, "source": source}
