@@ -886,7 +886,7 @@ function ReviewPanel({
                 onClick={() => setLocalItems(prev => [...prev, {
                   id: `ITEM-${Math.random().toString(36).slice(2, 8).toUpperCase()}`,
                   description: "", hsCode: "", countryOfOrigin: "",
-                  qty: 1, unitCode: "NMB", packageType: "CTN",
+                  packageCount: 1, packageType: "CTN", qty: 1, unitCode: "NMB",
                   grossKg: 0, netKg: 0, itemValue: 0, cpc: "4000", dutyTaxCode: "",
                 }])}
                 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, padding: "4px 12px", background: C.approved, border: "none", borderRadius: 3, color: "#fff", cursor: "pointer" }}
@@ -985,19 +985,28 @@ function ReviewPanel({
                     />
                   )}
                   <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "5px 0", borderBottom: `1px solid ${C.paperBorder}` }}>
-                    <div style={{ width: 120, flexShrink: 0, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.inkLight, letterSpacing: "0.06em" }}>QTY / PKG</div>
+                    <div style={{ width: 120, flexShrink: 0, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, color: C.inkLight, letterSpacing: "0.06em" }}>PKGS / QTY / UNIT</div>
                     <input
                       type="number"
-                      value={item.qty ?? ""}
-                      onChange={e => setItemField(i, "qty", parseFloat(e.target.value) || 0)}
+                      value={item.packageCount ?? ""}
+                      onChange={e => setItemField(i, "packageCount", parseFloat(e.target.value) || 0)}
                       placeholder="1"
-                      style={{ width: 80, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: C.ink, background: "transparent", border: `1px solid ${C.paperBorder}`, borderRadius: 3, padding: "3px 8px" }}
+                      title="Physical packages (SAD Box 31)"
+                      style={{ width: 70, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: C.ink, background: "transparent", border: `1px solid ${C.paperBorder}`, borderRadius: 3, padding: "3px 8px" }}
                     />
                     <input
                       value={item.packageType ?? ""}
                       onChange={e => setItemField(i, "packageType", e.target.value)}
-                      placeholder="CTN"
+                      placeholder="PKG"
                       style={{ width: 70, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: C.ink, background: "transparent", border: `1px solid ${C.paperBorder}`, borderRadius: 3, padding: "3px 8px" }}
+                    />
+                    <input
+                      type="number"
+                      value={item.qty ?? ""}
+                      onChange={e => setItemField(i, "qty", parseFloat(e.target.value) || 0)}
+                      placeholder="12"
+                      title="Commodity statistical quantity (SAD Box 41)"
+                      style={{ width: 80, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, color: C.ink, background: "transparent", border: `1px solid ${C.paperBorder}`, borderRadius: 3, padding: "3px 8px" }}
                     />
                     <input
                       value={item.unitCode ?? ""}
