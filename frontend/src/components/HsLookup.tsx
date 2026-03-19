@@ -11,6 +11,7 @@ interface HsLookupProps {
 
 export function HsLookup({ defaultQuery = "", onSelect, onClose, theme = "paper" }: HsLookupProps) {
   const [query,   setQuery]   = useState(defaultQuery);
+  const [lastSearchQuery, setLastSearchQuery] = useState<string>("");
   const [results, setResults] = useState<HsResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState<string | null>(null);
@@ -58,10 +59,35 @@ export function HsLookup({ defaultQuery = "", onSelect, onClose, theme = "paper"
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function cleanSearchQuery(raw: string): string {
+    const lowered = raw.toLowerCase();
+    const compact = lowered
+      .replace(/[()\[\]{}]/g, " ")
+      .replace(/[—–-]/g, " ")
+      .replace(/\b(power|supply|vendor|model|part|number|made|usa|po)\b/g, " ")
+      .replace(/\b[a-z]*\d+[a-z\d]*\b/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    const keep = compact.split(" ").filter(Boolean).filter(tok => tok.length >= 3);
+
+    // prefer concise domain terms for tariff lookup
+    const preferred = keep.filter(tok => [
+      "ethernet", "network", "transmission", "communication", "apparatus",
+      "module", "switch", "router", "cable", "machine", "electrical", "electronic",
+    ].includes(tok));
+
+    const finalTokens = preferred.length ? preferred : keep;
+    const cleaned = finalTokens.slice(0, 6).join(" ").trim();
+    return cleaned || raw.trim();
+  }
+
   function runSearch(q: string) {
+    const cleaned = cleanSearchQuery(q);
+    setLastSearchQuery(cleaned);
     setLoading(true);
     setError(null);
-    hsSearch(q)
+    hsSearch(cleaned)
       .then(r => { setResults(r); setLoading(false); })
       .catch(e => { setError(e.message ?? "Search failed"); setLoading(false); });
   }
@@ -144,6 +170,17 @@ export function HsLookup({ defaultQuery = "", onSelect, onClose, theme = "paper"
           {loading ? "…" : "Search"}
         </button>
       </div>
+
+      {lastSearchQuery && lastSearchQuery.toLowerCase() !== query.trim().toLowerCase() && (
+        <div style={{
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 10,
+          color: colors.textDim,
+          marginBottom: 8,
+        }}>
+          Search query used: <span style={{ color: colors.textLight }}>{lastSearchQuery}</span>
+        </div>
+      )}
 
       {/* Status / results */}
       {loading && (
