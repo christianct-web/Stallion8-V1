@@ -196,14 +196,13 @@ def _to_contract_items(workbench_items: List[Dict[str, Any]]) -> List[Dict[str, 
             "tarification_national_customs_procedure": int(it.get("nationalCustomsProcedure", 0) or 0),
             "tarification_quota_code": str(it.get("quotaCode", "NEW")).strip(),
             "valuation_item_rate_of_adjustment": int(it.get("rateOfAdjustment", 1) or 1),
-            "valuation_item_statistical_value": float(it.get("statisticalValue", 0) or 0),
+            # Reuse statistical_value as carrier for Box 41 quantity; avoids schema rejection
+            # from custom supplementary_* properties while keeping data available for XML postprocess.
+            "valuation_item_statistical_value": float(stat_qty) if stat_qty > 0 else float(it.get("statisticalValue", 0) or 0),
             "valuation_item_item_invoice_amount_foreign_currency": float(it.get("itemValue", 0) or 0),
             "valuation_item_item_invoice_amount_national_currency": float(it.get("itemValueLocal", 0) or 0),
             "valuation_item_item_invoice_currency_code": str(it.get("currency", "USD")).upper(),
             "valuation_item_item_invoice_currency_rate": float(it.get("exchangeRate", 1.0) or 1.0),
-            # Statistical unit quantity (Box 41) — the commodity count
-            "supplementary_unit_code": str(it.get("unitCode", "NMB")).upper(),
-            "supplementary_unit_quantity": float(stat_qty) if stat_qty > 0 else 0.0,
         }
         out.append(row)
     return out
@@ -659,12 +658,46 @@ def _fix_item_valuation_blocks(item_elem: ET.Element, declaration: Dict[str, Any
         for su in tarification.findall("Supplementary_unit"):
             _ensure_text(su, "Suppplementary_unit_quantity", "0.000")
 
-        # FIX #4: Ensure Supplementary_unit block exists with correct unit code and quantity.
-        # This maps to SAD Box 41 (Statistical Units: e.g. "NMB 12.000").
-        if not tarification.findall("Supplementary_unit"):
-            su = ET.SubElement(tarification, "Supplementary_unit")
-            ET.SubElement(su, "Suppplementary_unit_code")
-            ET.SubElement(su, "Suppplementary_unit_quantity").text = "0.000"
+
+def _fix_supplementary_unit(item_elem: ET.Element, contract_item: Dict[str, Any]) -> None:
+    """
+    FIX #4: Populate Supplementary_unit with the actual statistical unit
+    quantity and code from the declaration data.
+
+    Maps to SAD Box 41 (Statistical Units: e.g. "NMB 12.000").
+    The ACE emitter may not know about these custom fields, so the
+    postprocessor injects them directly into the XML.
+    """
+    tarification = item_elem.find("Tarification")
+    if tarification is None:
+        return
+
+    # supplementary_* custom fields may be stripped by schema validation.
+    # Fall back to statistical value carrier and default unit code.
+    unit_code = str(contract_item.get("supplementary_unit_code") or contract_item.get("unitCode") or "NMB").strip().upper()
+    unit_qty = float(
+        contract_item.get("supplementary_unit_quantity")
+        or contract_item.get("valuation_item_statistical_value")
+        or 0
+    )
+
+    # Find or create the Supplementary_unit block
+    su = tarification.find("Supplementary_unit")
+    if su is None:
+        su = ET.SubElement(tarification, "Supplementary_unit")
+
+    # Set code — note the ASYCUDA typo "Suppplementary" (3 p's) is intentional
+    code_elem = su.find("Suppplementary_unit_code")
+    if code_elem is None:
+        code_elem = ET.SubElement(su, "Suppplementary_unit_code")
+    if unit_code:
+        code_elem.text = unit_code
+
+    # Set quantity
+    qty_elem = su.find("Suppplementary_unit_quantity")
+    if qty_elem is None:
+        qty_elem = ET.SubElement(su, "Suppplementary_unit_quantity")
+    qty_elem.text = f"{unit_qty:.3f}"
 
 
 def _fix_taxation_stubs(item_elem: ET.Element) -> None:
@@ -964,7 +997,9 @@ def _postprocess_xml(xml: str, declaration: Dict[str, Any]) -> str:
     _fix_global_valuation_blocks(root)
 
     # ── Per-item fixes ──
-    for item_elem in root.findall("Item"):
+    decl_items = declaration.get("items") or []
+    xml_items = root.findall("Item")
+    for idx, item_elem in enumerate(xml_items):
         # FIX #1 (PRIMARY): Remove bad Gs_* injection, ensure correct item_* blocks
         _fix_item_valuation_blocks(item_elem, declaration)
 
@@ -979,6 +1014,9 @@ def _postprocess_xml(xml: str, declaration: Dict[str, Any]) -> str:
 
         # FIX #5: Value_item as formula string
         _fix_value_item_formula(item_elem)
+
+        # FIX #4: Populate Supplementary_unit with actual quantity from declaration data
+        _fix_supplementary_unit(item_elem, decl_items[idx] if idx < len(decl_items) else {})
 
         # FIX #8: Exactly 9 Taxation_line stubs
         _fix_taxation_stubs(item_elem)
